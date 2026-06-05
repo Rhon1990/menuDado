@@ -109,6 +109,20 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
+    override fun trackOnboardingShown() {
+        logEvent(EVENT_ONBOARDING_SHOWN)
+    }
+
+    override fun trackOnboardingCompleted(action: String) {
+        logEvent(EVENT_ONBOARDING_COMPLETED) {
+            putString(PARAM_ACTION, action.sanitized())
+        }
+    }
+
+    override fun trackAboutAppOpened() {
+        logEvent(EVENT_ABOUT_APP_OPENED)
+    }
+
     override fun trackAiMenuGenerationStarted(mealType: MealType, avoidIdeaCount: Int) {
         logEvent(EVENT_AI_MENU_GENERATION_STARTED) {
             putString(PARAM_MEAL_TYPE, mealType.analyticsName())
@@ -213,6 +227,9 @@ class FirebaseMenuDadoAnalytics(
         const val EVENT_DICE_FILTER_SELECTED = "dice_filter_selected"
         const val EVENT_DICE_EMPTY_RESULT = "dice_empty_result"
         const val EVENT_MENU_CARD_OPENED = "menu_card_opened"
+        const val EVENT_ONBOARDING_SHOWN = "onboarding_shown"
+        const val EVENT_ONBOARDING_COMPLETED = "onboarding_completed"
+        const val EVENT_ABOUT_APP_OPENED = "about_app_opened"
         const val EVENT_AI_MENU_GENERATION_STARTED = "ai_menu_gen_started"
         const val EVENT_AI_MENU_GENERATION_FINISHED = "ai_menu_gen_finished"
         const val EVENT_AI_ANALYSIS_STARTED = "ai_analysis_started"
@@ -246,6 +263,7 @@ class FirebaseMenuDadoAnalytics(
         const val PARAM_SOURCE = "source"
         const val PARAM_HEALTH_STATUS = "health_status"
         const val PARAM_FAILURE_TYPE = "failure_type"
+        const val PARAM_ACTION = "action"
 
         const val VALUE_ALL = "all"
         const val VALUE_NONE = "none"

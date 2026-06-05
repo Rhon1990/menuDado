@@ -18,6 +18,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -86,6 +88,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -161,111 +164,132 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
         )
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            MenuDadoDrawer(
-                selectedDestination = destination,
-                onDestinationSelected = { selected ->
-                    selectedDestination = selected.name
-                    coroutineScope.launch { drawerState.close() }
-                }
-            )
-        }
-    ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MenuDadoColors.Background),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            item {
-                Header(
-                    onMenuClick = {
-                        coroutineScope.launch { drawerState.open() }
+    if (state.showOnboarding) {
+        OnboardingDialog(
+            onSkip = viewModel::skipOnboarding,
+            onFinish = viewModel::completeOnboarding
+        )
+    }
+
+    BoxWithConstraints {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                MenuDadoDrawer(
+                    selectedDestination = destination,
+                    drawerWidthDp = menuDadoDrawerWidthDp(maxWidth.value.toInt()),
+                    onDestinationSelected = { selected ->
+                        if (selected == MenuDadoDestination.ABOUT) {
+                            viewModel.trackAboutAppOpened()
+                        }
+                        selectedDestination = selected.name
+                        coroutineScope.launch { drawerState.close() }
                     }
                 )
             }
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MenuDadoColors.Background),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Header(
+                        onMenuClick = {
+                            coroutineScope.launch { drawerState.open() }
+                        }
+                    )
+                }
 
-            if (destination == MenuDadoDestination.PROFILE) {
-                item {
-                    DietaryProfileSection(
-                        profile = state.dietaryProfile,
-                        onVeganChanged = viewModel::setDietaryProfileVegan,
-                        onHasAllergiesChanged = viewModel::setDietaryProfileHasAllergies,
-                        onAllergenToggled = viewModel::toggleDietaryAllergen,
-                        onOtherAvoidancesChanged = viewModel::updateDietaryProfileOtherAvoidances
-                    )
-                }
-            } else {
-                item {
-                    DiceSection(
-                        filter = state.diceFilter,
-                        isRolling = state.isRolling,
-                        diceFaceIndex = diceFaceIndex,
-                        onFilterChanged = viewModel::setDiceFilter,
-                        onRoll = viewModel::rollDice
-                    )
-                }
-                item {
-                    MenuForm(
-                        state = state,
-                        onMealTypeChanged = viewModel::setFormMealType,
-                        onNameChanged = viewModel::updateName,
-                        onDescriptionChanged = viewModel::updateDescription,
-                        onNotesChanged = viewModel::updateNotes,
-                        onGenerate = viewModel::generateMenuIdea,
-                        onSave = viewModel::saveMenu
-                    )
-                }
-                item {
-                    Text(
-                        text = "Tus menus",
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                if (pendingAnalysisCount > 0) {
-                    item {
-                        PendingAnalysisButton(
-                            isAnalyzing = state.isAnalyzing,
-                            isAiPaused = state.aiRetryAtMillis != null,
-                            usesRemaining = state.aiUsesRemainingToday,
-                            onAnalyzePending = viewModel::analyzePendingMenus
-                        )
+                when (destination) {
+                    MenuDadoDestination.PROFILE -> {
+                        item {
+                            DietaryProfileSection(
+                                profile = state.dietaryProfile,
+                                onVeganChanged = viewModel::setDietaryProfileVegan,
+                                onHasAllergiesChanged = viewModel::setDietaryProfileHasAllergies,
+                                onAllergenToggled = viewModel::toggleDietaryAllergen,
+                                onOtherAvoidancesChanged = viewModel::updateDietaryProfileOtherAvoidances
+                            )
+                        }
                     }
-                }
-                if (state.menus.isEmpty()) {
-                    item {
-                        EmptyState()
+                    MenuDadoDestination.ABOUT -> {
+                        item {
+                            AboutAppSection()
+                        }
                     }
-                } else {
-                    items(items = state.menus, key = { it.id }) { menu ->
-                        MenuCard(
-                            menu = menu,
-                            isExpanded = expandedMenuId == menu.id,
-                            isAnalyzing = state.isAnalyzing,
-                            aiUsesRemainingToday = state.aiUsesRemainingToday,
-                            isAiPaused = state.aiRetryAtMillis != null,
-                            onToggleExpanded = {
-                                val nextExpandedMenuId = nextExpandedMenuIdAfterMenuClick(
-                                    currentExpandedMenuId = expandedMenuId,
-                                    clickedMenuId = menu.id
+                    MenuDadoDestination.HOME -> {
+                        item {
+                            DiceSection(
+                                filter = state.diceFilter,
+                                isRolling = state.isRolling,
+                                diceFaceIndex = diceFaceIndex,
+                                onFilterChanged = viewModel::setDiceFilter,
+                                onRoll = viewModel::rollDice
+                            )
+                        }
+                        item {
+                            MenuForm(
+                                state = state,
+                                onMealTypeChanged = viewModel::setFormMealType,
+                                onNameChanged = viewModel::updateName,
+                                onDescriptionChanged = viewModel::updateDescription,
+                                onNotesChanged = viewModel::updateNotes,
+                                onGenerate = viewModel::generateMenuIdea,
+                                onSave = viewModel::saveMenu
+                            )
+                        }
+                        item {
+                            Text(
+                                text = "Tus menus",
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        if (pendingAnalysisCount > 0) {
+                            item {
+                                PendingAnalysisButton(
+                                    isAnalyzing = state.isAnalyzing,
+                                    isAiPaused = state.aiRetryAtMillis != null,
+                                    usesRemaining = state.aiUsesRemainingToday,
+                                    onAnalyzePending = viewModel::analyzePendingMenus
                                 )
-                                if (nextExpandedMenuId == menu.id) {
-                                    viewModel.trackMenuCardOpened(menu)
-                                }
-                                expandedMenuId = nextExpandedMenuId
-                            },
-                            onAnalyze = { viewModel.analyzeExisting(menu) },
-                            onDelete = { viewModel.deleteMenu(menu) }
-                        )
+                            }
+                        }
+                        if (state.menus.isEmpty()) {
+                            item {
+                                EmptyState()
+                            }
+                        } else {
+                            items(items = state.menus, key = { it.id }) { menu ->
+                                MenuCard(
+                                    menu = menu,
+                                    isExpanded = expandedMenuId == menu.id,
+                                    isAnalyzing = state.isAnalyzing,
+                                    aiUsesRemainingToday = state.aiUsesRemainingToday,
+                                    isAiPaused = state.aiRetryAtMillis != null,
+                                    onToggleExpanded = {
+                                        val nextExpandedMenuId = nextExpandedMenuIdAfterMenuClick(
+                                            currentExpandedMenuId = expandedMenuId,
+                                            clickedMenuId = menu.id
+                                        )
+                                        if (nextExpandedMenuId == menu.id) {
+                                            viewModel.trackMenuCardOpened(menu)
+                                        }
+                                        expandedMenuId = nextExpandedMenuId
+                                    },
+                                    onAnalyze = { viewModel.analyzeExisting(menu) },
+                                    onDelete = { viewModel.deleteMenu(menu) }
+                                )
+                            }
+                        }
                     }
                 }
-            }
-            item {
-                Spacer(modifier = Modifier.height(18.dp))
+                item {
+                    Spacer(modifier = Modifier.height(18.dp))
+                }
             }
         }
     }
@@ -274,9 +298,10 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
 @Composable
 private fun MenuDadoDrawer(
     selectedDestination: MenuDadoDestination,
+    drawerWidthDp: Int,
     onDestinationSelected: (MenuDadoDestination) -> Unit
 ) {
-    ModalDrawerSheet {
+    ModalDrawerSheet(modifier = Modifier.width(drawerWidthDp.dp)) {
         Column(
             modifier = Modifier
                 .fillMaxHeight()
@@ -300,13 +325,153 @@ private fun MenuDadoDrawer(
                 selected = selectedDestination == MenuDadoDestination.PROFILE,
                 onClick = { onDestinationSelected(MenuDadoDestination.PROFILE) }
             )
+            NavigationDrawerItem(
+                label = { Text("Acerca de la app") },
+                selected = selectedDestination == MenuDadoDestination.ABOUT,
+                onClick = { onDestinationSelected(MenuDadoDestination.ABOUT) }
+            )
         }
     }
 }
 
 private enum class MenuDadoDestination {
     HOME,
-    PROFILE
+    PROFILE,
+    ABOUT
+}
+
+internal fun menuDadoDrawerWidthDp(screenWidthDp: Int): Int =
+    maxOf(256, minOf(304, screenWidthDp - 72))
+
+internal fun menuDadoHeaderBrandTopPaddingDp(): Int = 0
+
+internal fun menuDadoHeaderBrandStartGapDp(): Int = 6
+
+internal fun menuDadoWordmarkVisualStartInsetDp(): Int = 15
+
+internal fun menuDadoHeaderSymbolSizeDp(): Int = 61
+
+internal fun menuDadoHeaderWordmarkHeightDp(): Int = 34
+
+internal fun menuDadoHeaderSubtitleFontSizeSp(): Int = 14
+
+internal fun menuDadoHeaderSubtitleTopOffsetDp(): Int = -5
+
+internal data class OnboardingStep(
+    val title: String,
+    val body: String
+)
+
+internal fun onboardingSteps(): List<OnboardingStep> = listOf(
+    OnboardingStep(
+        title = "Completa tu perfil",
+        body = "Configura tu perfil alimentario con alergias y alimentos que prefieres evitar para que las ideas se adapten mejor a ti."
+    ),
+    OnboardingStep(
+        title = "Guarda tus menus",
+        body = "Agrega desayunos, almuerzos y cenas con ingredientes, notas y calorias si quieres."
+    ),
+    OnboardingStep(
+        title = "Personaliza con IA",
+        body = "Genera ideas y revisa si son saludables. Tienes hasta 20 ayudas de IA al dia y se renuevan cada manana a las 9 am."
+    ),
+    OnboardingStep(
+        title = "Lanza el dado",
+        body = "Filtra por tipo de comida o deja Todos para que MenuDado elija por ti."
+    )
+)
+
+internal fun onboardingStepAfterSwipe(
+    currentStep: Int,
+    stepCount: Int,
+    dragAmount: Float
+): Int {
+    return when {
+        dragAmount <= -ONBOARDING_SWIPE_THRESHOLD -> minOf(currentStep + 1, stepCount - 1)
+        dragAmount >= ONBOARDING_SWIPE_THRESHOLD -> maxOf(currentStep - 1, 0)
+        else -> currentStep
+    }
+}
+
+private const val ONBOARDING_SWIPE_THRESHOLD = 56f
+
+internal data class AboutAppInfo(
+    val title: String,
+    val reason: String,
+    val creator: String,
+    val contact: String,
+    val version: String
+)
+
+internal fun aboutAppInfo(): AboutAppInfo = AboutAppInfo(
+    title = "Acerca de la app",
+    reason = "MenuDado se hizo para ayudar en esos momentos en los que no sabes que comer. La app te permite guardar tus menus, elegir una opcion con el dado y apoyarte con IA para encontrar ideas mas saludables sin complicarte.",
+    creator = "Rhonal A. Delgado Padilla",
+    contact = "rhonal.delgado@gmail.com",
+    version = "Version 1.0.0"
+)
+
+@Composable
+private fun AboutAppSection() {
+    val info = remember { aboutAppInfo() }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = info.title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                color = MenuDadoColors.Ink
+            )
+            Text(
+                text = info.reason,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MenuDadoColors.MutedInk
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Creada por",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MenuDadoColors.DeepGreen
+                )
+                Text(
+                    text = info.creator,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MenuDadoColors.Ink
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Contacto",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MenuDadoColors.DeepGreen
+                )
+                Text(
+                    text = info.contact,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MenuDadoColors.MutedInk
+                )
+            }
+            Text(
+                text = info.version,
+                modifier = Modifier.align(Alignment.End),
+                style = MaterialTheme.typography.labelSmall,
+                color = MenuDadoColors.MutedInk
+            )
+        }
+    }
 }
 
 @Composable
@@ -491,17 +656,17 @@ private fun AiQuotaDialog(
 
 @Composable
 private fun Header(onMenuClick: () -> Unit) {
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(MenuDadoColors.HeaderGreen)
             .statusBarsPadding()
-            .padding(start = 24.dp, top = 18.dp, end = 24.dp, bottom = 24.dp),
-        contentAlignment = Alignment.Center
+            .padding(start = 24.dp, top = 16.dp, end = 20.dp, bottom = 22.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(menuDadoHeaderBrandStartGapDp().dp)
     ) {
         IconButton(
-            onClick = onMenuClick,
-            modifier = Modifier.align(Alignment.TopStart)
+            onClick = onMenuClick
         ) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_menu),
@@ -509,32 +674,36 @@ private fun Header(onMenuClick: () -> Unit) {
                 tint = Color.White
             )
         }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        Image(
+            painter = painterResource(id = R.drawable.menu_dado_symbol),
+            contentDescription = "Logo MenuDado",
+            modifier = Modifier.size(menuDadoHeaderSymbolSizeDp().dp),
+            contentScale = ContentScale.Fit
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Image(
-                painter = painterResource(id = R.drawable.menu_dado_symbol),
-                contentDescription = "Logo MenuDado",
+                painter = painterResource(id = R.drawable.menu_dado_wordmark),
+                contentDescription = "MenuDado",
                 modifier = Modifier
-                    .size(84.dp),
+                    .fillMaxWidth()
+                    .height(menuDadoHeaderWordmarkHeightDp().dp)
+                    .offset(x = (-menuDadoWordmarkVisualStartInsetDp()).dp),
+                alignment = Alignment.CenterStart,
                 contentScale = ContentScale.Fit
             )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Image(
-                    painter = painterResource(id = R.drawable.menu_dado_wordmark),
-                    contentDescription = "MenuDado",
-                    modifier = Modifier
-                        .width(198.dp)
-                        .height(42.dp),
-                    contentScale = ContentScale.Fit
-                )
-                Text(
-                    text = "Que comemos hoy?",
-                    color = MenuDadoColors.Cream.copy(alpha = 0.9f),
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
+            Text(
+                text = "Que comemos hoy?",
+                modifier = Modifier.offset(y = menuDadoHeaderSubtitleTopOffsetDp().dp),
+                color = MenuDadoColors.Cream.copy(alpha = 0.9f),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = menuDadoHeaderSubtitleFontSizeSp().sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -1466,6 +1635,130 @@ private fun pendingAnalysisButtonText(
         isAnalyzing -> "Analizando pendientes"
         isAiPaused -> "IA descansando"
         else -> "Analizar pendientes con IA ($usesRemaining)"
+    }
+}
+
+@Composable
+private fun OnboardingDialog(
+    onSkip: () -> Unit,
+    onFinish: () -> Unit
+) {
+    val steps = remember { onboardingSteps() }
+    var selectedStepIndex by rememberSaveable { mutableIntStateOf(0) }
+    val selectedStep = steps[selectedStepIndex]
+    val isLastStep = selectedStepIndex == steps.lastIndex
+    var swipeDragAmount by remember { mutableStateOf(0f) }
+
+    Dialog(
+        onDismissRequest = onSkip,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .pointerInput(steps.size, selectedStepIndex) {
+                        detectDragGestures(
+                            onDragStart = { swipeDragAmount = 0f },
+                            onDragEnd = {
+                                selectedStepIndex = onboardingStepAfterSwipe(
+                                    currentStep = selectedStepIndex,
+                                    stepCount = steps.size,
+                                    dragAmount = swipeDragAmount
+                                )
+                                swipeDragAmount = 0f
+                            },
+                            onDragCancel = { swipeDragAmount = 0f }
+                        ) { change, dragAmount ->
+                            change.consume()
+                            swipeDragAmount += dragAmount.x
+                        }
+                    }
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.menu_dado_symbol),
+                    contentDescription = "Logo MenuDado",
+                    modifier = Modifier.size(72.dp),
+                    contentScale = ContentScale.Fit
+                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = selectedStep.title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MenuDadoColors.Ink,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = selectedStep.body,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MenuDadoColors.MutedInk,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    steps.forEachIndexed { index, _ ->
+                        Box(
+                            modifier = Modifier
+                                .size(if (index == selectedStepIndex) 10.dp else 8.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (index == selectedStepIndex) {
+                                        MenuDadoColors.BrandGreen
+                                    } else {
+                                        MenuDadoColors.SoftSand
+                                    }
+                                )
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onSkip,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Omitir")
+                    }
+                    Button(
+                        onClick = {
+                            if (isLastStep) {
+                                onFinish()
+                            } else {
+                                selectedStepIndex += 1
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MenuDadoColors.BrandGreen,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(if (isLastStep) "Empezar" else "Siguiente")
+                    }
+                }
+            }
+        }
     }
 }
 

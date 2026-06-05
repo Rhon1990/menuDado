@@ -46,6 +46,12 @@ interface MenuDadoAnalytics {
 
     fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int)
 
+    fun trackOnboardingShown()
+
+    fun trackOnboardingCompleted(action: String)
+
+    fun trackAboutAppOpened()
+
     fun trackAiMenuGenerationStarted(mealType: MealType, avoidIdeaCount: Int)
 
     fun trackAiMenuGenerationFinished(
@@ -103,6 +109,12 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
     override fun trackDiceEmptyResult(filter: MealType?, availableCandidateCount: Int) = Unit
 
     override fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int) = Unit
+
+    override fun trackOnboardingShown() = Unit
+
+    override fun trackOnboardingCompleted(action: String) = Unit
+
+    override fun trackAboutAppOpened() = Unit
 
     override fun trackAiMenuGenerationStarted(mealType: MealType, avoidIdeaCount: Int) = Unit
 

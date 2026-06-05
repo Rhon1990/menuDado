@@ -13,9 +13,11 @@ import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.MenuDadoDatabase
 import com.menudado.data.MenuRepository
 import com.menudado.data.DietaryProfileStore
+import com.menudado.data.OnboardingStore
 import com.menudado.data.SharedPreferencesAiDailyUsageStore
 import com.menudado.data.SharedPreferencesAiQuotaRetryStore
 import com.menudado.data.SharedPreferencesDietaryProfileStore
+import com.menudado.data.SharedPreferencesOnboardingStore
 
 class MenuDadoApplication : Application() {
     private val migration1To2 = object : Migration(1, 2) {
@@ -52,6 +54,10 @@ class MenuDadoApplication : Application() {
 
     val dietaryProfileStore: DietaryProfileStore by lazy {
         SharedPreferencesDietaryProfileStore(applicationContext)
+    }
+
+    val onboardingStore: OnboardingStore by lazy {
+        SharedPreferencesOnboardingStore(applicationContext)
     }
 
     val analytics: MenuDadoAnalytics by lazy {

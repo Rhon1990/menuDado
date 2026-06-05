@@ -17,6 +17,8 @@ import com.menudado.data.AiQuotaRetryState
 import com.menudado.data.MenuRepository
 import com.menudado.data.NoOpAiDailyUsageStore
 import com.menudado.data.NoOpAiQuotaRetryStore
+import com.menudado.data.NoOpOnboardingStore
+import com.menudado.data.OnboardingStore
 import com.menudado.domain.DiceSelector
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
@@ -56,7 +58,8 @@ data class MenuDadoUiState(
     val message: String? = null,
     val aiRetryAtMillis: Long? = null,
     val aiUsesRemainingToday: Int = AI_DAILY_FREE_REQUEST_LIMIT,
-    val dietaryProfile: DietaryProfile = DietaryProfile()
+    val dietaryProfile: DietaryProfile = DietaryProfile(),
+    val showOnboarding: Boolean = false
 )
 
 class MenuDadoViewModel(
@@ -66,7 +69,8 @@ class MenuDadoViewModel(
     private val clockMillisProvider: () -> Long = { System.currentTimeMillis() },
     private val aiQuotaRetryStore: AiQuotaRetryStore = NoOpAiQuotaRetryStore,
     private val aiDailyUsageStore: AiDailyUsageStore = NoOpAiDailyUsageStore,
-    private val dietaryProfileStore: DietaryProfileStore = NoOpDietaryProfileStore
+    private val dietaryProfileStore: DietaryProfileStore = NoOpDietaryProfileStore,
+    private val onboardingStore: OnboardingStore = NoOpOnboardingStore
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(MenuDadoUiState())
     val uiState: StateFlow<MenuDadoUiState> = _uiState.asStateFlow()
@@ -74,6 +78,7 @@ class MenuDadoViewModel(
     private var hasTrackedMenuFormStarted = false
 
     init {
+        refreshOnboarding()
         refreshDietaryProfile()
         refreshStoredAiRetry()
         refreshAiDailyUsage()
@@ -87,6 +92,24 @@ class MenuDadoViewModel(
     fun setDiceFilter(filter: MealType?) {
         analytics.trackDiceFilterSelected(filter, _uiState.value.menus.size)
         _uiState.update { it.copy(diceFilter = filter) }
+    }
+
+    fun completeOnboarding() {
+        completeOnboarding(ONBOARDING_ACTION_START)
+    }
+
+    fun skipOnboarding() {
+        completeOnboarding(ONBOARDING_ACTION_SKIP)
+    }
+
+    fun trackAboutAppOpened() {
+        analytics.trackAboutAppOpened()
+    }
+
+    private fun completeOnboarding(action: String) {
+        onboardingStore.markOnboardingCompleted()
+        analytics.trackOnboardingCompleted(action)
+        _uiState.update { it.copy(showOnboarding = false) }
     }
 
     fun setFormMealType(mealType: MealType) {
@@ -368,6 +391,14 @@ class MenuDadoViewModel(
 
     private fun refreshDietaryProfile() {
         _uiState.update { it.copy(dietaryProfile = dietaryProfileStore.getProfile()) }
+    }
+
+    private fun refreshOnboarding() {
+        val shouldShowOnboarding = !onboardingStore.isOnboardingCompleted()
+        _uiState.update { it.copy(showOnboarding = shouldShowOnboarding) }
+        if (shouldShowOnboarding) {
+            analytics.trackOnboardingShown()
+        }
     }
 
     private fun updateDietaryProfile(transform: (DietaryProfile) -> DietaryProfile) {
@@ -753,6 +784,8 @@ private const val AI_SCOPE_BATCH = "batch"
 private const val FORM_FIELD_NAME = "name"
 private const val FORM_FIELD_DESCRIPTION = "description"
 private const val FORM_FIELD_NOTES = "notes"
+private const val ONBOARDING_ACTION_START = "start"
+private const val ONBOARDING_ACTION_SKIP = "skip"
 private const val MENU_SAVE_BLOCKED_MISSING_REQUIRED_FIELDS = "missing_required_fields"
 private const val AI_FAILURE_QUOTA_REQUESTS = "quota_requests"
 private const val AI_FAILURE_QUOTA_TOKENS = "quota_tokens"

@@ -11,6 +11,7 @@ import com.menudado.data.AiQuotaRetryState
 import com.menudado.data.MenuDao
 import com.menudado.data.MenuEntity
 import com.menudado.data.MenuRepository
+import com.menudado.data.OnboardingStore
 import com.menudado.data.toEntity
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.GeneratedMenu
@@ -48,6 +49,7 @@ class MenuDadoViewModelTest {
     private lateinit var aiQuotaRetryStore: FakeAiQuotaRetryStore
     private lateinit var aiDailyUsageStore: FakeAiDailyUsageStore
     private lateinit var dietaryProfileStore: FakeDietaryProfileStore
+    private lateinit var onboardingStore: FakeOnboardingStore
     private lateinit var analytics: RecordingMenuDadoAnalytics
     private lateinit var viewModel: MenuDadoViewModel
 
@@ -59,13 +61,15 @@ class MenuDadoViewModelTest {
         aiQuotaRetryStore = FakeAiQuotaRetryStore()
         aiDailyUsageStore = FakeAiDailyUsageStore()
         dietaryProfileStore = FakeDietaryProfileStore()
+        onboardingStore = FakeOnboardingStore(completed = true)
         analytics = RecordingMenuDadoAnalytics()
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
-            dietaryProfileStore = dietaryProfileStore
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
         )
     }
 
@@ -98,6 +102,89 @@ class MenuDadoViewModelTest {
             ),
             analytics.events
         )
+    }
+
+    @Test
+    fun `shows onboarding when it has not been completed and tracks it once`() = runTest(dispatcher) {
+        analytics.events.clear()
+        val firstRunStore = FakeOnboardingStore(completed = false)
+        val firstRunViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = firstRunStore
+        )
+
+        assertEquals(true, firstRunViewModel.uiState.value.showOnboarding)
+        assertEquals(listOf("onboarding_shown"), analytics.events)
+    }
+
+    @Test
+    fun `does not show onboarding after it was completed previously and does not track shown`() = runTest(dispatcher) {
+        analytics.events.clear()
+
+        val completedViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = FakeOnboardingStore(completed = true)
+        )
+
+        assertEquals(false, completedViewModel.uiState.value.showOnboarding)
+        assertEquals(emptyList<String>(), analytics.events)
+    }
+
+    @Test
+    fun `complete onboarding hides it stores completion and tracks start action`() = runTest(dispatcher) {
+        analytics.events.clear()
+        onboardingStore = FakeOnboardingStore(completed = false)
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        analytics.events.clear()
+
+        viewModel.completeOnboarding()
+
+        assertEquals(false, viewModel.uiState.value.showOnboarding)
+        assertEquals(true, onboardingStore.completed)
+        assertEquals(listOf("onboarding_completed:start"), analytics.events)
+    }
+
+    @Test
+    fun `skip onboarding hides it stores completion and tracks skip action`() = runTest(dispatcher) {
+        analytics.events.clear()
+        onboardingStore = FakeOnboardingStore(completed = false)
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        analytics.events.clear()
+
+        viewModel.skipOnboarding()
+
+        assertEquals(false, viewModel.uiState.value.showOnboarding)
+        assertEquals(true, onboardingStore.completed)
+        assertEquals(listOf("onboarding_completed:skip"), analytics.events)
+    }
+
+    @Test
+    fun `opening about app tracks navigation without personal contact data`() = runTest(dispatcher) {
+        viewModel.trackAboutAppOpened()
+
+        assertEquals(listOf("about_app_opened"), analytics.events)
     }
 
     @Test
@@ -963,6 +1050,16 @@ private class FakeDietaryProfileStore : DietaryProfileStore {
     }
 }
 
+private class FakeOnboardingStore(
+    var completed: Boolean = false
+) : OnboardingStore {
+    override fun isOnboardingCompleted(): Boolean = completed
+
+    override fun markOnboardingCompleted() {
+        completed = true
+    }
+}
+
 private class FakeAiQuotaRetryStore : AiQuotaRetryStore {
     var storedRetryAtMillis: Long? = null
     var storedConsecutiveFailures = 0
@@ -1063,6 +1160,18 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
 
     override fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int) {
         events += "menu_card_opened:${mealType.name}:$hasAiAnalysis:$menuCount"
+    }
+
+    override fun trackOnboardingShown() {
+        events += "onboarding_shown"
+    }
+
+    override fun trackOnboardingCompleted(action: String) {
+        events += "onboarding_completed:$action"
+    }
+
+    override fun trackAboutAppOpened() {
+        events += "about_app_opened"
     }
 
     override fun trackAiMenuGenerationStarted(mealType: MealType, avoidIdeaCount: Int) {

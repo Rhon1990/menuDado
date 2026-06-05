@@ -112,13 +112,28 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Los menús siguen disponibles sin conexión.
    - El análisis con IA requiere internet y muestra un error claro si no hay conexión.
 
-6. Perfil alimentario.
+6. Onboarding de primera apertura.
+   - La primera vez que el usuario entra a la app, MenuDado muestra un onboarding breve en modal sin reemplazar la pantalla principal.
+   - El onboarding explica cuatro pasos básicos en este orden: completar el perfil alimentario, guardar menús, usar IA y lanzar el dado.
+   - El paso de perfil debe recordar que alergias y alimentos a evitar ayudan a adaptar mejor las ideas generadas.
+   - El paso de IA debe comunicar en lenguaje simple que el usuario tiene hasta 20 ayudas de IA al día y que vuelven a estar disponibles cada mañana a las 9 am.
+   - El usuario puede avanzar o retroceder por los pasos con swipe horizontal, empezar u omitir.
+   - Al empezar u omitir, el onboarding se marca como completado en almacenamiento local y no vuelve a mostrarse en siguientes aperturas.
+
+7. Perfil alimentario.
    - La app ofrece un menú hamburguesa con acceso a `Perfil alimentario`.
    - El perfil se guarda localmente en el móvil.
    - Permite indicar si el usuario es vegano.
    - Permite indicar si tiene alergias y seleccionar alérgenos comunes: gluten, lactosa/lácteos, huevo, frutos secos, cacahuete, soja, pescado, marisco y sésamo.
    - Permite escribir otros alimentos a evitar.
    - La generación de ideas con IA debe respetar el perfil cuando esté configurado, sin cambiar la creación manual de menús.
+
+8. Acerca de la app.
+   - El menú hamburguesa ofrece una sección `Acerca de la app`.
+   - La sección explica que MenuDado se hizo para ayudar cuando el usuario no sabe qué comer, permitiendo guardar menús, elegir con el dado y apoyarse con IA.
+   - Muestra como creador a `Rhonal A. Delgado Padilla`.
+   - Muestra el contacto `rhonal.delgado@gmail.com`.
+   - Muestra al final la versión visible `Version 1.0.0` en texto pequeño.
 
 ## Dirección Técnica
 
@@ -130,12 +145,24 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Estado y asincronía: Kotlin coroutines y Flow.
 - Integración IA: Firebase AI Logic con Gemini 2.5 Flash-Lite.
 - Perfil alimentario: configuración local en SharedPreferences usada como restricciones del prompt de generación IA.
-- Analítica: Firebase Analytics anónimo para métricas automáticas de dispositivos/usuarios, modelo de móvil, ubicación agregada de Firebase y eventos de producto sin contenido personal del menú. MenuDado añade al evento de apertura fabricante/modelo, versión Android, país de la configuración regional y zona horaria; no solicita GPS ni permisos de ubicación. Los eventos propios cubren activación (`first_menu_created`), inventario local (`menu_inventory_changed`), fricción de formulario (`menu_form_started`, `menu_save_blocked`, `meal_type_selected`), uso del dado (`dice_filter_selected`, `dice_rolled`, `dice_empty_result`), consulta de tarjetas (`menu_card_opened`) y salud/errores de IA (`health_status`, `failure_type`) sin enviar nombres, ingredientes, notas ni recetas.
+- Onboarding: estado local en SharedPreferences para mostrar la guía solo en primera apertura.
+- Analítica:
+  - Firebase Analytics anónimo para métricas automáticas de dispositivos/usuarios, modelo de móvil, ubicación agregada de Firebase y eventos de producto sin contenido personal del menú.
+  - Implementación central: contrato `MenuDadoAnalytics`, implementación real `FirebaseMenuDadoAnalytics` y `NoOpMenuDadoAnalytics` para contextos sin Firebase.
+  - MenuDado añade al evento de apertura fabricante/modelo, versión Android, país de la configuración regional y zona horaria; no solicita GPS ni permisos de ubicación.
+  - Eventos propios de activación e inventario: `first_menu_created`, `menu_inventory_changed`.
+  - Eventos propios de formulario: `menu_form_started`, `menu_save_blocked`, `meal_type_selected`.
+  - Eventos propios del dado: `dice_filter_selected`, `dice_rolled`, `dice_empty_result`.
+  - Eventos propios de consulta de contenido: `menu_card_opened`, `about_app_opened`.
+  - Eventos propios de onboarding: `onboarding_shown`, `onboarding_completed` con parámetro `action` limitado a `start` o `skip`.
+  - Eventos propios de IA: inicio/fin de generación y análisis, estado saludable (`health_status`), tipo de fallo (`failure_type`) y límite diario local (`ai_daily_limit_reached`).
+  - Los eventos no deben enviar nombres de menú, ingredientes, notas, recetas, correo de contacto ni nombre del creador.
 - Configuración Firebase: `app/google-services.json` para el proyecto Firebase asociado a `com.menudado`.
 - Nombre de proyecto Gradle: `MenuDado`.
 - Package/namespace Android: `com.menudado`.
 - Application ID: `com.menudado`.
 - Nombre visible de la app: `MenuDado`.
+- Version visible: `1.0.0`.
 
 ## Principios de UX
 
@@ -156,4 +183,6 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Validar que la animación del dado no bloquee la UI ni repita resultados por dobles taps accidentales.
 - Manejar en el análisis IA: éxito, sin internet, respuesta mal formada y errores del proveedor.
 - Mantener la interfaz usable en pantallas Android pequeñas.
-- Validar que el marcado de analytics no envíe nombres, ingredientes, notas ni recetas; solo estados, tipos de comida, filtros y contadores agregables.
+- Validar que el marcado de analytics no envíe nombres, ingredientes, notas, recetas, correo de contacto ni nombre del creador; solo estados, tipos de comida, filtros, acciones cerradas y contadores agregables.
+- Validar que el onboarding emita `onboarding_shown` solo cuando corresponde y `onboarding_completed` diferenciando `start`/`skip`.
+- Validar que abrir `Acerca de la app` emita `about_app_opened` sin parámetros personales.

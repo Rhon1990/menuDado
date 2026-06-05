@@ -67,4 +67,69 @@ class MenuCardUiStateTest {
         assertEquals(R.drawable.ic_expand_more, menuExpandToggleIconRes(isExpanded = false))
         assertEquals(R.drawable.ic_expand_less, menuExpandToggleIconRes(isExpanded = true))
     }
+
+    @Test
+    fun `drawer deja visible parte de la pantalla en moviles`() {
+        assertEquals(256, menuDadoDrawerWidthDp(screenWidthDp = 320))
+        assertEquals(288, menuDadoDrawerWidthDp(screenWidthDp = 360))
+        assertEquals(304, menuDadoDrawerWidthDp(screenWidthDp = 412))
+    }
+
+    @Test
+    fun `cabecera pone la marca al lado del menu sin espacio superior extra`() {
+        assertEquals(0, menuDadoHeaderBrandTopPaddingDp())
+        assertEquals(6, menuDadoHeaderBrandStartGapDp())
+    }
+
+    @Test
+    fun `cabecera compensa margen interno del wordmark para alinearlo con el subtitulo`() {
+        assertEquals(15, menuDadoWordmarkVisualStartInsetDp())
+    }
+
+    @Test
+    fun `cabecera reduce el bloque de marca un quince por ciento`() {
+        assertEquals(61, menuDadoHeaderSymbolSizeDp())
+        assertEquals(34, menuDadoHeaderWordmarkHeightDp())
+        assertEquals(14, menuDadoHeaderSubtitleFontSizeSp())
+    }
+
+    @Test
+    fun `cabecera acerca el subtitulo al wordmark`() {
+        assertEquals(-5, menuDadoHeaderSubtitleTopOffsetDp())
+    }
+
+    @Test
+    fun `onboarding explica los usos principales y recuerda el perfil alimentario`() {
+        val steps = onboardingSteps()
+
+        assertEquals(4, steps.size)
+        assertEquals("Completa tu perfil", steps[0].title)
+        assert(steps[0].body.contains("perfil alimentario"))
+        assert(steps[0].body.contains("alergias"))
+        assertEquals("Guarda tus menus", steps[1].title)
+        assertEquals("Personaliza con IA", steps[2].title)
+        assert(steps[2].body.contains("20 ayudas de IA"))
+        assert(steps[2].body.contains("9 am"))
+        assertEquals("Lanza el dado", steps[3].title)
+    }
+
+    @Test
+    fun `onboarding permite avanzar y retroceder con swipe horizontal`() {
+        assertEquals(1, onboardingStepAfterSwipe(currentStep = 0, stepCount = 4, dragAmount = -72f))
+        assertEquals(2, onboardingStepAfterSwipe(currentStep = 3, stepCount = 4, dragAmount = 72f))
+        assertEquals(0, onboardingStepAfterSwipe(currentStep = 0, stepCount = 4, dragAmount = 72f))
+        assertEquals(3, onboardingStepAfterSwipe(currentStep = 3, stepCount = 4, dragAmount = -72f))
+        assertEquals(1, onboardingStepAfterSwipe(currentStep = 1, stepCount = 4, dragAmount = 20f))
+    }
+
+    @Test
+    fun `acerca de la app muestra motivo creador y version`() {
+        val info = aboutAppInfo()
+
+        assertEquals("Acerca de la app", info.title)
+        assertEquals("Rhonal A. Delgado Padilla", info.creator)
+        assertEquals("rhonal.delgado@gmail.com", info.contact)
+        assertEquals("Version 1.0.0", info.version)
+        assertEquals(true, info.reason.contains("no sabes que comer"))
+    }
 }

@@ -48,7 +48,8 @@ class MainActivity : ComponentActivity() {
                     analytics = app.analytics,
                     aiQuotaRetryStore = app.aiQuotaRetryStore,
                     aiDailyUsageStore = app.aiDailyUsageStore,
-                    dietaryProfileStore = app.dietaryProfileStore
+                    dietaryProfileStore = app.dietaryProfileStore,
+                    onboardingStore = app.onboardingStore
                 ) as T
             }
         }
