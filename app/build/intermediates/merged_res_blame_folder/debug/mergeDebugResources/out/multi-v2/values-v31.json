@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.menudado.app-mergeDebugResources-59:/values-v31/values-v31.xml",
+            "map": [
+                {
+                    "source": "/Users/rdelgpad/Documents/personal/menuDado/app/src/main/res/values-v31/styles.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "8",
+                        "endColumns": "12",
+                        "endOffsets": "585"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/menu_dado_header_green" />
+    <item
+        android:width="220dp"
+        android:height="234dp"
+        android:gravity="center">
+        <bitmap
+            android:gravity="fill"
+            android:src="@drawable/menu_dado_logo" />
+    </item>
+</layer-list>

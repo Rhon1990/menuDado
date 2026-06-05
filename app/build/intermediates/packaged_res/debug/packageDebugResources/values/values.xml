@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="menu_dado_header_green">#337551</color>
+    <string name="app_name">MenuDado</string>
+    <string name="gcm_defaultSenderId" translatable="false">506906977551</string>
+    <string name="google_api_key" translatable="false">AIzaSyDSiQYWsvmuEtohcmrkSrQLjux8zIL_XNE</string>
+    <string name="google_app_id" translatable="false">1:506906977551:android:4d16ace2c24ada3efb8a7a</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyDSiQYWsvmuEtohcmrkSrQLjux8zIL_XNE</string>
+    <string name="google_storage_bucket" translatable="false">menudado-6a2da.firebasestorage.app</string>
+    <string name="project_id" translatable="false">menudado-6a2da</string>
+    <style name="Theme.MenuDado" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#FAF6DB</item>
+        <item name="android:statusBarColor">#FAF6DB</item>
+    </style>
+    <style name="Theme.MenuDado.Splash" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@drawable/menu_dado_splash_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/menu_dado_header_green</item>
+        <item name="android:statusBarColor">@color/menu_dado_header_green</item>
+    </style>
+</resources>

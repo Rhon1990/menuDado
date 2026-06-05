@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.menudado.ai.MenuGenerationPromptTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-06-05T11:06:08" hostname="NTTD-WTJX6J54P1" time="0.033">
+  <properties/>
+  <testcase name="dinner prompt asks for quick low effort night meals" classname="com.menudado.ai.MenuGenerationPromptTest" time="0.022"/>
+  <testcase name="prompt includes vegan and allergy restrictions from dietary profile" classname="com.menudado.ai.MenuGenerationPromptTest" time="0.009"/>
+  <testcase name="dinner prompt asks for dinner and rejects lunch ideas" classname="com.menudado.ai.MenuGenerationPromptTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

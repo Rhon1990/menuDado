@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.menudado.domain.GeneratedMenuParserTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-06-05T11:06:08" hostname="NTTD-WTJX6J54P1" time="0.005">
+  <properties/>
+  <testcase name="parsea menu generado con calorias" classname="com.menudado.domain.GeneratedMenuParserTest" time="0.003"/>
+  <testcase name="parsea valores con comillas escapadas" classname="com.menudado.domain.GeneratedMenuParserTest" time="0.0"/>
+  <testcase name="parsea respuesta envuelta en markdown y calorias como texto" classname="com.menudado.domain.GeneratedMenuParserTest" time="0.0"/>
+  <testcase name="parsea menu generado con analisis saludable incluido" classname="com.menudado.domain.GeneratedMenuParserTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

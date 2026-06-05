@@ -1,0 +1,806 @@
+package com.menudado.ui
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.google.firebase.ai.type.APINotConfiguredException
+import com.google.firebase.ai.type.InvalidAPIKeyException
+import com.google.firebase.ai.type.RequestTimeoutException
+import com.google.firebase.ai.type.ServiceDisabledException
+import com.menudado.analytics.MenuDadoAnalytics
+import com.menudado.analytics.NoOpMenuDadoAnalytics
+import com.menudado.data.DietaryProfileStore
+import com.menudado.data.NoOpDietaryProfileStore
+import com.menudado.data.AiDailyUsageState
+import com.menudado.data.AiDailyUsageStore
+import com.menudado.data.AiQuotaRetryStore
+import com.menudado.data.AiQuotaRetryState
+import com.menudado.data.MenuRepository
+import com.menudado.data.NoOpAiDailyUsageStore
+import com.menudado.data.NoOpAiQuotaRetryStore
+import com.menudado.domain.DiceSelector
+import com.menudado.domain.DietaryAllergen
+import com.menudado.domain.DietaryProfile
+import com.menudado.domain.FoodMenu
+import com.menudado.domain.HealthAnalysis
+import com.menudado.domain.MealType
+import com.menudado.domain.AiQuotaLimitType
+import com.menudado.domain.classifyAiQuotaLimitType
+import com.menudado.domain.isAiQuotaExceeded
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import kotlin.math.ceil
+
+data class MenuDadoUiState(
+    val menus: List<FoodMenu> = emptyList(),
+    val diceFilter: MealType? = null,
+    val formMealType: MealType = MealType.BREAKFAST,
+    val name: String = "",
+    val description: String = "",
+    val notes: String = "",
+    val calories: Int? = null,
+    val generatedHealthAnalysis: HealthAnalysis? = null,
+    val isRolling: Boolean = false,
+    val isAnalyzing: Boolean = false,
+    val isGeneratingMenu: Boolean = false,
+    val result: FoodMenu? = null,
+    val message: String? = null,
+    val aiRetryAtMillis: Long? = null,
+    val aiUsesRemainingToday: Int = AI_DAILY_FREE_REQUEST_LIMIT,
+    val dietaryProfile: DietaryProfile = DietaryProfile()
+)
+
+class MenuDadoViewModel(
+    private val repository: MenuRepository,
+    private val analytics: MenuDadoAnalytics = NoOpMenuDadoAnalytics,
+    private val todayProvider: () -> String = { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) },
+    private val clockMillisProvider: () -> Long = { System.currentTimeMillis() },
+    private val aiQuotaRetryStore: AiQuotaRetryStore = NoOpAiQuotaRetryStore,
+    private val aiDailyUsageStore: AiDailyUsageStore = NoOpAiDailyUsageStore,
+    private val dietaryProfileStore: DietaryProfileStore = NoOpDietaryProfileStore
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(MenuDadoUiState())
+    val uiState: StateFlow<MenuDadoUiState> = _uiState.asStateFlow()
+    private var aiRetryRefreshJob: Job? = null
+    private var hasTrackedMenuFormStarted = false
+
+    init {
+        refreshDietaryProfile()
+        refreshStoredAiRetry()
+        refreshAiDailyUsage()
+        viewModelScope.launch {
+            repository.menus.collect { menus ->
+                _uiState.update { it.copy(menus = menus) }
+            }
+        }
+    }
+
+    fun setDiceFilter(filter: MealType?) {
+        analytics.trackDiceFilterSelected(filter, _uiState.value.menus.size)
+        _uiState.update { it.copy(diceFilter = filter) }
+    }
+
+    fun setFormMealType(mealType: MealType) {
+        analytics.trackMealTypeSelected(mealType, formHasContent = _uiState.value.formHasContent())
+        _uiState.update {
+            val notice = it.generatedHealthAnalysis.manualEditNotice()
+            it.copy(
+                formMealType = mealType,
+                generatedHealthAnalysis = null,
+                message = notice ?: it.message
+            )
+        }
+    }
+
+    fun updateName(value: String) {
+        trackMenuFormStartedIfNeeded(FORM_FIELD_NAME, value)
+        _uiState.update {
+            val notice = it.generatedHealthAnalysis.manualEditNotice()
+            it.copy(
+                name = value,
+                generatedHealthAnalysis = null,
+                message = notice ?: it.message
+            )
+        }
+    }
+
+    fun updateDescription(value: String) {
+        trackMenuFormStartedIfNeeded(FORM_FIELD_DESCRIPTION, value)
+        _uiState.update {
+            val notice = it.generatedHealthAnalysis.manualEditNotice()
+            it.copy(
+                description = value,
+                generatedHealthAnalysis = null,
+                message = notice ?: it.message
+            )
+        }
+    }
+
+    fun updateNotes(value: String) {
+        trackMenuFormStartedIfNeeded(FORM_FIELD_NOTES, value)
+        _uiState.update {
+            val notice = it.generatedHealthAnalysis.manualEditNotice()
+            it.copy(
+                notes = value,
+                generatedHealthAnalysis = null,
+                message = notice ?: it.message
+            )
+        }
+    }
+
+    fun setDietaryProfileVegan(isVegan: Boolean) {
+        updateDietaryProfile { it.copy(isVegan = isVegan) }
+    }
+
+    fun setDietaryProfileHasAllergies(hasAllergies: Boolean) {
+        updateDietaryProfile {
+            it.copy(
+                hasAllergies = hasAllergies,
+                allergens = if (hasAllergies) it.allergens else emptySet()
+            )
+        }
+    }
+
+    fun toggleDietaryAllergen(allergen: DietaryAllergen) {
+        updateDietaryProfile { profile ->
+            val allergens = if (allergen in profile.allergens) {
+                profile.allergens - allergen
+            } else {
+                profile.allergens + allergen
+            }
+            profile.copy(hasAllergies = true, allergens = allergens)
+        }
+    }
+
+    fun updateDietaryProfileOtherAvoidances(value: String) {
+        updateDietaryProfile { it.copy(otherAvoidances = value) }
+    }
+
+    fun clearMessage() {
+        clearExpiredAiRetryStateIfNeeded()
+        _uiState.update { it.copy(message = null) }
+    }
+
+    fun clearResult() {
+        _uiState.update { it.copy(result = null) }
+    }
+
+    fun trackMenuCardOpened(menu: FoodMenu) {
+        analytics.trackMenuCardOpened(
+            mealType = menu.mealType,
+            hasAiAnalysis = menu.healthAnalysis != null,
+            menuCount = _uiState.value.menus.size
+        )
+    }
+
+    fun rollDice() {
+        val state = _uiState.value
+        if (state.isRolling) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRolling = true, result = null, message = null) }
+            delay(850)
+            val today = todayProvider()
+            val currentState = _uiState.value
+            val hasCandidates = DiceSelector.hasCandidates(currentState.menus, currentState.diceFilter)
+            val availableCandidateCountBeforeReset = DiceSelector.availableCandidateCount(
+                menus = currentState.menus,
+                filter = currentState.diceFilter,
+                today = today
+            )
+            var selected = DiceSelector.select(
+                menus = currentState.menus,
+                filter = currentState.diceFilter,
+                today = today
+            )
+            if (selected == null && hasCandidates) {
+                val resetMenus = currentState.menus.map { menu ->
+                    if (menu.matchesDiceFilter(currentState.diceFilter)) {
+                        menu.copy(lastPickedDate = null)
+                    } else {
+                        menu
+                    }
+                }
+                resetMenus
+                    .filter { it.matchesDiceFilter(currentState.diceFilter) }
+                    .forEach { repository.save(it) }
+                selected = DiceSelector.select(
+                    menus = resetMenus,
+                    filter = currentState.diceFilter,
+                    today = today
+                )
+            }
+            if (selected != null) {
+                repository.save(selected.copy(lastPickedDate = today))
+            }
+            analytics.trackDiceRolled(
+                filter = currentState.diceFilter,
+                resultMealType = selected?.mealType,
+                menuCount = currentState.menus.size,
+                availableCandidateCount = availableCandidateCountBeforeReset
+            )
+            if (selected == null && !hasCandidates) {
+                analytics.trackDiceEmptyResult(
+                    filter = currentState.diceFilter,
+                    availableCandidateCount = availableCandidateCountBeforeReset
+                )
+            }
+            _uiState.update {
+                it.copy(
+                    isRolling = false,
+                    result = selected,
+                    message = if (selected == null && !hasCandidates) "No hay menus para ese filtro." else null
+                )
+            }
+        }
+    }
+
+    fun saveMenu() {
+        val state = _uiState.value
+        val name = state.name.trim()
+        val description = state.description.trim()
+
+        if (name.isBlank() || description.isBlank()) {
+            analytics.trackMenuSaveBlocked(
+                reason = MENU_SAVE_BLOCKED_MISSING_REQUIRED_FIELDS,
+                hasName = name.isNotBlank(),
+                hasDescription = description.isNotBlank()
+            )
+            _uiState.update { it.copy(message = "Agrega nombre e ingredientes para guardar el menu.") }
+            return
+        }
+
+        viewModelScope.launch {
+            val menu = FoodMenu(
+                name = name,
+                mealType = state.formMealType,
+                description = description,
+                notes = state.notes.trim(),
+                healthAnalysis = state.generatedHealthAnalysis,
+                calories = state.calories
+            )
+
+            repository.save(menu)
+            if (state.menus.isEmpty()) {
+                analytics.trackFirstMenuCreated(menu.mealType)
+            }
+            analytics.trackMenuSaved(
+                mealType = menu.mealType,
+                hasAiAnalysis = menu.healthAnalysis != null,
+                hasCalories = menu.calories != null,
+                menuCount = state.menus.size + 1
+            )
+            analytics.trackMenuInventoryChanged(
+                menuCount = state.menus.size + 1,
+                analyzedMenuCount = state.menus.countAnalyzed() + if (menu.healthAnalysis != null) 1 else 0,
+                pendingAnalysisCount = state.menus.countPendingAnalysis() + if (menu.healthAnalysis == null) 1 else 0
+            )
+            _uiState.update {
+                it.copy(
+                    name = "",
+                    description = "",
+                    notes = "",
+                    calories = null,
+                    generatedHealthAnalysis = null,
+                    formMealType = MealType.BREAKFAST
+                )
+            }
+            hasTrackedMenuFormStarted = false
+        }
+    }
+
+    fun generateMenuIdea() {
+        val activeRetryAtMillis = activeAiRetryAtMillis()
+        if (activeRetryAtMillis != null) {
+            showActiveAiRetryNotice(activeRetryAtMillis)
+            return
+        }
+        if (!consumeAiDailyUseOrShowNotice(AI_SOURCE_GENERATE_MENU)) {
+            return
+        }
+        val state = _uiState.value
+        val mealType = state.formMealType
+        val avoidIdeas = state.buildAvoidIdeas()
+        analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isGeneratingMenu = true, message = null, aiRetryAtMillis = null) }
+            repository.generateMenu(mealType, avoidIdeas, state.dietaryProfile)
+                .onSuccess { generated ->
+                    aiQuotaRetryStore.clearRetryState()
+                    _uiState.update {
+                        it.copy(
+                            name = generated.name,
+                            description = generated.description,
+                            notes = generated.notes,
+                            calories = generated.calories,
+                            generatedHealthAnalysis = generated.healthAnalysis,
+                            aiRetryAtMillis = null
+                        )
+                    }
+                    analytics.trackAiMenuGenerationFinished(
+                        mealType = mealType,
+                        success = true,
+                        healthStatus = generated.healthAnalysis?.status,
+                        failureType = null
+                    )
+                }
+                .onFailure { error ->
+                    val notice = error.toAiFailureNotice(clockMillisProvider())
+                    showAiFailureNotice(notice)
+                    analytics.trackAiMenuGenerationFinished(
+                        mealType = mealType,
+                        success = false,
+                        healthStatus = null,
+                        failureType = error.analyticsFailureType()
+                    )
+                }
+            _uiState.update { it.copy(isGeneratingMenu = false) }
+        }
+    }
+
+    private fun MenuDadoUiState.buildAvoidIdeas(): List<String> {
+        val savedIdeas = menus
+            .filter { it.mealType == formMealType }
+            .map { "${it.name}: ${it.description}" }
+
+        val currentName = name.trim()
+        val currentDescription = description.trim()
+        val currentIdea = if (currentName.isNotBlank() || currentDescription.isNotBlank()) {
+            listOf("${currentName.ifBlank { "Idea actual" }}: $currentDescription".trim())
+        } else {
+            emptyList()
+        }
+
+        return (savedIdeas + currentIdea)
+            .distinct()
+            .takeLast(8)
+    }
+
+    private fun refreshDietaryProfile() {
+        _uiState.update { it.copy(dietaryProfile = dietaryProfileStore.getProfile()) }
+    }
+
+    private fun updateDietaryProfile(transform: (DietaryProfile) -> DietaryProfile) {
+        val updated = transform(_uiState.value.dietaryProfile)
+        dietaryProfileStore.saveProfile(updated)
+        _uiState.update { it.copy(dietaryProfile = updated) }
+    }
+
+    private fun HealthAnalysis?.manualEditNotice(): String? {
+        return if (this == null) null else GENERATED_ANALYSIS_MANUAL_EDIT_MESSAGE
+    }
+
+    fun analyzeExisting(menu: FoodMenu) {
+        val activeRetryAtMillis = activeAiRetryAtMillis()
+        if (activeRetryAtMillis != null) {
+            showActiveAiRetryNotice(activeRetryAtMillis)
+            return
+        }
+        if (!consumeAiDailyUseOrShowNotice(AI_SOURCE_ANALYZE_SINGLE)) {
+            return
+        }
+        analytics.trackAiAnalysisStarted(AI_SCOPE_SINGLE, menu.mealType, menuCount = 1)
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isAnalyzing = true, message = null, aiRetryAtMillis = null) }
+            repository.analyze(menu)
+                .onSuccess { analysis ->
+                    repository.save(
+                        menu.copy(
+                            healthAnalysis = analysis,
+                            calories = analysis.calories ?: menu.calories
+                        )
+                    )
+                    aiQuotaRetryStore.clearRetryState()
+                    _uiState.update { it.copy(aiRetryAtMillis = null) }
+                    analytics.trackAiAnalysisFinished(
+                        AI_SCOPE_SINGLE,
+                        menu.mealType,
+                        success = true,
+                        analyzedCount = 1,
+                        healthStatus = analysis.status,
+                        failureType = null
+                    )
+                }
+                .onFailure { error ->
+                    val notice = error.toAiFailureNotice(clockMillisProvider())
+                    showAiFailureNotice(notice)
+                    analytics.trackAiAnalysisFinished(
+                        AI_SCOPE_SINGLE,
+                        menu.mealType,
+                        success = false,
+                        analyzedCount = 0,
+                        healthStatus = null,
+                        failureType = error.analyticsFailureType()
+                    )
+                }
+            _uiState.update { it.copy(isAnalyzing = false) }
+        }
+    }
+
+    fun analyzePendingMenus() {
+        val pendingMenus = _uiState.value.menus
+            .filter { it.healthAnalysis == null }
+            .take(AI_BATCH_ANALYSIS_LIMIT)
+
+        if (pendingMenus.isEmpty()) {
+            _uiState.update { it.copy(message = "No tienes menus pendientes por analizar.") }
+            return
+        }
+
+        val activeRetryAtMillis = activeAiRetryAtMillis()
+        if (activeRetryAtMillis != null) {
+            showActiveAiRetryNotice(activeRetryAtMillis)
+            return
+        }
+        if (!consumeAiDailyUseOrShowNotice(AI_SOURCE_ANALYZE_BATCH)) {
+            return
+        }
+        analytics.trackAiAnalysisStarted(AI_SCOPE_BATCH, mealType = null, menuCount = pendingMenus.size)
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isAnalyzing = true, message = null, aiRetryAtMillis = null) }
+            repository.analyzeBatch(pendingMenus)
+                .onSuccess { analysesByMenuId ->
+                    pendingMenus.forEach { menu ->
+                        analysesByMenuId[menu.id]?.let { analysis ->
+                            repository.save(
+                                menu.copy(
+                                    healthAnalysis = analysis,
+                                    calories = analysis.calories ?: menu.calories
+                                )
+                            )
+                        }
+                    }
+                    aiQuotaRetryStore.clearRetryState()
+                    _uiState.update {
+                        it.copy(
+                            aiRetryAtMillis = null,
+                            message = if (analysesByMenuId.isEmpty()) {
+                                "La IA no devolvio analisis validos. Puedes intentar de nuevo mas tarde."
+                            } else {
+                                null
+                            }
+                        )
+                    }
+                    analytics.trackAiAnalysisFinished(
+                        AI_SCOPE_BATCH,
+                        mealType = null,
+                        success = true,
+                        analyzedCount = analysesByMenuId.size,
+                        healthStatus = null,
+                        failureType = null
+                    )
+                }
+                .onFailure { error ->
+                    val notice = error.toAiFailureNotice(clockMillisProvider())
+                    showAiFailureNotice(notice)
+                    analytics.trackAiAnalysisFinished(
+                        AI_SCOPE_BATCH,
+                        mealType = null,
+                        success = false,
+                        analyzedCount = 0,
+                        healthStatus = null,
+                        failureType = error.analyticsFailureType()
+                    )
+                }
+            _uiState.update { it.copy(isAnalyzing = false) }
+        }
+    }
+
+    fun deleteMenu(menu: FoodMenu) {
+        viewModelScope.launch {
+            repository.delete(menu)
+            analytics.trackMenuDeleted(menu.mealType, hadAiAnalysis = menu.healthAnalysis != null)
+            val remainingMenus = _uiState.value.menus.filterNot { it.id == menu.id }
+            analytics.trackMenuInventoryChanged(
+                menuCount = remainingMenus.size,
+                analyzedMenuCount = remainingMenus.countAnalyzed(),
+                pendingAnalysisCount = remainingMenus.countPendingAnalysis()
+            )
+        }
+    }
+
+    private fun trackMenuFormStartedIfNeeded(firstEditedField: String, value: String) {
+        if (!hasTrackedMenuFormStarted && value.isNotBlank()) {
+            hasTrackedMenuFormStarted = true
+            analytics.trackMenuFormStarted(firstEditedField, _uiState.value.formMealType)
+        }
+    }
+
+    private fun MenuDadoUiState.formHasContent(): Boolean {
+        return name.isNotBlank() || description.isNotBlank() || notes.isNotBlank()
+    }
+
+    private fun FoodMenu.matchesDiceFilter(filter: MealType?): Boolean {
+        return filter == null || mealType == filter
+    }
+
+    private fun refreshStoredAiRetry() {
+        val state = aiQuotaRetryStore.getRetryState()
+        if (state == null) {
+            return
+        }
+        if (state.retryAtMillis > clockMillisProvider()) {
+            _uiState.update { it.copy(aiRetryAtMillis = state.retryAtMillis) }
+            scheduleAiRetryRefresh(state.retryAtMillis)
+        }
+    }
+
+    private fun refreshAiDailyUsage() {
+        _uiState.update {
+            it.copy(aiUsesRemainingToday = aiDailyUsesRemaining())
+        }
+    }
+
+    private fun currentPacificDateKey(): String {
+        return currentPacificDateKey(clockMillisProvider())
+    }
+
+    private fun consumeAiDailyUseOrShowNotice(source: String): Boolean {
+        val dateKey = currentPacificDateKey()
+        val usedCount = currentAiDailyUsedCount(dateKey)
+        if (usedCount >= AI_DAILY_FREE_REQUEST_LIMIT) {
+            val retryAtMillis = nextPacificMidnightMillis(clockMillisProvider())
+            _uiState.update {
+                it.copy(
+                    message = AI_REQUESTS_PER_DAY_MESSAGE,
+                    aiRetryAtMillis = retryAtMillis,
+                    aiUsesRemainingToday = 0
+                )
+            }
+            analytics.trackAiDailyLimitReached(source)
+            scheduleAiRetryRefresh(retryAtMillis)
+            return false
+        }
+
+        val newUsedCount = usedCount + 1
+        aiDailyUsageStore.saveUsageState(
+            AiDailyUsageState(
+                dateKey = dateKey,
+                usedCount = newUsedCount
+            )
+        )
+        _uiState.update {
+            it.copy(aiUsesRemainingToday = (AI_DAILY_FREE_REQUEST_LIMIT - newUsedCount).coerceAtLeast(0))
+        }
+        return true
+    }
+
+    private fun aiDailyUsesRemaining(): Int {
+        return (AI_DAILY_FREE_REQUEST_LIMIT - currentAiDailyUsedCount(currentPacificDateKey())).coerceIn(
+            0,
+            AI_DAILY_FREE_REQUEST_LIMIT
+        )
+    }
+
+    private fun currentAiDailyUsedCount(dateKey: String): Int {
+        val state = aiDailyUsageStore.getUsageState()
+        if (state?.dateKey != dateKey) {
+            return 0
+        }
+        return state.usedCount.coerceIn(0, AI_DAILY_FREE_REQUEST_LIMIT)
+    }
+
+    private fun activeAiRetryAtMillis(): Long? {
+        val retryAtMillis = _uiState.value.aiRetryAtMillis ?: aiQuotaRetryStore.getRetryState()?.retryAtMillis
+        if (retryAtMillis == null) {
+            return null
+        }
+        if (retryAtMillis > clockMillisProvider()) {
+            _uiState.update { it.copy(aiRetryAtMillis = retryAtMillis) }
+            scheduleAiRetryRefresh(retryAtMillis)
+            return retryAtMillis
+        }
+
+        clearExpiredAiRetryStateIfNeeded()
+        return null
+    }
+
+    private fun clearExpiredAiRetryStateIfNeeded(): Boolean {
+        val retryAtMillis = _uiState.value.aiRetryAtMillis ?: aiQuotaRetryStore.getRetryState()?.retryAtMillis
+        if (retryAtMillis == null || retryAtMillis > clockMillisProvider()) {
+            return false
+        }
+
+        _uiState.update {
+            it.copy(
+                aiRetryAtMillis = null,
+                aiUsesRemainingToday = aiDailyUsesRemaining()
+            )
+        }
+        scheduleAiRetryRefresh(null)
+        return true
+    }
+
+    private fun showActiveAiRetryNotice(retryAtMillis: Long) {
+        _uiState.update {
+            it.copy(
+                message = AI_RETRY_MESSAGE,
+                aiRetryAtMillis = retryAtMillis
+            )
+        }
+        scheduleAiRetryRefresh(retryAtMillis)
+    }
+
+    private fun showAiFailureNotice(notice: AiFailureNotice) {
+        val retryAtMillis = notice.retryAtMillis?.withQuotaBackoff()
+        _uiState.update { current ->
+            current.copy(
+                message = notice.message,
+                aiRetryAtMillis = retryAtMillis
+            )
+        }
+        scheduleAiRetryRefresh(retryAtMillis)
+    }
+
+    private fun scheduleAiRetryRefresh(retryAtMillis: Long?) {
+        aiRetryRefreshJob?.cancel()
+        if (retryAtMillis == null) {
+            aiRetryRefreshJob = null
+            return
+        }
+
+        aiRetryRefreshJob = viewModelScope.launch {
+            delay((retryAtMillis - clockMillisProvider()).coerceAtLeast(0L))
+            clearExpiredAiRetryStateIfNeeded()
+        }
+    }
+
+    private fun Long.withQuotaBackoff(): Long {
+        val consecutiveFailures = (aiQuotaRetryStore.getRetryState()?.consecutiveFailures ?: 0) + 1
+        val backedOffRetryAtMillis = maxOf(
+            this,
+            clockMillisProvider() + quotaBackoffMillis(consecutiveFailures)
+        )
+        aiQuotaRetryStore.saveRetryState(
+            AiQuotaRetryState(
+                retryAtMillis = backedOffRetryAtMillis,
+                consecutiveFailures = consecutiveFailures
+            )
+        )
+        return backedOffRetryAtMillis
+    }
+}
+
+private data class AiFailureNotice(
+    val message: String,
+    val retryAtMillis: Long? = null
+)
+
+private fun Throwable.toAiFailureNotice(nowMillis: Long): AiFailureNotice {
+    val text = listOfNotNull(message, cause?.message).joinToString(" ").lowercase()
+    return when {
+        isAiQuotaExceeded() -> {
+            val quotaLimitType = classifyAiQuotaLimitType(text)
+            AiFailureNotice(
+                message = quotaLimitType.message(),
+                retryAtMillis = text.retryAtMillis(nowMillis) ?: nextPacificMidnightMillis(nowMillis)
+            )
+        }
+        this is ServiceDisabledException ||
+            this is APINotConfiguredException ||
+            "service_disabled" in text ||
+            "api_key_service_blocked" in text -> AiFailureNotice(
+                "La IA no esta habilitada para este proyecto o API key. Activa Firebase AI Logic / Generative Language API en Firebase o Google Cloud."
+            )
+        this is InvalidAPIKeyException ||
+            "api key not valid" in text -> AiFailureNotice(
+                "La API key de Firebase no es valida para IA. Revisa el archivo google-services.json o las restricciones de la clave."
+            )
+        this is RequestTimeoutException ||
+            "timeout" in text -> AiFailureNotice(
+                "La IA tardo demasiado en responder. Revisa la conexion e intentalo de nuevo."
+            )
+        else -> AiFailureNotice("No se pudo conectar con la IA. Revisa internet o la configuracion de Firebase.")
+    }
+}
+
+private fun Throwable.analyticsFailureType(): String {
+    val text = listOfNotNull(message, cause?.message).joinToString(" ").lowercase()
+    return when {
+        isAiQuotaExceeded() -> when (classifyAiQuotaLimitType(text)) {
+            AiQuotaLimitType.REQUESTS_PER_MINUTE -> AI_FAILURE_QUOTA_REQUESTS
+            AiQuotaLimitType.TOKENS_PER_MINUTE -> AI_FAILURE_QUOTA_TOKENS
+            AiQuotaLimitType.REQUESTS_PER_DAY -> AI_FAILURE_QUOTA_DAILY
+            AiQuotaLimitType.UNKNOWN -> AI_FAILURE_QUOTA
+        }
+        this is ServiceDisabledException ||
+            this is APINotConfiguredException ||
+            "service_disabled" in text ||
+            "api_key_service_blocked" in text -> AI_FAILURE_CONFIGURATION
+        this is InvalidAPIKeyException ||
+            "api key not valid" in text -> AI_FAILURE_CONFIGURATION
+        this is RequestTimeoutException ||
+            "timeout" in text -> AI_FAILURE_TIMEOUT
+        else -> AI_FAILURE_GENERIC
+    }
+}
+
+private fun List<FoodMenu>.countAnalyzed(): Int = count { it.healthAnalysis != null }
+
+private fun List<FoodMenu>.countPendingAnalysis(): Int = count { it.healthAnalysis == null }
+
+private fun String.retryAtMillis(nowMillis: Long): Long? {
+    val seconds = Regex("""retry in ([0-9]+(?:\.[0-9]+)?)s""")
+        .find(this)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.toDoubleOrNull()
+        ?: return null
+
+    return nowMillis + ((ceil(seconds).toLong() + RETRY_GRACE_SECONDS) * 1000)
+}
+
+private const val RETRY_GRACE_SECONDS = 2L
+private const val AI_DAILY_FREE_REQUEST_LIMIT = 20
+private const val AI_BATCH_ANALYSIS_LIMIT = 5
+private const val AI_SOURCE_GENERATE_MENU = "generate_menu"
+private const val AI_SOURCE_ANALYZE_SINGLE = "analyze_single"
+private const val AI_SOURCE_ANALYZE_BATCH = "analyze_batch"
+private const val AI_SCOPE_SINGLE = "single"
+private const val AI_SCOPE_BATCH = "batch"
+private const val FORM_FIELD_NAME = "name"
+private const val FORM_FIELD_DESCRIPTION = "description"
+private const val FORM_FIELD_NOTES = "notes"
+private const val MENU_SAVE_BLOCKED_MISSING_REQUIRED_FIELDS = "missing_required_fields"
+private const val AI_FAILURE_QUOTA_REQUESTS = "quota_requests"
+private const val AI_FAILURE_QUOTA_TOKENS = "quota_tokens"
+private const val AI_FAILURE_QUOTA_DAILY = "quota_daily"
+private const val AI_FAILURE_QUOTA = "quota"
+private const val AI_FAILURE_CONFIGURATION = "configuration"
+private const val AI_FAILURE_TIMEOUT = "timeout"
+private const val AI_FAILURE_GENERIC = "generic"
+private const val FIRST_QUOTA_BACKOFF_MILLIS = 0L
+private const val SECOND_QUOTA_BACKOFF_MILLIS = 2 * 60 * 1000L
+private const val MAX_QUOTA_BACKOFF_MILLIS = 30 * 60 * 1000L
+private const val AI_RETRY_MESSAGE = "La IA esta tomando una pausa para evitar intentos fallidos. Tus menus siguen disponibles."
+private const val AI_REQUESTS_PER_MINUTE_MESSAGE = "La IA recibio varias peticiones seguidas. Espera un momento antes de volver a intentarlo."
+private const val AI_TOKENS_PER_MINUTE_MESSAGE = "La idea necesita un descanso antes de procesarse de nuevo. Puedes seguir usando tus menus."
+private const val AI_REQUESTS_PER_DAY_MESSAGE = "La ayuda con IA gratuita de hoy se agoto. Tus menus siguen disponibles y podras volver a probar mas adelante."
+private const val GENERATED_ANALYSIS_MANUAL_EDIT_MESSAGE = "Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA."
+
+private fun AiQuotaLimitType.message(): String {
+    return when (this) {
+        AiQuotaLimitType.REQUESTS_PER_MINUTE -> AI_REQUESTS_PER_MINUTE_MESSAGE
+        AiQuotaLimitType.TOKENS_PER_MINUTE -> AI_TOKENS_PER_MINUTE_MESSAGE
+        AiQuotaLimitType.REQUESTS_PER_DAY -> AI_REQUESTS_PER_DAY_MESSAGE
+        AiQuotaLimitType.UNKNOWN -> AI_RETRY_MESSAGE
+    }
+}
+
+private fun quotaBackoffMillis(consecutiveFailures: Int): Long {
+    if (consecutiveFailures <= 1) {
+        return FIRST_QUOTA_BACKOFF_MILLIS
+    }
+    val multiplier = 1L shl (consecutiveFailures - 2).coerceAtMost(10)
+    return (SECOND_QUOTA_BACKOFF_MILLIS * multiplier).coerceAtMost(MAX_QUOTA_BACKOFF_MILLIS)
+}
+
+private fun nextPacificMidnightMillis(nowMillis: Long): Long {
+    val calendar = Calendar.getInstance(TimeZone.getTimeZone("America/Los_Angeles")).apply {
+        timeInMillis = nowMillis
+        add(Calendar.DAY_OF_MONTH, 1)
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }
+    return calendar.timeInMillis
+}
+
+private fun currentPacificDateKey(nowMillis: Long): String {
+    return SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("America/Los_Angeles")
+    }.format(Date(nowMillis))
+}

@@ -1,0 +1,4 @@
+com.menudado.test.app-androidTest-0 /Users/rdelgpad/Documents/personal/menuDado/app/build/generated/res/resValues/androidTest/debug
+com.menudado.test.app-mergeDebugAndroidTestResources-1 /Users/rdelgpad/Documents/personal/menuDado/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/merged.dir
+com.menudado.test.app-mergeDebugAndroidTestResources-2 /Users/rdelgpad/Documents/personal/menuDado/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/stripped.dir
+com.menudado.test.app-debugAndroidTest-3 /Users/rdelgpad/Documents/personal/menuDado/app/build/intermediates/merged_res/debugAndroidTest/mergeDebugAndroidTestResources

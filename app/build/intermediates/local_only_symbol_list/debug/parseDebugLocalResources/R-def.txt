@@ -1,0 +1,27 @@
+R_DEF: Internal format may change without notice
+local
+color menu_dado_header_green
+drawable dice_plate_1
+drawable dice_plate_2
+drawable dice_plate_3
+drawable dice_plate_4
+drawable dice_plate_5
+drawable dice_plate_6
+drawable ic_delete
+drawable ic_expand_less
+drawable ic_expand_more
+drawable ic_menu
+drawable menu_dado_logo
+drawable menu_dado_splash_background
+drawable menu_dado_symbol
+drawable menu_dado_wordmark
+drawable transparent_splash_icon
+string app_name
+string gcm_defaultSenderId
+string google_api_key
+string google_app_id
+string google_crash_reporting_api_key
+string google_storage_bucket
+string project_id
+style Theme.MenuDado
+style Theme.MenuDado.Splash

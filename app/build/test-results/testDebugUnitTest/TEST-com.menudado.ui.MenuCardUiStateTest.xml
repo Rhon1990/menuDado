@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.menudado.ui.MenuCardUiStateTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-06-05T11:06:08" hostname="NTTD-WTJX6J54P1" time="0.005">
+  <properties/>
+  <testcase name="muestra calorias solo despues del analisis IA" classname="com.menudado.ui.MenuCardUiStateTest" time="0.005"/>
+  <testcase name="usa iconos distintos para ver y ocultar menu" classname="com.menudado.ui.MenuCardUiStateTest" time="0.0"/>
+  <testcase name="tocar el menu expandido lo colapsa" classname="com.menudado.ui.MenuCardUiStateTest" time="0.0"/>
+  <testcase name="tocar un menu cerrado lo convierte en el unico expandido" classname="com.menudado.ui.MenuCardUiStateTest" time="0.0"/>
+  <testcase name="muestra chip de analisis en cabecera cuando la tarjeta esta colapsada" classname="com.menudado.ui.MenuCardUiStateTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

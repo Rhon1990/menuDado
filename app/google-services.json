@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "506906977551",
+    "project_id": "menudado-6a2da",
+    "storage_bucket": "menudado-6a2da.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:506906977551:android:4d16ace2c24ada3efb8a7a",
+        "android_client_info": {
+          "package_name": "com.menudado"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDSiQYWsvmuEtohcmrkSrQLjux8zIL_XNE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

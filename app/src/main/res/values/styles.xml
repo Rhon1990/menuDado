@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="menu_dado_header_green">#337551</color>
+
+    <style name="Theme.MenuDado" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#FAF6DB</item>
+        <item name="android:statusBarColor">#FAF6DB</item>
+    </style>
+
+    <style name="Theme.MenuDado.Splash" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@drawable/menu_dado_splash_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/menu_dado_header_green</item>
+        <item name="android:statusBarColor">@color/menu_dado_header_green</item>
+    </style>
+</resources>

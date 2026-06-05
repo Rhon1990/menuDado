@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.menudado.ui.MenuDadoViewModelTest" tests="32" skipped="0" failures="0" errors="0" timestamp="2026-06-05T11:06:08" hostname="NTTD-WTJX6J54P1" time="0.139">
+  <properties/>
+  <testcase name="save generated menu stores included IA analysis without analyzing again" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.068"/>
+  <testcase name="blocked menu save tracks missing required fields" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.006"/>
+  <testcase name="generate menu idea sends dietary profile to IA" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="dice filter selection and empty result are tracked" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.005"/>
+  <testcase name="manual edit after generated IA idea clears included analysis and shows notice" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="analyze existing shows quota message when IA quota is exhausted" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.004"/>
+  <testcase name="generate menu idea calls IA again after quota retry expires" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.003"/>
+  <testcase name="roll dice restarts exhausted filter instead of showing exhausted message" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.004"/>
+  <testcase name="generate menu idea shows daily limit message when daily quota is exhausted" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.003"/>
+  <testcase name="roll dice tracks filter result and menu count" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="loads and saves dietary profile locally" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.001"/>
+  <testcase name="generate menu idea asks IA to avoid saved menus and current form idea" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="generate menu idea shows token rate limit message when token quota is exhausted" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="ai menu generation failure tracks failed event" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="delete menu tracks deleted menu event" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.001"/>
+  <testcase name="generate menu idea does not call IA while persisted quota retry is active" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.001"/>
+  <testcase name="save menu stores local menu without analyzing it" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="generate menu idea shows request rate limit message when request quota is exhausted" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="opening menu card tracks meal type analysis state and inventory count" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.001"/>
+  <testcase name="analyze existing saves estimated calories from IA analysis" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.004"/>
+  <testcase name="generate menu idea does not call IA again while quota retry is active" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="generate menu idea fills form using selected meal type" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="clear message removes expired quota retry from ui state" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.001"/>
+  <testcase name="starting form and changing meal type track creation intent without menu text" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="generate menu idea shows quota message when IA quota is exhausted" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.001"/>
+  <testcase name="analyze pending menus uses one IA call and saves valid results" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.003"/>
+  <testcase name="analyze existing tracks started and successful analysis events" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.001"/>
+  <testcase name="generate menu idea increases local backoff when quota fails repeatedly" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="active quota retry refreshes when Pacific daily reset arrives without user interaction" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="starts with daily IA uses available" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.001"/>
+  <testcase name="generate menu idea decreases daily IA uses" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <testcase name="generate menu idea does not call IA when daily local uses are exhausted" classname="com.menudado.ui.MenuDadoViewModelTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
