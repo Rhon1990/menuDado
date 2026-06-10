@@ -1,0 +1,26 @@
+.DS_Store
+
+# Local IDE and machine files
+local.properties
+.idea/caches/
+.idea/workspace.xml
+.idea/tasks.xml
+
+# Gradle and Android build outputs
+.gradle/
+.kotlin/
+**/build/
+**/release/
+
+# Signing material and generated packages
+key/
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.apk
+*.aab
+
+# Temporary Google Play Android developer verification resources
+app/src/main/res/raw/adi_registration.properties
+app/src/main/assets/adi-registration.properties
