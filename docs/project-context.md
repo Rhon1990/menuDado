@@ -78,10 +78,10 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Al detenerse después de cada lanzamiento, el dado debe quedar en una orientación de reposo distinta para que se vea una cara diferente.
    - El dado mostrado en el modal de resultado debe reflejar la misma orientación final del lanzamiento.
    - El resultado debe mostrarse en un modal diseñado, con cabecera de marca, dado 3D, secciones claras y botón principal de cierre; no debe ser un diálogo de texto plano.
-   - Antes de lanzar el dado, el usuario puede filtrar opcionalmente por desayuno, almuerzo o cena.
+   - Antes de lanzar el dado, el usuario debe escoger desayuno, almuerzo o cena; no hay opción `Todos` ni selección por defecto.
    - Los filtros del dado deben mantenerse en una sola línea horizontal.
    - Si el usuario elige un filtro, el azar solo considera menús de ese tipo.
-   - Si no elige filtro, el azar considera todos los menús guardados.
+   - Si no elige filtro y toca el dado, la app muestra un aviso pidiendo escoger desayuno, almuerzo o cena antes de lanzar.
    - El azar no debe repetir durante el mismo día menús que ya hayan salido mientras queden candidatos nuevos para el filtro activo.
    - Si todos los menús del filtro activo ya salieron hoy, la memoria de ese filtro se reinicia automáticamente y el dado vuelve a elegir entre todos sus menús sin mostrar aviso.
    - La memoria de menús elegidos también se reinicia automáticamente al cambiar el día.
@@ -182,7 +182,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Crear y persistir menús localmente.
 - Filtrar menús por tipo de comida.
 - Ejecutar la selección aleatoria solo cuando existan menús aplicables al filtro elegido.
-- Validar que el filtro del dado sea opcional y que limite correctamente los candidatos cuando se selecciona desayuno, almuerzo o cena.
+- Validar que el dado exige escoger desayuno, almuerzo o cena antes de lanzar y que el filtro seleccionado limita correctamente los candidatos.
 - Validar que la animación del dado no bloquee la UI ni repita resultados por dobles taps accidentales.
 - Manejar en el análisis IA: éxito, sin internet, respuesta mal formada y errores del proveedor.
 - Mantener la interfaz usable en pantallas Android pequeñas.

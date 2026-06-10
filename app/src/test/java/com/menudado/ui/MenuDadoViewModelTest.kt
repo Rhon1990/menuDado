@@ -911,6 +911,77 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `non IA validation messages clear IA retry notice marker`() = runTest(dispatcher) {
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { 100_000L },
+            aiQuotaRetryStore = aiQuotaRetryStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 57s.")
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        assertEquals(true, viewModel.uiState.value.isAiRetryNoticeVisible)
+
+        viewModel.saveMenu()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Agrega nombre e ingredientes para guardar el menu.", state.message)
+        assertEquals(159_000L, state.aiRetryAtMillis)
+        assertFalse(state.isAiRetryNoticeVisible)
+    }
+
+    @Test
+    fun `dice required filter message is not shown as IA retry notice after quota pause`() = runTest(dispatcher) {
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { 100_000L },
+            aiQuotaRetryStore = aiQuotaRetryStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 57s.")
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
+        assertEquals(true, viewModel.uiState.value.isAiRetryNoticeVisible)
+
+        viewModel.clearMessage()
+        dao.seed(
+            listOf(
+                FoodMenu(id = 1, name = "Tostada", mealType = MealType.BREAKFAST, description = "Pan")
+            )
+        )
+        advanceUntilIdle()
+        viewModel.rollDice()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Primero escoge desayuno, almuerzo o cena.", state.message)
+        assertEquals(159_000L, state.aiRetryAtMillis)
+        assertFalse(state.isAiRetryNoticeVisible)
+    }
+
+    @Test
+    fun `roll dice requires selecting a meal type filter`() = runTest(dispatcher) {
+        dao.seed(
+            listOf(
+                FoodMenu(id = 1, name = "Tostada", mealType = MealType.BREAKFAST, description = "Pan")
+            )
+        )
+        advanceUntilIdle()
+
+        viewModel.rollDice()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isRolling)
+        assertNull(state.result)
+        assertEquals("Primero escoge desayuno, almuerzo o cena.", state.message)
+        assertEquals(emptyList<String>(), analytics.events)
+    }
+
+    @Test
     fun `roll dice tracks filter result and menu count`() = runTest(dispatcher) {
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),

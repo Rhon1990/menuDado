@@ -66,9 +66,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -79,8 +81,13 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -107,12 +114,15 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
     val state by viewModel.uiState.collectAsState()
     val result = state.result
     val message = state.message
     val aiRetryAtMillis = state.aiRetryAtMillis
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
     var previousRolling by remember { mutableStateOf(state.isRolling) }
@@ -143,7 +153,7 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
         )
     }
 
-    if (message != null && aiRetryAtMillis != null) {
+    if (message != null && aiRetryAtMillis != null && state.isAiRetryNoticeVisible) {
         AiQuotaDialog(
             message = message,
             retryAtMillis = aiRetryAtMillis,
@@ -169,7 +179,9 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
         )
     }
 
-    BoxWithConstraints {
+    BoxWithConstraints(
+        modifier = Modifier.hideKeyboardOnTouch(focusManager, keyboardController)
+    ) {
         ModalNavigationDrawer(
             drawerState = drawerState,
             drawerContent = {
@@ -294,6 +306,24 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
+private fun Modifier.hideKeyboardOnTouch(
+    focusManager: FocusManager,
+    keyboardController: SoftwareKeyboardController?
+): Modifier {
+    return pointerInput(focusManager, keyboardController) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                if (event.changes.any { it.changedToDownIgnoreConsumed() }) {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun MenuDadoDrawer(
     selectedDestination: MenuDadoDestination,
@@ -376,7 +406,7 @@ internal fun onboardingSteps(): List<OnboardingStep> = listOf(
     ),
     OnboardingStep(
         title = "Lanza el dado",
-        body = "Filtra por tipo de comida o deja Todos para que MenuDado elija por ti."
+        body = "Escoge desayuno, almuerzo o cena y deja que MenuDado elija por ti."
     )
 )
 
@@ -742,14 +772,14 @@ private fun DiceSection(
                     color = MenuDadoColors.Ink
                 )
                 Text(
-                    text = "Filtra si quieres y deja que el dado elija.",
+                    text = "Escoge desayuno, almuerzo o cena y deja que el dado elija.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MenuDadoColors.MutedInk
                 )
             }
             MealTypeFilter(
                 selected = filter,
-                includeAll = true,
+                includeAll = false,
                 onSelected = onFilterChanged
             )
             Button(

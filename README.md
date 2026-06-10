@@ -13,7 +13,7 @@ MenuDado es una app Android nativa en Kotlin para guardar menús locales, analiz
 - Persistencia local con Room.
 - Formulario para crear menús de desayuno, almuerzo y cena.
 - Botón de dado con animación.
-- Filtro opcional del dado por tipo de comida.
+- Filtro obligatorio del dado por tipo de comida.
 - Resultado aleatorio con "Hoy toca...".
 - Análisis saludable con Firebase AI Logic y Gemini, preparado para configurar Firebase.
 

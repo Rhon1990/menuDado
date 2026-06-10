@@ -59,6 +59,7 @@ data class MenuDadoUiState(
     val result: FoodMenu? = null,
     val message: String? = null,
     val aiRetryAtMillis: Long? = null,
+    val isAiRetryNoticeVisible: Boolean = false,
     val aiUsesRemainingToday: Int = AI_DAILY_FREE_REQUEST_LIMIT,
     val dietaryProfile: DietaryProfile = DietaryProfile(),
     val showOnboarding: Boolean = false
@@ -121,7 +122,8 @@ class MenuDadoViewModel(
             it.copy(
                 formMealType = mealType,
                 generatedHealthAnalysis = null,
-                message = notice ?: it.message
+                message = notice ?: it.message,
+                isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
         }
     }
@@ -133,7 +135,8 @@ class MenuDadoViewModel(
             it.copy(
                 name = value,
                 generatedHealthAnalysis = null,
-                message = notice ?: it.message
+                message = notice ?: it.message,
+                isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
         }
     }
@@ -145,7 +148,8 @@ class MenuDadoViewModel(
             it.copy(
                 description = value,
                 generatedHealthAnalysis = null,
-                message = notice ?: it.message
+                message = notice ?: it.message,
+                isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
         }
     }
@@ -157,7 +161,8 @@ class MenuDadoViewModel(
             it.copy(
                 notes = value,
                 generatedHealthAnalysis = null,
-                message = notice ?: it.message
+                message = notice ?: it.message,
+                isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
         }
     }
@@ -168,7 +173,8 @@ class MenuDadoViewModel(
             it.copy(
                 aiBaseIngredients = value,
                 generatedHealthAnalysis = null,
-                message = notice ?: it.message
+                message = notice ?: it.message,
+                isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
         }
     }
@@ -203,7 +209,7 @@ class MenuDadoViewModel(
 
     fun clearMessage() {
         clearExpiredAiRetryStateIfNeeded()
-        _uiState.update { it.copy(message = null) }
+        _uiState.update { it.copy(message = null, isAiRetryNoticeVisible = false) }
     }
 
     fun clearResult() {
@@ -221,9 +227,13 @@ class MenuDadoViewModel(
     fun rollDice() {
         val state = _uiState.value
         if (state.isRolling) return
+        if (state.diceFilter == null) {
+            _uiState.update { it.copy(message = DICE_FILTER_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            return
+        }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isRolling = true, result = null, message = null) }
+            _uiState.update { it.copy(isRolling = true, result = null, message = null, isAiRetryNoticeVisible = false) }
             delay(850)
             val today = todayProvider()
             val currentState = _uiState.value
@@ -274,7 +284,8 @@ class MenuDadoViewModel(
                 it.copy(
                     isRolling = false,
                     result = selected,
-                    message = if (selected == null && !hasCandidates) "No hay menus para ese filtro." else null
+                    message = if (selected == null && !hasCandidates) "No hay menus para ese filtro." else null,
+                    isAiRetryNoticeVisible = false
                 )
             }
         }
@@ -292,7 +303,7 @@ class MenuDadoViewModel(
                 hasName = name.isNotBlank(),
                 hasDescription = description.isNotBlank()
             )
-            _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE) }
+            _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
             return
         }
 
@@ -302,7 +313,12 @@ class MenuDadoViewModel(
                 hasName = name.isNotBlank(),
                 hasDescription = description.isNotBlank()
             )
-            _uiState.update { it.copy(message = "Agrega nombre e ingredientes para guardar el menu.") }
+            _uiState.update {
+                it.copy(
+                    message = "Agrega nombre e ingredientes para guardar el menu.",
+                    isAiRetryNoticeVisible = false
+                )
+            }
             return
         }
 
@@ -350,12 +366,17 @@ class MenuDadoViewModel(
         val state = _uiState.value
         val mealType = state.formMealType
         if (mealType == null) {
-            _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE) }
+            _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
             return
         }
         val ingredientConflicts = state.dietaryProfile.findIngredientConflicts(state.aiBaseIngredients)
         if (ingredientConflicts.isNotEmpty()) {
-            _uiState.update { it.copy(message = ingredientConflicts.toIngredientConflictMessage()) }
+            _uiState.update {
+                it.copy(
+                    message = ingredientConflicts.toIngredientConflictMessage(),
+                    isAiRetryNoticeVisible = false
+                )
+            }
             return
         }
         val activeRetryAtMillis = activeAiRetryAtMillis()
@@ -370,7 +391,14 @@ class MenuDadoViewModel(
         analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isGeneratingMenu = true, message = null, aiRetryAtMillis = null) }
+            _uiState.update {
+                it.copy(
+                    isGeneratingMenu = true,
+                    message = null,
+                    aiRetryAtMillis = null,
+                    isAiRetryNoticeVisible = false
+                )
+            }
             repository.generateMenu(
                 mealType = mealType,
                 avoidIdeas = avoidIdeas,
@@ -386,7 +414,8 @@ class MenuDadoViewModel(
                             notes = generated.notes,
                             calories = generated.calories,
                             generatedHealthAnalysis = generated.healthAnalysis,
-                            aiRetryAtMillis = null
+                            aiRetryAtMillis = null,
+                            isAiRetryNoticeVisible = false
                         )
                     }
                     analytics.trackAiMenuGenerationFinished(
@@ -462,7 +491,14 @@ class MenuDadoViewModel(
         analytics.trackAiAnalysisStarted(AI_SCOPE_SINGLE, menu.mealType, menuCount = 1)
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isAnalyzing = true, message = null, aiRetryAtMillis = null) }
+            _uiState.update {
+                it.copy(
+                    isAnalyzing = true,
+                    message = null,
+                    aiRetryAtMillis = null,
+                    isAiRetryNoticeVisible = false
+                )
+            }
             repository.analyze(menu)
                 .onSuccess { analysis ->
                     repository.save(
@@ -472,7 +508,7 @@ class MenuDadoViewModel(
                         )
                     )
                     aiQuotaRetryStore.clearRetryState()
-                    _uiState.update { it.copy(aiRetryAtMillis = null) }
+                    _uiState.update { it.copy(aiRetryAtMillis = null, isAiRetryNoticeVisible = false) }
                     analytics.trackAiAnalysisFinished(
                         AI_SCOPE_SINGLE,
                         menu.mealType,
@@ -504,7 +540,12 @@ class MenuDadoViewModel(
             .take(AI_BATCH_ANALYSIS_LIMIT)
 
         if (pendingMenus.isEmpty()) {
-            _uiState.update { it.copy(message = "No tienes menus pendientes por analizar.") }
+            _uiState.update {
+                it.copy(
+                    message = "No tienes menus pendientes por analizar.",
+                    isAiRetryNoticeVisible = false
+                )
+            }
             return
         }
 
@@ -519,7 +560,14 @@ class MenuDadoViewModel(
         analytics.trackAiAnalysisStarted(AI_SCOPE_BATCH, mealType = null, menuCount = pendingMenus.size)
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isAnalyzing = true, message = null, aiRetryAtMillis = null) }
+            _uiState.update {
+                it.copy(
+                    isAnalyzing = true,
+                    message = null,
+                    aiRetryAtMillis = null,
+                    isAiRetryNoticeVisible = false
+                )
+            }
             repository.analyzeBatch(pendingMenus)
                 .onSuccess { analysesByMenuId ->
                     pendingMenus.forEach { menu ->
@@ -536,6 +584,7 @@ class MenuDadoViewModel(
                     _uiState.update {
                         it.copy(
                             aiRetryAtMillis = null,
+                            isAiRetryNoticeVisible = false,
                             message = if (analysesByMenuId.isEmpty()) {
                                 "La IA no devolvio analisis validos. Puedes intentar de nuevo mas tarde."
                             } else {
@@ -627,6 +676,7 @@ class MenuDadoViewModel(
                 it.copy(
                     message = AI_REQUESTS_PER_DAY_MESSAGE,
                     aiRetryAtMillis = retryAtMillis,
+                    isAiRetryNoticeVisible = true,
                     aiUsesRemainingToday = 0
                 )
             }
@@ -687,6 +737,7 @@ class MenuDadoViewModel(
         _uiState.update {
             it.copy(
                 aiRetryAtMillis = null,
+                isAiRetryNoticeVisible = false,
                 aiUsesRemainingToday = aiDailyUsesRemaining()
             )
         }
@@ -698,7 +749,8 @@ class MenuDadoViewModel(
         _uiState.update {
             it.copy(
                 message = AI_RETRY_MESSAGE,
-                aiRetryAtMillis = retryAtMillis
+                aiRetryAtMillis = retryAtMillis,
+                isAiRetryNoticeVisible = true
             )
         }
         scheduleAiRetryRefresh(retryAtMillis)
@@ -709,7 +761,8 @@ class MenuDadoViewModel(
         _uiState.update { current ->
             current.copy(
                 message = notice.message,
-                aiRetryAtMillis = retryAtMillis
+                aiRetryAtMillis = retryAtMillis,
+                isAiRetryNoticeVisible = retryAtMillis != null
             )
         }
         scheduleAiRetryRefresh(retryAtMillis)
@@ -925,6 +978,7 @@ private const val AI_TOKENS_PER_MINUTE_MESSAGE = "La idea necesita un descanso a
 private const val AI_REQUESTS_PER_DAY_MESSAGE = "La ayuda con IA gratuita de hoy se agoto. Tus menus siguen disponibles y podras volver a probar mas adelante."
 private const val GENERATED_ANALYSIS_MANUAL_EDIT_MESSAGE = "Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA."
 private const val MEAL_TYPE_REQUIRED_MESSAGE = "Selecciona si es desayuno, almuerzo o cena."
+private const val DICE_FILTER_REQUIRED_MESSAGE = "Primero escoge desayuno, almuerzo o cena."
 
 private fun AiQuotaLimitType.message(): String {
     return when (this) {
