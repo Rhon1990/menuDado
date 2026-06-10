@@ -42,13 +42,16 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
     override suspend fun generateMenu(
         mealType: MealType,
         avoidIdeas: List<String>,
-        dietaryProfile: DietaryProfile
+        dietaryProfile: DietaryProfile,
+        baseIngredients: String
     ): Result<GeneratedMenu> {
         return runCatching {
             val model = Firebase.ai(backend = GenerativeBackend.googleAI())
                 .generativeModel(BuildConfig.GEMINI_MODEL)
 
-            val response = model.generateContent(MenuGenerationPrompt.build(mealType, avoidIdeas, dietaryProfile))
+            val response = model.generateContent(
+                MenuGenerationPrompt.build(mealType, avoidIdeas, dietaryProfile, baseIngredients)
+            )
             GeneratedMenuParser.parse(response.text.orEmpty())
         }.onFailure { error ->
             logAiFailure("Menu generation failed", error)

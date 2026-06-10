@@ -12,6 +12,7 @@ interface HealthAnalyzer {
     suspend fun generateMenu(
         mealType: MealType,
         avoidIdeas: List<String>,
-        dietaryProfile: DietaryProfile
+        dietaryProfile: DietaryProfile,
+        baseIngredients: String
     ): Result<GeneratedMenu>
 }

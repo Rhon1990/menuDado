@@ -10,11 +10,12 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,8 +44,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +52,6 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
@@ -236,6 +234,7 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                                 onNameChanged = viewModel::updateName,
                                 onDescriptionChanged = viewModel::updateDescription,
                                 onNotesChanged = viewModel::updateNotes,
+                                onAiBaseIngredientsChanged = viewModel::updateAiBaseIngredients,
                                 onGenerate = viewModel::generateMenuIdea,
                                 onSave = viewModel::saveMenu
                             )
@@ -549,7 +548,7 @@ private fun DietarySwitchRow(
             fontWeight = FontWeight.Bold,
             color = MenuDadoColors.Ink
         )
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        MenuDadoBrandSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -1129,9 +1128,15 @@ private fun MenuForm(
     onNameChanged: (String) -> Unit,
     onDescriptionChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
+    onAiBaseIngredientsChanged: (String) -> Unit,
     onGenerate: () -> Unit,
     onSave: () -> Unit
 ) {
+    var selectedModeName by rememberSaveable { mutableStateOf(MenuFormMode.Manual.name) }
+    val selectedMode = MenuFormMode.valueOf(selectedModeName)
+    val hasAiDraft = selectedMode == MenuFormMode.Ai && state.calories != null
+    val canUseFormActions = state.formMealType != null && !state.isAnalyzing && !state.isGeneratingMenu
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1151,72 +1156,274 @@ private fun MenuForm(
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    text = "Guardalo primero; luego puedes analizarlo con IA desde su tarjeta.",
+                    text = "Elige si quieres escribirlo tu o generar una idea saludable.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MenuDadoColors.MutedInk
                 )
             }
+            MenuFormModeSelector(
+                selected = selectedMode,
+                onSelected = { mode -> selectedModeName = mode.name }
+            )
             MealTypeFilter(
                 selected = state.formMealType,
                 includeAll = false,
                 onSelected = { mealType -> if (mealType != null) onMealTypeChanged(mealType) }
             )
-            OutlinedButton(
-                onClick = onGenerate,
-                enabled = !state.isGeneratingMenu && !state.isAnalyzing,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp)
-            ) {
+            if (state.formMealType == null) {
                 Text(
-                    text = generateAiButtonText(
-                        isGenerating = state.isGeneratingMenu,
-                        isAiPaused = state.aiRetryAtMillis != null,
-                        usesRemaining = state.aiUsesRemainingToday
-                    ),
-                    modifier = Modifier.padding(vertical = 6.dp),
-                    fontWeight = FontWeight.Bold,
+                    text = "Selecciona desayuno, almuerzo o cena.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MenuDadoColors.MutedInk
+                )
+            }
+            when (selectedMode) {
+                MenuFormMode.Manual -> {
+                    MenuTextFields(
+                        state = state,
+                        onNameChanged = onNameChanged,
+                        onDescriptionChanged = onDescriptionChanged,
+                        onNotesChanged = onNotesChanged
+                    )
+                    SaveMenuButton(
+                        enabled = canUseFormActions,
+                        onSave = onSave
+                    )
+                }
+                MenuFormMode.Ai -> {
+                    OutlinedTextField(
+                        value = state.aiBaseIngredients,
+                        onValueChange = onAiBaseIngredientsChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Ingredientes base opcionales") },
+                        placeholder = { Text("Ej. berenjena, tomate") },
+                        minLines = 1
+                    )
+                    OutlinedButton(
+                        onClick = onGenerate,
+                        enabled = canUseFormActions,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = generateAiButtonText(
+                                isGenerating = state.isGeneratingMenu,
+                                isAiPaused = state.aiRetryAtMillis != null,
+                                usesRemaining = state.aiUsesRemainingToday
+                            ),
+                            modifier = Modifier.padding(vertical = 6.dp),
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false
+                        )
+                    }
+                    AnimatedVisibility(visible = hasAiDraft) {
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            MenuTextFields(
+                                state = state,
+                                onNameChanged = onNameChanged,
+                                onDescriptionChanged = onDescriptionChanged,
+                                onNotesChanged = onNotesChanged
+                            )
+                            SaveMenuButton(
+                                enabled = canUseFormActions,
+                                onSave = onSave
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private enum class MenuFormMode(val label: String) {
+    Manual("Escribir menu"),
+    Ai("Generar con IA")
+}
+
+@Composable
+private fun MenuFormModeSelector(
+    selected: MenuFormMode,
+    onSelected: (MenuFormMode) -> Unit
+) {
+    MenuDadoSegmentedSwitch(
+        options = MenuFormMode.entries.map { mode ->
+            MenuDadoSegmentOption(value = mode, label = mode.label)
+        },
+        selected = selected,
+        onSelected = onSelected
+    )
+}
+
+@Composable
+private fun MenuTextFields(
+    state: MenuDadoUiState,
+    onNameChanged: (String) -> Unit,
+    onDescriptionChanged: (String) -> Unit,
+    onNotesChanged: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = state.name,
+        onValueChange = onNameChanged,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Nombre del plato o menu") },
+        singleLine = true
+    )
+    OutlinedTextField(
+        value = state.description,
+        onValueChange = onDescriptionChanged,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Ingredientes o descripcion") },
+        minLines = 2
+    )
+    OutlinedTextField(
+        value = state.notes,
+        onValueChange = onNotesChanged,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Notas opcionales") },
+        minLines = 1
+    )
+}
+
+@Composable
+private fun SaveMenuButton(
+    enabled: Boolean,
+    onSave: () -> Unit
+) {
+    Button(
+        onClick = onSave,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MenuDadoColors.BrandGreen,
+            contentColor = Color.White
+        )
+    ) {
+        Text(
+            text = "Guardar menu",
+            modifier = Modifier.padding(vertical = 8.dp),
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+private data class MenuDadoSegmentOption<T>(
+    val value: T,
+    val label: String
+)
+
+@Composable
+private fun <T> MenuDadoSegmentedSwitch(
+    options: List<MenuDadoSegmentOption<T>>,
+    selected: T,
+    onSelected: (T) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MenuDadoColors.Cream)
+            .border(
+                BorderStroke(1.dp, MenuDadoColors.OutlineBrown.copy(alpha = 0.24f)),
+                RoundedCornerShape(12.dp)
+            )
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        options.forEach { option ->
+            val isSelected = option.value == selected
+            val containerColor = if (isSelected) MenuDadoColors.BrandGreen else Color.Transparent
+            val textColor = if (isSelected) Color.White else MenuDadoColors.DeepGreen
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(containerColor)
+                    .clickable { onSelected(option.value) }
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(if (isSelected) 8.dp else 6.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(
+                            if (isSelected) MenuDadoColors.EggYellow else MenuDadoColors.OutlineBrown.copy(alpha = 0.42f)
+                        )
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = option.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Black,
+                    color = textColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     softWrap = false
                 )
             }
-            OutlinedTextField(
-                value = state.name,
-                onValueChange = onNameChanged,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Nombre") },
-                singleLine = true
+        }
+    }
+}
+
+@Composable
+private fun MenuDadoBrandSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    val trackColor = if (checked) {
+        MenuDadoColors.BrandGreen
+    } else {
+        MenuDadoColors.SoftSand
+    }
+    val knobColor = if (checked) {
+        MenuDadoColors.EggYellow
+    } else {
+        MenuDadoColors.Surface
+    }
+    val knobAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart
+    Box(
+        modifier = Modifier
+            .width(64.dp)
+            .height(36.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(trackColor)
+            .border(
+                BorderStroke(
+                    1.dp,
+                    if (checked) MenuDadoColors.DeepGreen.copy(alpha = 0.38f) else MenuDadoColors.OutlineBrown.copy(alpha = 0.28f)
+                ),
+                RoundedCornerShape(18.dp)
             )
-            OutlinedTextField(
-                value = state.description,
-                onValueChange = onDescriptionChanged,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Ingredientes o descripcion") },
-                minLines = 2
+            .clickable { onCheckedChange(!checked) }
+            .padding(4.dp),
+        contentAlignment = knobAlignment
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(knobColor)
+                .border(
+                    BorderStroke(1.dp, Color.White.copy(alpha = 0.72f)),
+                    RoundedCornerShape(14.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(if (checked) MenuDadoColors.DeepGreen else MenuDadoColors.OutlineBrown.copy(alpha = 0.48f))
             )
-            OutlinedTextField(
-                value = state.notes,
-                onValueChange = onNotesChanged,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Notas opcionales") },
-                minLines = 1
-            )
-            Button(
-                onClick = onSave,
-                enabled = !state.isAnalyzing && !state.isGeneratingMenu,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MenuDadoColors.BrandGreen,
-                    contentColor = Color.White
-                )
-            ) {
-                Text(
-                    text = "Guardar menu",
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    fontWeight = FontWeight.Bold
-                )
-            }
         }
     }
 }
@@ -1227,41 +1434,21 @@ private fun MealTypeFilter(
     includeAll: Boolean,
     onSelected: (MealType?) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    val options = buildList<MenuDadoSegmentOption<MealType?>> {
         if (includeAll) {
-            FilterChip(
-                selected = selected == null,
-                onClick = { onSelected(null) },
-                label = { Text("Todos") },
-                shape = RoundedCornerShape(8.dp),
-                colors = chipColors()
-            )
+            add(MenuDadoSegmentOption(value = null, label = "Todos"))
         }
-        MealType.entries.forEach { mealType ->
-            FilterChip(
-                selected = selected == mealType,
-                onClick = { onSelected(mealType) },
-                label = { Text(mealType.label) },
-                shape = RoundedCornerShape(8.dp),
-                colors = chipColors()
-            )
-        }
+        addAll(MealType.entries.map { mealType ->
+            MenuDadoSegmentOption(value = mealType, label = mealType.label)
+        })
     }
-}
 
-@Composable
-private fun chipColors() = FilterChipDefaults.filterChipColors(
-    selectedContainerColor = MenuDadoColors.Avocado.copy(alpha = 0.26f),
-    selectedLabelColor = MenuDadoColors.DeepGreen,
-    containerColor = MenuDadoColors.Surface,
-    labelColor = MenuDadoColors.MutedInk
-)
+    MenuDadoSegmentedSwitch(
+        options = options,
+        selected = selected,
+        onSelected = onSelected
+    )
+}
 
 @Composable
 private fun CaloriesPill(calories: Int) {

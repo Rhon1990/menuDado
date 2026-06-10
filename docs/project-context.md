@@ -47,14 +47,15 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 ## Funcionalidades Principales
 
 1. Crear menús localmente.
-   - Nombre.
-   - Tipo de comida: desayuno, almuerzo o cena.
-   - Ingredientes o descripción.
-   - Notas opcionales.
+   - El formulario `Agregar menu` separa dos modos iniciales: `Escribir menu` y `Generar con IA`.
+   - El tipo de comida es obligatorio y no viene seleccionado por defecto; el usuario debe elegir desayuno, almuerzo o cena antes de guardar o generar.
+   - En modo manual se muestran los campos de nombre del plato o menú, ingredientes o descripción y notas opcionales.
+   - En modo IA se muestra primero la selección de tipo, un campo opcional de ingredientes base y la acción de generar; los campos de texto aparecen después de que la IA completa la idea para que el usuario la revise y guarde.
    - Calorías estimadas opcionales.
    - Se guarda con una única acción principal: `Guardar menú`.
    - El análisis IA no forma parte del guardado inicial; se ejecuta después desde la tarjeta del menú guardado.
    - Desde el formulario se puede generar una idea con IA según el tipo seleccionado.
+   - La generación con IA puede usar uno o más ingredientes base escritos por el usuario, por ejemplo `berenjena`; si algún ingrediente contradice el perfil alimentario configurado, la app debe mostrar un aviso y no llamar a la IA.
    - Las ideas generadas por IA deben ser saludables, ricas, simples y con ingredientes comunes de supermercado.
    - Si el tipo seleccionado es cena, la idea generada por IA debe ser ligera, rapida y de baja energia para la noche: maximo 10 minutos, pocos ingredientes y preparacion similar de sencilla a un desayuno; debe evitar horno, guarniciones multiples y recetas con varios pasos.
    - La generación de idea con IA debe devolver también el análisis saludable y calorías en la misma llamada. Si el usuario guarda esa idea sin modificarla, el menú debe quedar ya analizado sin hacer una segunda llamada a Firebase IA.
@@ -172,6 +173,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Una acción divertida y protagonista: tocar el dado, ver una animación corta y recibir una sugerencia.
 - La cabecera debe respetar el espacio de la barra de estado y usar colores de sistema coherentes con la marca.
 - El formulario de creación debe evitar acciones duplicadas: guardar primero, analizar con IA después si el usuario lo decide.
+- Los selectores de modo, filtros de comida y switches booleanos deben usar controles reutilizables con estilo de marca MenuDado, evitando componentes básicos sin personalización cuando formen parte de flujos principales.
 - La respuesta saludable debe ser breve y no juzgar al usuario.
 - La app debe funcionar bien con pocos menús y no requerir configuración compleja más allá de Firebase/API.
 

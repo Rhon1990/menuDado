@@ -71,11 +71,71 @@ class MenuDadoViewModelTest {
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        analytics.events.clear()
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `form starts without a selected meal type`() = runTest(dispatcher) {
+        val freshViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+
+        assertNull(freshViewModel.uiState.value.formMealType)
+    }
+
+    @Test
+    fun `save menu requires selecting a meal type`() = runTest(dispatcher) {
+        val freshViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        freshViewModel.updateName("Tostadas")
+        freshViewModel.updateDescription("Pan, tomate y aguacate")
+        analytics.events.clear()
+
+        freshViewModel.saveMenu()
+        advanceUntilIdle()
+
+        assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
+        assertEquals("Selecciona si es desayuno, almuerzo o cena.", freshViewModel.uiState.value.message)
+        assertEquals(
+            listOf("menu_save_blocked:missing_meal_type:true:true"),
+            analytics.events
+        )
+    }
+
+    @Test
+    fun `generate menu idea requires selecting a meal type before using IA`() = runTest(dispatcher) {
+        val freshViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        freshViewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(20, freshViewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(0, aiDailyUsageStore.storedUsedCount)
+        assertEquals("Selecciona si es desayuno, almuerzo o cena.", freshViewModel.uiState.value.message)
     }
 
     @Test
@@ -322,6 +382,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
 
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -342,6 +403,8 @@ class MenuDadoViewModelTest {
                 storedUsedCount = 20
             }
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        analytics.events.clear()
 
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -431,12 +494,44 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `generate menu idea blocks ingredients that do not match dietary profile`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileHasAllergies(true)
+        viewModel.toggleDietaryAllergen(DietaryAllergen.DAIRY)
+        viewModel.updateAiBaseIngredients("berenjena, crema")
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(0, aiDailyUsageStore.storedUsedCount)
+        assertEquals(
+            "Revisa los ingredientes: crema no encaja con tu perfil alimentario.",
+            viewModel.uiState.value.message
+        )
+    }
+
+    @Test
+    fun `generate menu idea sends base ingredients to IA when they match profile`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileHasAllergies(true)
+        viewModel.toggleDietaryAllergen(DietaryAllergen.DAIRY)
+        viewModel.updateAiBaseIngredients("berenjena")
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals("berenjena", analyzer.requestedBaseIngredients)
+    }
+
+    @Test
     fun `generate menu idea shows quota message when IA quota is exhausted`() = runTest(dispatcher) {
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
         analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 57s.")
 
         viewModel.generateMenuIdea()
@@ -457,6 +552,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
         analyzer.generateFailure = IllegalStateException(
             "Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20. Please retry in 21s."
         )
@@ -477,6 +573,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
         analyzer.generateFailure = IllegalStateException(
             "RESOURCE_EXHAUSTED quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_tokens. Please retry in 21s."
         )
@@ -497,6 +594,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
         analyzer.generateFailure = IllegalStateException(
             "RESOURCE_EXHAUSTED quota exceeded for metric: Requests per day, limit: 20."
         )
@@ -518,6 +616,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { nowMillis },
             aiQuotaRetryStore = aiQuotaRetryStore
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
         analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 57s.")
 
         viewModel.generateMenuIdea()
@@ -544,6 +643,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { nowMillis },
             aiQuotaRetryStore = aiQuotaRetryStore
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
 
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -564,6 +664,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { nowMillis },
             aiQuotaRetryStore = aiQuotaRetryStore
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
         analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 57s.")
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -591,6 +692,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { nowMillis },
             aiQuotaRetryStore = aiQuotaRetryStore
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
 
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -613,6 +715,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.generateMenuIdea()
 
         assertEquals(resetAtMillis, viewModel.uiState.value.aiRetryAtMillis)
@@ -633,6 +736,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { nowMillis },
             aiQuotaRetryStore = aiQuotaRetryStore
         )
+        viewModel.setFormMealType(MealType.BREAKFAST)
         analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 10s.")
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -992,6 +1096,7 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
     var batchAnalyzeCalls = 0
     var requestedMealType: MealType? = null
     var requestedDietaryProfile: DietaryProfile? = null
+    var requestedBaseIngredients: String = ""
     var avoidIdeas: List<String> = emptyList()
     var analysisFailure: Throwable? = null
     var analysisCalories: Int? = null
@@ -1029,11 +1134,13 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
     override suspend fun generateMenu(
         mealType: MealType,
         avoidIdeas: List<String>,
-        dietaryProfile: DietaryProfile
+        dietaryProfile: DietaryProfile,
+        baseIngredients: String
     ): Result<GeneratedMenu> {
         generateCalls += 1
         requestedMealType = mealType
         requestedDietaryProfile = dietaryProfile
+        requestedBaseIngredients = baseIngredients
         this.avoidIdeas = avoidIdeas
         generateFailure?.let { return Result.failure(it) }
         return Result.success(generatedMenu)

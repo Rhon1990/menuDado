@@ -39,8 +39,9 @@ class MenuRepository(
     suspend fun generateMenu(
         mealType: MealType,
         avoidIdeas: List<String>,
-        dietaryProfile: DietaryProfile
+        dietaryProfile: DietaryProfile,
+        baseIngredients: String
     ): Result<GeneratedMenu> {
-        return healthAnalyzer.generateMenu(mealType, avoidIdeas, dietaryProfile)
+        return healthAnalyzer.generateMenu(mealType, avoidIdeas, dietaryProfile, baseIngredients)
     }
 }

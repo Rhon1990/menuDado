@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -45,10 +46,11 @@ import kotlin.math.ceil
 data class MenuDadoUiState(
     val menus: List<FoodMenu> = emptyList(),
     val diceFilter: MealType? = null,
-    val formMealType: MealType = MealType.BREAKFAST,
+    val formMealType: MealType? = null,
     val name: String = "",
     val description: String = "",
     val notes: String = "",
+    val aiBaseIngredients: String = "",
     val calories: Int? = null,
     val generatedHealthAnalysis: HealthAnalysis? = null,
     val isRolling: Boolean = false,
@@ -154,6 +156,17 @@ class MenuDadoViewModel(
             val notice = it.generatedHealthAnalysis.manualEditNotice()
             it.copy(
                 notes = value,
+                generatedHealthAnalysis = null,
+                message = notice ?: it.message
+            )
+        }
+    }
+
+    fun updateAiBaseIngredients(value: String) {
+        _uiState.update {
+            val notice = it.generatedHealthAnalysis.manualEditNotice()
+            it.copy(
+                aiBaseIngredients = value,
                 generatedHealthAnalysis = null,
                 message = notice ?: it.message
             )
@@ -271,6 +284,17 @@ class MenuDadoViewModel(
         val state = _uiState.value
         val name = state.name.trim()
         val description = state.description.trim()
+        val mealType = state.formMealType
+
+        if (mealType == null) {
+            analytics.trackMenuSaveBlocked(
+                reason = MENU_SAVE_BLOCKED_MISSING_MEAL_TYPE,
+                hasName = name.isNotBlank(),
+                hasDescription = description.isNotBlank()
+            )
+            _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE) }
+            return
+        }
 
         if (name.isBlank() || description.isBlank()) {
             analytics.trackMenuSaveBlocked(
@@ -285,7 +309,7 @@ class MenuDadoViewModel(
         viewModelScope.launch {
             val menu = FoodMenu(
                 name = name,
-                mealType = state.formMealType,
+                mealType = mealType,
                 description = description,
                 notes = state.notes.trim(),
                 healthAnalysis = state.generatedHealthAnalysis,
@@ -312,9 +336,10 @@ class MenuDadoViewModel(
                     name = "",
                     description = "",
                     notes = "",
+                    aiBaseIngredients = "",
                     calories = null,
                     generatedHealthAnalysis = null,
-                    formMealType = MealType.BREAKFAST
+                    formMealType = null
                 )
             }
             hasTrackedMenuFormStarted = false
@@ -322,6 +347,17 @@ class MenuDadoViewModel(
     }
 
     fun generateMenuIdea() {
+        val state = _uiState.value
+        val mealType = state.formMealType
+        if (mealType == null) {
+            _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE) }
+            return
+        }
+        val ingredientConflicts = state.dietaryProfile.findIngredientConflicts(state.aiBaseIngredients)
+        if (ingredientConflicts.isNotEmpty()) {
+            _uiState.update { it.copy(message = ingredientConflicts.toIngredientConflictMessage()) }
+            return
+        }
         val activeRetryAtMillis = activeAiRetryAtMillis()
         if (activeRetryAtMillis != null) {
             showActiveAiRetryNotice(activeRetryAtMillis)
@@ -330,14 +366,17 @@ class MenuDadoViewModel(
         if (!consumeAiDailyUseOrShowNotice(AI_SOURCE_GENERATE_MENU)) {
             return
         }
-        val state = _uiState.value
-        val mealType = state.formMealType
-        val avoidIdeas = state.buildAvoidIdeas()
+        val avoidIdeas = state.buildAvoidIdeas(mealType)
         analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
 
         viewModelScope.launch {
             _uiState.update { it.copy(isGeneratingMenu = true, message = null, aiRetryAtMillis = null) }
-            repository.generateMenu(mealType, avoidIdeas, state.dietaryProfile)
+            repository.generateMenu(
+                mealType = mealType,
+                avoidIdeas = avoidIdeas,
+                dietaryProfile = state.dietaryProfile,
+                baseIngredients = state.aiBaseIngredients.trim()
+            )
                 .onSuccess { generated ->
                     aiQuotaRetryStore.clearRetryState()
                     _uiState.update {
@@ -371,9 +410,9 @@ class MenuDadoViewModel(
         }
     }
 
-    private fun MenuDadoUiState.buildAvoidIdeas(): List<String> {
+    private fun MenuDadoUiState.buildAvoidIdeas(mealType: MealType): List<String> {
         val savedIdeas = menus
-            .filter { it.mealType == formMealType }
+            .filter { it.mealType == mealType }
             .map { "${it.name}: ${it.description}" }
 
         val currentName = name.trim()
@@ -543,9 +582,10 @@ class MenuDadoViewModel(
     }
 
     private fun trackMenuFormStartedIfNeeded(firstEditedField: String, value: String) {
-        if (!hasTrackedMenuFormStarted && value.isNotBlank()) {
+        val mealType = _uiState.value.formMealType
+        if (!hasTrackedMenuFormStarted && value.isNotBlank() && mealType != null) {
             hasTrackedMenuFormStarted = true
-            analytics.trackMenuFormStarted(firstEditedField, _uiState.value.formMealType)
+            analytics.trackMenuFormStarted(firstEditedField, mealType)
         }
     }
 
@@ -773,6 +813,87 @@ private fun String.retryAtMillis(nowMillis: Long): Long? {
     return nowMillis + ((ceil(seconds).toLong() + RETRY_GRACE_SECONDS) * 1000)
 }
 
+private fun DietaryProfile.findIngredientConflicts(input: String): List<String> {
+    if (input.isBlank() || !hasRestrictions) {
+        return emptyList()
+    }
+
+    val ingredients = input.split(',', ';', '\n')
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+
+    return ingredients
+        .filter { ingredient -> ingredient.conflictsWith(this) }
+        .distinctBy { it.normalizedForFoodMatch() }
+}
+
+private fun String.conflictsWith(profile: DietaryProfile): Boolean {
+    val normalized = normalizedForFoodMatch()
+    if (profile.isVegan && normalized.containsAnyFoodTerm(VEGAN_EXCLUDED_TERMS)) {
+        return true
+    }
+    if (profile.hasAllergies && profile.allergens.any { allergen ->
+            normalized.containsAnyFoodTerm(allergen.excludedTerms())
+        }
+    ) {
+        return true
+    }
+
+    return profile.otherAvoidances
+        .split(',', ';', '\n')
+        .map { it.normalizedForFoodMatch() }
+        .filter { it.isNotBlank() }
+        .any { avoidance -> normalized.containsFoodTerm(avoidance) }
+}
+
+private fun List<String>.toIngredientConflictMessage(): String {
+    val ingredients = joinToString(", ")
+    val verb = if (size == 1) "no encaja" else "no encajan"
+    return "Revisa los ingredientes: $ingredients $verb con tu perfil alimentario."
+}
+
+private fun String.normalizedForFoodMatch(): String {
+    return Normalizer.normalize(this, Normalizer.Form.NFD)
+        .replace(Regex("\\p{Mn}+"), "")
+        .lowercase(Locale.ROOT)
+        .trim()
+}
+
+private fun String.containsAnyFoodTerm(terms: Set<String>): Boolean {
+    return terms.any { containsFoodTerm(it) }
+}
+
+private fun String.containsFoodTerm(term: String): Boolean {
+    if (term.isBlank()) return false
+    val normalizedTerm = term.normalizedForFoodMatch()
+    if (normalizedTerm.length <= 3) {
+        return Regex("""(^|[^a-z0-9])${Regex.escape(normalizedTerm)}([^a-z0-9]|$)""")
+            .containsMatchIn(this)
+    }
+    return contains(normalizedTerm)
+}
+
+private fun DietaryAllergen.excludedTerms(): Set<String> {
+    return when (this) {
+        DietaryAllergen.GLUTEN -> setOf("gluten", "trigo", "cebada", "centeno", "harina", "pan", "pasta")
+        DietaryAllergen.DAIRY -> DAIRY_TERMS
+        DietaryAllergen.EGG -> EGG_TERMS
+        DietaryAllergen.TREE_NUTS -> setOf("frutos secos", "almendra", "nuez", "nueces", "avellana", "pistacho", "anacardo")
+        DietaryAllergen.PEANUT -> setOf("cacahuete", "mani")
+        DietaryAllergen.SOY -> setOf("soja", "soya", "tofu", "edamame", "tamari")
+        DietaryAllergen.FISH -> FISH_TERMS
+        DietaryAllergen.SHELLFISH -> SHELLFISH_TERMS
+        DietaryAllergen.SESAME -> setOf("sesamo", "tahini")
+    }
+}
+
+private val DAIRY_TERMS = setOf("lactosa", "lacteo", "lacteos", "leche", "queso", "yogur", "yogurt", "mantequilla", "nata", "crema")
+private val EGG_TERMS = setOf("huevo", "huevos", "tortilla francesa")
+private val FISH_TERMS = setOf("pescado", "atun", "salmon", "merluza", "bacalao", "sardina", "anchoa")
+private val SHELLFISH_TERMS = setOf("marisco", "gamba", "gambas", "langostino", "cangrejo", "mejillon", "almeja")
+private val MEAT_TERMS = setOf("pollo", "ternera", "cerdo", "jamon", "pavo", "carne", "chorizo", "panceta", "bacon")
+private val VEGAN_EXCLUDED_TERMS = DAIRY_TERMS + EGG_TERMS + FISH_TERMS + SHELLFISH_TERMS + MEAT_TERMS + setOf("miel")
+
 private const val RETRY_GRACE_SECONDS = 2L
 private const val AI_DAILY_FREE_REQUEST_LIMIT = 20
 private const val AI_BATCH_ANALYSIS_LIMIT = 5
@@ -786,6 +907,7 @@ private const val FORM_FIELD_DESCRIPTION = "description"
 private const val FORM_FIELD_NOTES = "notes"
 private const val ONBOARDING_ACTION_START = "start"
 private const val ONBOARDING_ACTION_SKIP = "skip"
+private const val MENU_SAVE_BLOCKED_MISSING_MEAL_TYPE = "missing_meal_type"
 private const val MENU_SAVE_BLOCKED_MISSING_REQUIRED_FIELDS = "missing_required_fields"
 private const val AI_FAILURE_QUOTA_REQUESTS = "quota_requests"
 private const val AI_FAILURE_QUOTA_TOKENS = "quota_tokens"
@@ -802,6 +924,7 @@ private const val AI_REQUESTS_PER_MINUTE_MESSAGE = "La IA recibio varias peticio
 private const val AI_TOKENS_PER_MINUTE_MESSAGE = "La idea necesita un descanso antes de procesarse de nuevo. Puedes seguir usando tus menus."
 private const val AI_REQUESTS_PER_DAY_MESSAGE = "La ayuda con IA gratuita de hoy se agoto. Tus menus siguen disponibles y podras volver a probar mas adelante."
 private const val GENERATED_ANALYSIS_MANUAL_EDIT_MESSAGE = "Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA."
+private const val MEAL_TYPE_REQUIRED_MESSAGE = "Selecciona si es desayuno, almuerzo o cena."
 
 private fun AiQuotaLimitType.message(): String {
     return when (this) {

@@ -50,4 +50,18 @@ class MenuGenerationPromptTest {
         assertTrue(prompt.contains("picante"))
         assertTrue(prompt.contains("no incluyas"))
     }
+
+    @Test
+    fun `prompt asks to use base ingredients when provided`() {
+        val prompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList(),
+            dietaryProfile = DietaryProfile(),
+            baseIngredients = "berenjena, tomate"
+        ).lowercase()
+
+        assertTrue(prompt.contains("ingredientes base"))
+        assertTrue(prompt.contains("berenjena, tomate"))
+        assertTrue(prompt.contains("debe usar esos ingredientes"))
+    }
 }

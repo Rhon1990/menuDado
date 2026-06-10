@@ -7,7 +7,8 @@ internal object MenuGenerationPrompt {
     fun build(
         mealType: MealType,
         avoidIdeas: List<String>,
-        dietaryProfile: DietaryProfile = DietaryProfile()
+        dietaryProfile: DietaryProfile = DietaryProfile(),
+        baseIngredients: String = ""
     ): String {
         val guidance = mealType.generationGuidance()
         val avoidBlock = if (avoidIdeas.isEmpty()) {
@@ -16,6 +17,7 @@ internal object MenuGenerationPrompt {
             avoidIdeas.joinToString(separator = "\n") { "- $it" }
         }
         val dietaryProfileBlock = dietaryProfile.toPromptBlock()
+        val baseIngredientsBlock = baseIngredients.toBaseIngredientsPromptBlock()
 
         return """
             ${guidance.opening}
@@ -24,6 +26,7 @@ internal object MenuGenerationPrompt {
             ${guidance.exclusionRule}
             ${guidance.effortRule.orEmpty()}
             $dietaryProfileBlock
+            $baseIngredientsBlock
             Debe ser saludable, rica, simple y con ingredientes comunes de supermercado.
             Evita productos raros, caros o dificiles de conseguir.
             Debe ser claramente distinta de los platos previos listados abajo:
@@ -41,6 +44,18 @@ internal object MenuGenerationPrompt {
               "health_suggestion": "una sugerencia practica para mejorarlo o mantenerlo"
             }
             Las calorias deben ser una estimacion numerica realista para una racion adulta.
+        """.trimIndent()
+    }
+
+    private fun String.toBaseIngredientsPromptBlock(): String {
+        val ingredients = trim()
+        if (ingredients.isBlank()) {
+            return "No hay ingredientes base solicitados por el usuario."
+        }
+
+        return """
+            Ingredientes base solicitados por el usuario: $ingredients.
+            Debe usar esos ingredientes como base principal, sin anadir ingredientes que contradigan el perfil alimentario.
         """.trimIndent()
     }
 
