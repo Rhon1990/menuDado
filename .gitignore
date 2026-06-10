@@ -2,15 +2,20 @@
 
 # Local IDE and machine files
 local.properties
-.idea/caches/
-.idea/workspace.xml
-.idea/tasks.xml
+.idea/
+*.iml
+*.iws
+*.ipr
 
 # Gradle and Android build outputs
 .gradle/
 .kotlin/
+/build/
 **/build/
 **/release/
+.externalNativeBuild/
+.cxx/
+captures/
 
 # Signing material and generated packages
 key/
