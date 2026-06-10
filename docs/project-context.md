@@ -163,6 +163,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Application ID: `com.menudado`.
 - Nombre visible de la app: `MenuDado`.
 - Version visible: `1.0.0`.
+- Recursos públicos para tienda: GitHub Pages desde `docs/`, con política de privacidad en `https://rhon1990.github.io/menuDado/privacy-policy/`.
 
 ## Principios de UX
 

@@ -2,6 +2,11 @@
 
 MenuDado es una app Android nativa en Kotlin para guardar menús locales, analizar si son saludables con IA y elegir qué comer con un dado animado.
 
+## Recursos públicos
+
+- [Política de Privacidad](docs/privacy-policy.md)
+- GitHub Pages: `https://rhon1990.github.io/menuDado/privacy-policy/`
+
 ## Qué incluye
 
 - App Android nativa con Jetpack Compose.
