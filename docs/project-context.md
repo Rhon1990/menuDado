@@ -146,7 +146,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - La sección explica que MenuDado se hizo para ayudar cuando el usuario no sabe qué comer, permitiendo guardar menús, elegir con el dado y apoyarse con IA.
    - Muestra como creador a `Rhonal A. Delgado Padilla`.
    - Muestra el contacto `rhonal.delgado@gmail.com`.
-   - Muestra al final la versión visible `Version 1.0.0` en texto pequeño.
+   - Muestra al final la versión visible de la app desde `BuildConfig.VERSION_NAME` en texto pequeño.
 
 ## Dirección Técnica
 
@@ -175,7 +175,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Package/namespace Android: `com.menudado`.
 - Application ID: `com.menudado`.
 - Nombre visible de la app: `MenuDado`.
-- Version visible: `1.0.0`.
+- Version visible: sincronizada con `versionName` del build Android.
 - Recursos públicos para tienda: GitHub Pages desde `docs/`, con política de privacidad en `https://rhon1990.github.io/menuDado/privacy-policy/`.
 
 ## Principios de UX

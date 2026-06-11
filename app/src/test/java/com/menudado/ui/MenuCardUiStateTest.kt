@@ -1,6 +1,7 @@
 package com.menudado.ui
 
 import com.menudado.R
+import com.menudado.BuildConfig
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
@@ -143,7 +144,7 @@ class MenuCardUiStateTest {
         assertEquals("Acerca de la app", info.title)
         assertEquals("Rhonal A. Delgado Padilla", info.creator)
         assertEquals("rhonal.delgado@gmail.com", info.contact)
-        assertEquals("Version 1.0.0", info.version)
+        assertEquals("Version ${BuildConfig.VERSION_NAME}", info.version)
         assertEquals(true, info.reason.contains("no sabes que comer"))
     }
 }

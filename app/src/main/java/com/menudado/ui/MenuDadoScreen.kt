@@ -2,6 +2,7 @@ package com.menudado.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import android.graphics.Paint as AndroidPaint
+import com.menudado.BuildConfig
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -473,7 +474,7 @@ internal fun aboutAppInfo(): AboutAppInfo = AboutAppInfo(
     reason = "MenuDado se hizo para ayudar en esos momentos en los que no sabes que comer. La app te permite guardar tus menus, elegir una opcion con el dado y apoyarte con IA para encontrar ideas mas saludables sin complicarte.",
     creator = "Rhonal A. Delgado Padilla",
     contact = "rhonal.delgado@gmail.com",
-    version = "Version 1.0.0"
+    version = "Version ${BuildConfig.VERSION_NAME}"
 )
 
 @Composable
