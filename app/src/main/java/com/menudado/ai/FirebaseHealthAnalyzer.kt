@@ -11,6 +11,7 @@ import com.menudado.domain.GeneratedMenu
 import com.menudado.domain.GeneratedMenuParser
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthAnalysisParser
+import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import com.menudado.domain.isAiQuotaExceeded
 
@@ -43,6 +44,7 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
         mealType: MealType,
         avoidIdeas: List<String>,
         dietaryProfile: DietaryProfile,
+        audience: MenuAudience,
         baseIngredients: String
     ): Result<GeneratedMenu> {
         return runCatching {
@@ -50,7 +52,7 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
                 .generativeModel(BuildConfig.GEMINI_MODEL)
 
             val response = model.generateContent(
-                MenuGenerationPrompt.build(mealType, avoidIdeas, dietaryProfile, baseIngredients)
+                MenuGenerationPrompt.build(mealType, avoidIdeas, dietaryProfile, audience, baseIngredients)
             )
             GeneratedMenuParser.parse(response.text.orEmpty())
         }.onFailure { error ->
@@ -71,7 +73,7 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
 
     private fun FoodMenu.toPrompt(): String {
         return """
-            Evalua si este menu es saludable para una persona adulta promedio.
+            Evalua si este menu es saludable para: ${audience.promptName()}.
             Responde solo JSON valido, sin markdown, con estas claves:
             {
               "status": "saludable|intermedio|no_saludable",
@@ -79,9 +81,10 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
               "suggestion": "una sugerencia practica en espanol",
               "calories": 520
             }
-            Las calorias deben ser una estimacion numerica realista para una racion adulta.
+            Las calorias deben ser una estimacion numerica realista para una racion adecuada a ese publico.
 
             Tipo de comida: ${mealType.label}
+            Publico: ${audience.label}
             Nombre: $name
             Ingredientes o descripcion: $description
             Notas: $notes
@@ -94,6 +97,7 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
             {
               "id": ${menu.id},
               "meal_type": "${menu.mealType.label}",
+              "audience": "${menu.audience.label}",
               "name": "${menu.name.promptSafe()}",
               "description": "${menu.description.promptSafe()}",
               "notes": "${menu.notes.promptSafe()}"
@@ -102,7 +106,7 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
         }
 
         return """
-            Evalua si estos menus son saludables para una persona adulta promedio.
+            Evalua si estos menus son saludables para el publico indicado en cada elemento.
             Responde solo JSON valido, sin markdown, con esta estructura:
             {
               "results": [
@@ -116,7 +120,7 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
               ]
             }
             Devuelve un resultado por cada menu recibido y conserva exactamente el mismo id.
-            Las calorias deben ser una estimacion numerica realista para una racion adulta.
+            Las calorias deben ser una estimacion numerica realista para una racion adecuada al publico indicado.
 
             Menus:
             [
@@ -130,6 +134,14 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
             .replace("\"", "\\\"")
             .replace("\n", "\\n")
             .replace("\r", "")
+    }
+
+    private fun MenuAudience.promptName(): String {
+        return when (this) {
+            MenuAudience.ADULT -> "una persona adulta promedio"
+            MenuAudience.CHILD -> "un niño o niña"
+            MenuAudience.BABY -> "un bebé que ya toma alimentacion complementaria, aproximadamente desde los 6 meses"
+        }
     }
 
     private companion object {

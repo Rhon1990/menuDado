@@ -24,6 +24,7 @@ import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthAnalysis
+import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import com.menudado.domain.AiQuotaLimitType
 import com.menudado.domain.classifyAiQuotaLimitType
@@ -46,12 +47,15 @@ import kotlin.math.ceil
 data class MenuDadoUiState(
     val menus: List<FoodMenu> = emptyList(),
     val diceFilter: MealType? = null,
+    val diceAudienceFilter: MenuAudience? = null,
     val editingMenuId: Long? = null,
     val editMealType: MealType? = null,
+    val editAudience: MenuAudience? = null,
     val editName: String = "",
     val editDescription: String = "",
     val editNotes: String = "",
     val formMealType: MealType? = null,
+    val formAudience: MenuAudience? = null,
     val name: String = "",
     val description: String = "",
     val notes: String = "",
@@ -66,6 +70,9 @@ data class MenuDadoUiState(
     val aiRetryAtMillis: Long? = null,
     val isAiRetryNoticeVisible: Boolean = false,
     val aiUsesRemainingToday: Int = AI_DAILY_FREE_REQUEST_LIMIT,
+    val enabledAudiences: List<MenuAudience> = MenuAudience.entries,
+    val audienceAgeRanges: Map<MenuAudience, String> = MenuAudience.entries.associateWith { it.defaultAgeRange },
+    val dietaryProfileAudience: MenuAudience = MenuAudience.ADULT,
     val dietaryProfile: DietaryProfile = DietaryProfile(),
     val showOnboarding: Boolean = false
 )
@@ -80,7 +87,13 @@ class MenuDadoViewModel(
     private val dietaryProfileStore: DietaryProfileStore = NoOpDietaryProfileStore,
     private val onboardingStore: OnboardingStore = NoOpOnboardingStore
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(MenuDadoUiState())
+    private val suggestedMealType = suggestedMealTypeForDeviceTime(clockMillisProvider())
+    private val _uiState = MutableStateFlow(
+        MenuDadoUiState(
+            diceFilter = suggestedMealType,
+            formMealType = suggestedMealType
+        )
+    )
     val uiState: StateFlow<MenuDadoUiState> = _uiState.asStateFlow()
     private var aiRetryRefreshJob: Job? = null
     private var hasTrackedMenuFormStarted = false
@@ -102,6 +115,16 @@ class MenuDadoViewModel(
         _uiState.update { it.copy(diceFilter = filter) }
     }
 
+    fun setDiceAudienceFilter(filter: MenuAudience?) {
+        _uiState.update {
+            if (filter != null && filter !in it.enabledAudiences) {
+                it
+            } else {
+                it.copy(diceAudienceFilter = filter)
+            }
+        }
+    }
+
     fun completeOnboarding() {
         completeOnboarding(ONBOARDING_ACTION_START)
     }
@@ -115,7 +138,7 @@ class MenuDadoViewModel(
     }
 
     private fun completeOnboarding(action: String) {
-        onboardingStore.markOnboardingCompleted()
+        onboardingStore.markOnboardingCompleted(CURRENT_ONBOARDING_VERSION)
         analytics.trackOnboardingCompleted(action)
         _uiState.update { it.copy(showOnboarding = false) }
     }
@@ -126,6 +149,21 @@ class MenuDadoViewModel(
             val notice = it.generatedHealthAnalysis.manualEditNotice()
             it.copy(
                 formMealType = mealType,
+                generatedHealthAnalysis = null,
+                message = notice ?: it.message,
+                isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
+            )
+        }
+    }
+
+    fun setFormAudience(audience: MenuAudience) {
+        _uiState.update {
+            if (audience !in it.enabledAudiences) {
+                return@update it
+            }
+            val notice = it.generatedHealthAnalysis.manualEditNotice()
+            it.copy(
+                formAudience = audience,
                 generatedHealthAnalysis = null,
                 message = notice ?: it.message,
                 isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
@@ -185,11 +223,50 @@ class MenuDadoViewModel(
     }
 
     fun setDietaryProfileVegan(isVegan: Boolean) {
-        updateDietaryProfile { it.copy(isVegan = isVegan) }
+        updateActiveDietaryProfile { it.copy(isVegan = isVegan) }
+    }
+
+    fun setDietaryProfileAudience(audience: MenuAudience) {
+        _uiState.update {
+            it.copy(
+                dietaryProfileAudience = audience,
+                dietaryProfile = dietaryProfileStore.getProfile(audience),
+                enabledAudiences = loadEnabledAudiences(),
+                audienceAgeRanges = loadAudienceAgeRanges()
+            )
+        }
+    }
+
+    fun setDietaryProfileAudienceEnabled(isEnabled: Boolean) {
+        val state = _uiState.value
+        if (!isEnabled && state.dietaryProfile.isEnabled && state.enabledAudiences.size <= 1) {
+            return
+        }
+        val updated = state.dietaryProfile.copy(isEnabled = isEnabled)
+        dietaryProfileStore.saveProfile(updated, state.dietaryProfileAudience)
+        val enabledAudiences = loadEnabledAudiences()
+        val defaultAudience = enabledAudiences.singleOrNull()
+        _uiState.update {
+            it.copy(
+                dietaryProfile = updated,
+                enabledAudiences = enabledAudiences,
+                audienceAgeRanges = loadAudienceAgeRanges(),
+                formAudience = defaultAudience,
+                diceAudienceFilter = defaultAudience
+            )
+        }
+    }
+
+    fun updateDietaryProfileAgeRange(ageRange: String) {
+        updateDietaryProfile { it.copy(ageRange = ageRange) }
+    }
+
+    fun setDietaryProfilePregnant(isPregnant: Boolean) {
+        updateActiveDietaryProfile { it.copy(isPregnant = isPregnant) }
     }
 
     fun setDietaryProfileHasAllergies(hasAllergies: Boolean) {
-        updateDietaryProfile {
+        updateActiveDietaryProfile {
             it.copy(
                 hasAllergies = hasAllergies,
                 allergens = if (hasAllergies) it.allergens else emptySet()
@@ -198,7 +275,7 @@ class MenuDadoViewModel(
     }
 
     fun toggleDietaryAllergen(allergen: DietaryAllergen) {
-        updateDietaryProfile { profile ->
+        updateActiveDietaryProfile { profile ->
             val allergens = if (allergen in profile.allergens) {
                 profile.allergens - allergen
             } else {
@@ -209,7 +286,7 @@ class MenuDadoViewModel(
     }
 
     fun updateDietaryProfileOtherAvoidances(value: String) {
-        updateDietaryProfile { it.copy(otherAvoidances = value) }
+        updateActiveDietaryProfile { it.copy(otherAvoidances = value) }
     }
 
     fun clearMessage() {
@@ -234,6 +311,7 @@ class MenuDadoViewModel(
             it.copy(
                 editingMenuId = menu.id,
                 editMealType = menu.mealType,
+                editAudience = menu.audience,
                 editName = menu.name,
                 editDescription = menu.description,
                 editNotes = menu.notes,
@@ -249,6 +327,10 @@ class MenuDadoViewModel(
 
     fun setEditMealType(mealType: MealType) {
         _uiState.update { it.copy(editMealType = mealType) }
+    }
+
+    fun setEditAudience(audience: MenuAudience) {
+        _uiState.update { it.copy(editAudience = audience) }
     }
 
     fun updateEditName(value: String) {
@@ -270,37 +352,48 @@ class MenuDadoViewModel(
             _uiState.update { it.copy(message = DICE_FILTER_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
             return
         }
+        if (state.diceAudienceFilter == null) {
+            _uiState.update { it.copy(message = AUDIENCE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            return
+        }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isRolling = true, result = null, message = null, isAiRetryNoticeVisible = false) }
             delay(850)
             val today = todayProvider()
             val currentState = _uiState.value
-            val hasCandidates = DiceSelector.hasCandidates(currentState.menus, currentState.diceFilter)
+            val hasCandidates = DiceSelector.hasCandidates(
+                currentState.menus,
+                currentState.diceFilter,
+                currentState.diceAudienceFilter
+            )
             val availableCandidateCountBeforeReset = DiceSelector.availableCandidateCount(
                 menus = currentState.menus,
                 filter = currentState.diceFilter,
+                audienceFilter = currentState.diceAudienceFilter,
                 today = today
             )
             var selected = DiceSelector.select(
                 menus = currentState.menus,
                 filter = currentState.diceFilter,
+                audienceFilter = currentState.diceAudienceFilter,
                 today = today
             )
             if (selected == null && hasCandidates) {
                 val resetMenus = currentState.menus.map { menu ->
-                    if (menu.matchesDiceFilter(currentState.diceFilter)) {
+                    if (menu.matchesDiceFilters(currentState.diceFilter, currentState.diceAudienceFilter)) {
                         menu.copy(lastPickedDate = null)
                     } else {
                         menu
                     }
                 }
                 resetMenus
-                    .filter { it.matchesDiceFilter(currentState.diceFilter) }
+                    .filter { it.matchesDiceFilters(currentState.diceFilter, currentState.diceAudienceFilter) }
                     .forEach { repository.save(it) }
                 selected = DiceSelector.select(
                     menus = resetMenus,
                     filter = currentState.diceFilter,
+                    audienceFilter = currentState.diceAudienceFilter,
                     today = today
                 )
             }
@@ -335,6 +428,7 @@ class MenuDadoViewModel(
         val name = state.name.trim()
         val description = state.description.trim()
         val mealType = state.formMealType
+        val audience = state.formAudience
 
         if (mealType == null) {
             analytics.trackMenuSaveBlocked(
@@ -343,6 +437,11 @@ class MenuDadoViewModel(
                 hasDescription = description.isNotBlank()
             )
             _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            return
+        }
+
+        if (audience == null) {
+            _uiState.update { it.copy(message = AUDIENCE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
             return
         }
 
@@ -365,6 +464,7 @@ class MenuDadoViewModel(
             val menu = FoodMenu(
                 name = name,
                 mealType = mealType,
+                audience = audience,
                 description = description,
                 notes = state.notes.trim(),
                 healthAnalysis = state.generatedHealthAnalysis,
@@ -402,9 +502,15 @@ class MenuDadoViewModel(
         val description = state.editDescription.trim()
         val notes = state.editNotes.trim()
         val mealType = state.editMealType
+        val audience = state.editAudience
 
         if (mealType == null) {
             _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            return
+        }
+
+        if (audience == null) {
+            _uiState.update { it.copy(message = AUDIENCE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
             return
         }
 
@@ -422,6 +528,7 @@ class MenuDadoViewModel(
             val changedExistingMenu = existingMenu.hasEditableChanges(
                 name = name,
                 mealType = mealType,
+                audience = audience,
                 description = description,
                 notes = notes
             )
@@ -454,11 +561,17 @@ class MenuDadoViewModel(
     fun generateMenuIdea() {
         val state = _uiState.value
         val mealType = state.formMealType
+        val audience = state.formAudience
         if (mealType == null) {
             _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
             return
         }
-        val ingredientConflicts = state.dietaryProfile.findIngredientConflicts(state.aiBaseIngredients)
+        if (audience == null) {
+            _uiState.update { it.copy(message = AUDIENCE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            return
+        }
+        val profile = dietaryProfileStore.getProfile(audience)
+        val ingredientConflicts = profile.findIngredientConflicts(state.aiBaseIngredients)
         if (ingredientConflicts.isNotEmpty()) {
             _uiState.update {
                 it.copy(
@@ -476,7 +589,7 @@ class MenuDadoViewModel(
         if (!consumeAiDailyUseOrShowNotice(AI_SOURCE_GENERATE_MENU)) {
             return
         }
-        val avoidIdeas = state.buildAvoidIdeas(mealType)
+        val avoidIdeas = state.buildAvoidIdeas(mealType, audience)
         analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
 
         viewModelScope.launch {
@@ -491,7 +604,8 @@ class MenuDadoViewModel(
             repository.generateMenu(
                 mealType = mealType,
                 avoidIdeas = avoidIdeas,
-                dietaryProfile = state.dietaryProfile,
+                dietaryProfile = profile,
+                audience = audience,
                 baseIngredients = state.aiBaseIngredients.trim()
             )
                 .onSuccess { generated ->
@@ -528,9 +642,9 @@ class MenuDadoViewModel(
         }
     }
 
-    private fun MenuDadoUiState.buildAvoidIdeas(mealType: MealType): List<String> {
+    private fun MenuDadoUiState.buildAvoidIdeas(mealType: MealType, audience: MenuAudience): List<String> {
         val savedIdeas = menus
-            .filter { it.mealType == mealType }
+            .filter { it.mealType == mealType && it.audience == audience }
             .map { "${it.name}: ${it.description}" }
 
         val currentName = name.trim()
@@ -547,11 +661,20 @@ class MenuDadoViewModel(
     }
 
     private fun refreshDietaryProfile() {
-        _uiState.update { it.copy(dietaryProfile = dietaryProfileStore.getProfile()) }
+        val enabledAudiences = loadEnabledAudiences()
+        _uiState.update {
+            it.copy(
+                dietaryProfile = dietaryProfileStore.getProfile(it.dietaryProfileAudience),
+                enabledAudiences = enabledAudiences,
+                audienceAgeRanges = loadAudienceAgeRanges(),
+                formAudience = it.formAudience.selectedOrSingleDefault(enabledAudiences),
+                diceAudienceFilter = it.diceAudienceFilter.selectedOrSingleDefault(enabledAudiences)
+            )
+        }
     }
 
     private fun refreshOnboarding() {
-        val shouldShowOnboarding = !onboardingStore.isOnboardingCompleted()
+        val shouldShowOnboarding = !onboardingStore.isOnboardingCompleted(CURRENT_ONBOARDING_VERSION)
         _uiState.update { it.copy(showOnboarding = shouldShowOnboarding) }
         if (shouldShowOnboarding) {
             analytics.trackOnboardingShown()
@@ -559,9 +682,42 @@ class MenuDadoViewModel(
     }
 
     private fun updateDietaryProfile(transform: (DietaryProfile) -> DietaryProfile) {
-        val updated = transform(_uiState.value.dietaryProfile)
-        dietaryProfileStore.saveProfile(updated)
-        _uiState.update { it.copy(dietaryProfile = updated) }
+        val state = _uiState.value
+        val updated = transform(state.dietaryProfile)
+        dietaryProfileStore.saveProfile(updated, state.dietaryProfileAudience)
+        val enabledAudiences = loadEnabledAudiences()
+        _uiState.update {
+            it.copy(
+                dietaryProfile = updated,
+                enabledAudiences = enabledAudiences,
+                audienceAgeRanges = loadAudienceAgeRanges(),
+                formAudience = it.formAudience.selectedOrSingleDefault(enabledAudiences),
+                diceAudienceFilter = it.diceAudienceFilter.selectedOrSingleDefault(enabledAudiences)
+            )
+        }
+    }
+
+    private fun updateActiveDietaryProfile(transform: (DietaryProfile) -> DietaryProfile) {
+        if (!_uiState.value.dietaryProfile.isEnabled) {
+            return
+        }
+        updateDietaryProfile(transform)
+    }
+
+    private fun loadEnabledAudiences(): List<MenuAudience> {
+        return MenuAudience.entries.filter { audience ->
+            dietaryProfileStore.getProfile(audience).isEnabled
+        }
+    }
+
+    private fun loadAudienceAgeRanges(): Map<MenuAudience, String> {
+        return MenuAudience.entries.associateWith { audience ->
+            dietaryProfileStore.getProfile(audience).ageRange.ifBlank { audience.defaultAgeRange }
+        }
+    }
+
+    private fun MenuAudience?.selectedOrSingleDefault(enabledAudiences: List<MenuAudience>): MenuAudience? {
+        return takeIf { it in enabledAudiences } ?: enabledAudiences.singleOrNull()
     }
 
     private fun HealthAnalysis?.manualEditNotice(): String? {
@@ -734,11 +890,13 @@ class MenuDadoViewModel(
     private fun FoodMenu.hasEditableChanges(
         name: String,
         mealType: MealType,
+        audience: MenuAudience,
         description: String,
         notes: String
     ): Boolean {
         return this.name != name ||
             this.mealType != mealType ||
+            this.audience != audience ||
             this.description != description ||
             this.notes != notes
     }
@@ -752,7 +910,8 @@ class MenuDadoViewModel(
                 aiBaseIngredients = "",
                 calories = null,
                 generatedHealthAnalysis = null,
-                formMealType = null
+                formMealType = suggestedMealTypeForDeviceTime(clockMillisProvider()),
+                formAudience = null
             )
         }
     }
@@ -762,6 +921,7 @@ class MenuDadoViewModel(
             it.copy(
                 editingMenuId = null,
                 editMealType = null,
+                editAudience = null,
                 editName = "",
                 editDescription = "",
                 editNotes = ""
@@ -769,8 +929,9 @@ class MenuDadoViewModel(
         }
     }
 
-    private fun FoodMenu.matchesDiceFilter(filter: MealType?): Boolean {
-        return filter == null || mealType == filter
+    private fun FoodMenu.matchesDiceFilters(mealTypeFilter: MealType?, audienceFilter: MenuAudience?): Boolean {
+        return (mealTypeFilter == null || mealType == mealTypeFilter) &&
+            (audienceFilter == null || audience == audienceFilter)
     }
 
     private fun refreshStoredAiRetry() {
@@ -1087,6 +1248,7 @@ private const val FORM_FIELD_DESCRIPTION = "description"
 private const val FORM_FIELD_NOTES = "notes"
 private const val ONBOARDING_ACTION_START = "start"
 private const val ONBOARDING_ACTION_SKIP = "skip"
+private const val CURRENT_ONBOARDING_VERSION = 2
 private const val MENU_SAVE_BLOCKED_MISSING_MEAL_TYPE = "missing_meal_type"
 private const val MENU_SAVE_BLOCKED_MISSING_REQUIRED_FIELDS = "missing_required_fields"
 private const val AI_FAILURE_QUOTA_REQUESTS = "quota_requests"
@@ -1106,6 +1268,7 @@ private const val AI_REQUESTS_PER_DAY_MESSAGE = "La ayuda con IA gratuita de hoy
 private const val GENERATED_ANALYSIS_MANUAL_EDIT_MESSAGE = "Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA."
 private const val MEAL_TYPE_REQUIRED_MESSAGE = "Selecciona si es desayuno, almuerzo o cena."
 private const val DICE_FILTER_REQUIRED_MESSAGE = "Primero escoge desayuno, almuerzo o cena."
+private const val AUDIENCE_REQUIRED_MESSAGE = "Selecciona si el menu es para adulto, niño o bebe."
 
 private fun AiQuotaLimitType.message(): String {
     return when (this) {
@@ -1122,6 +1285,18 @@ private fun quotaBackoffMillis(consecutiveFailures: Int): Long {
     }
     val multiplier = 1L shl (consecutiveFailures - 2).coerceAtMost(10)
     return (SECOND_QUOTA_BACKOFF_MILLIS * multiplier).coerceAtMost(MAX_QUOTA_BACKOFF_MILLIS)
+}
+
+private fun suggestedMealTypeForDeviceTime(nowMillis: Long): MealType {
+    val hour = Calendar.getInstance().apply {
+        timeInMillis = nowMillis
+    }.get(Calendar.HOUR_OF_DAY)
+
+    return when (hour) {
+        in 5..10 -> MealType.BREAKFAST
+        in 11..16 -> MealType.LUNCH
+        else -> MealType.DINNER
+    }
 }
 
 private fun nextPacificMidnightMillis(nowMillis: Long): Long {

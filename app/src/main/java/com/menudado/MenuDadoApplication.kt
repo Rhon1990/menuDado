@@ -27,13 +27,19 @@ class MenuDadoApplication : Application() {
         }
     }
 
+    private val migration2To3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE menus ADD COLUMN audience TEXT NOT NULL DEFAULT 'ADULT'")
+        }
+    }
+
     private val database: MenuDadoDatabase by lazy {
         Room.databaseBuilder(
             applicationContext,
             MenuDadoDatabase::class.java,
             "menu-dado.db"
         )
-            .addMigrations(migration1To2)
+            .addMigrations(migration1To2, migration2To3)
             .build()
     }
 

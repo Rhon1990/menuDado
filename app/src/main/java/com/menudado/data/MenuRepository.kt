@@ -6,6 +6,7 @@ import com.menudado.domain.GeneratedMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.MealType
 import com.menudado.domain.DietaryProfile
+import com.menudado.domain.MenuAudience
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -40,8 +41,9 @@ class MenuRepository(
         mealType: MealType,
         avoidIdeas: List<String>,
         dietaryProfile: DietaryProfile,
+        audience: MenuAudience,
         baseIngredients: String
     ): Result<GeneratedMenu> {
-        return healthAnalyzer.generateMenu(mealType, avoidIdeas, dietaryProfile, baseIngredients)
+        return healthAnalyzer.generateMenu(mealType, avoidIdeas, dietaryProfile, audience, baseIngredients)
     }
 }

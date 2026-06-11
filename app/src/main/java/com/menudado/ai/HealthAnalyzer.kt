@@ -5,6 +5,7 @@ import com.menudado.domain.GeneratedMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.MealType
 import com.menudado.domain.DietaryProfile
+import com.menudado.domain.MenuAudience
 
 interface HealthAnalyzer {
     suspend fun analyze(menu: FoodMenu): Result<HealthAnalysis>
@@ -13,6 +14,7 @@ interface HealthAnalyzer {
         mealType: MealType,
         avoidIdeas: List<String>,
         dietaryProfile: DietaryProfile,
+        audience: MenuAudience,
         baseIngredients: String
     ): Result<GeneratedMenu>
 }

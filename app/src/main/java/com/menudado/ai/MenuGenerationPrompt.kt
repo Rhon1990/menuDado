@@ -1,6 +1,7 @@
 package com.menudado.ai
 
 import com.menudado.domain.DietaryProfile
+import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 
 internal object MenuGenerationPrompt {
@@ -8,9 +9,11 @@ internal object MenuGenerationPrompt {
         mealType: MealType,
         avoidIdeas: List<String>,
         dietaryProfile: DietaryProfile = DietaryProfile(),
+        audience: MenuAudience = MenuAudience.ADULT,
         baseIngredients: String = ""
     ): String {
         val guidance = mealType.generationGuidance()
+        val audienceGuidance = audience.generationGuidance(dietaryProfile.ageRange)
         val avoidBlock = if (avoidIdeas.isEmpty()) {
             "No hay platos previos que evitar."
         } else {
@@ -22,9 +25,11 @@ internal object MenuGenerationPrompt {
         return """
             ${guidance.opening}
             Tipo seleccionado en la app: ${mealType.label}.
+            Publico seleccionado en la app: ${audience.label}.
             ${guidance.fitRule}
             ${guidance.exclusionRule}
             ${guidance.effortRule.orEmpty()}
+            ${audienceGuidance}
             $dietaryProfileBlock
             $baseIngredientsBlock
             Debe ser saludable, rica, simple y con ingredientes comunes de supermercado.
@@ -33,6 +38,7 @@ internal object MenuGenerationPrompt {
             $avoidBlock
             No repitas el mismo plato, ni una variante demasiado parecida.
             Cambia la base principal, la proteina principal, la preparacion y el estilo cuando sea posible.
+            La evaluacion saludable debe ser breve, practica y sin tono de juicio.
             Responde solo JSON valido, sin markdown, con estas claves:
             {
               "name": "nombre breve del plato en espanol",
@@ -43,7 +49,7 @@ internal object MenuGenerationPrompt {
               "health_reason": "resumen breve de por que tiene ese estado",
               "health_suggestion": "una sugerencia practica para mejorarlo o mantenerlo"
             }
-            Las calorias deben ser una estimacion numerica realista para una racion adulta.
+            Las calorias deben ser una estimacion numerica realista para una racion adecuada al publico seleccionado.
         """.trimIndent()
     }
 
@@ -65,6 +71,9 @@ internal object MenuGenerationPrompt {
         }
 
         val rules = mutableListOf("Perfil alimentario del usuario:")
+        if (isPregnant) {
+            rules += "La receta debe ser adecuada para una persona embarazada, cuidando especialmente la seguridad alimentaria: evita alcohol, ingredientes crudos o poco cocinados, lacteos no pasteurizados y pescados de alto mercurio."
+        }
         if (isVegan) {
             rules += "La receta debe ser vegana y sin ingredientes de origen animal."
         }
@@ -73,7 +82,7 @@ internal object MenuGenerationPrompt {
             rules += "No incluyas estos alergenos ni ingredientes que los contengan: $allergenNames."
         }
         if (otherAvoidances.isNotBlank()) {
-            rules += "No incluyas tambien estos alimentos indicados por el usuario: ${otherAvoidances.trim()}."
+            rules += "Ten en cuenta estos alimentos a evitar o condiciones de salud indicadas por el usuario: ${otherAvoidances.trim()}. Si son condiciones de salud como diabetes o hipertension, ajusta el menu de forma prudente y sin dar consejos medicos."
         }
         rules += "Respeta estas restricciones por seguridad alimentaria."
         return rules.joinToString(separator = "\n")
@@ -97,6 +106,15 @@ internal object MenuGenerationPrompt {
                 exclusionRule = "No generes almuerzos, comidas de mediodia ni platos pensados como menu de almuerzo; no uses la palabra almuerzo en la receta.",
                 effortRule = "Para cenas usa maximo 10 minutos, maximo 5 ingredientes principales y una preparacion similar de sencilla que un desayuno. Evita horno, asados, guarniciones multiples y preparaciones con varios pasos."
             )
+        }
+    }
+
+    private fun MenuAudience.generationGuidance(ageRange: String): String {
+        val range = ageRange.trim().ifBlank { defaultAgeRange }
+        return when (this) {
+            MenuAudience.ADULT -> "La receta debe estar pensada para una persona adulta en este rango de edad: $range."
+            MenuAudience.CHILD -> "La receta debe estar pensada para un niño o niña en este rango de edad: $range. Usa porcion moderada, sabor familiar, baja en sal y sin riesgos obvios de atragantamiento."
+            MenuAudience.BABY -> "La receta debe estar pensada para un bebe en este rango de edad: $range, que ya toma alimentacion complementaria. Debe tener textura blanda o triturable, sin miel, sin sal anadida, sin azucar anadida, sin piezas duras o redondas, sin frutos secos enteros, palomitas, uvas enteras ni otros riesgos de atragantamiento. Si el plato no es apropiado para bebe, adapta la idea a una version segura."
         }
     }
 }

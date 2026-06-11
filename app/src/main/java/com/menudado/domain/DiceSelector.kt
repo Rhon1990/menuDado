@@ -6,13 +6,13 @@ object DiceSelector {
     fun select(
         menus: List<FoodMenu>,
         filter: MealType?,
+        audienceFilter: MenuAudience? = null,
         today: String? = null,
         nextIndex: (bound: Int) -> Int = { bound -> Random.nextInt(bound) }
     ): FoodMenu? {
-        val candidates = if (filter == null) {
-            menus
-        } else {
-            menus.filter { it.mealType == filter }
+        val candidates = menus.filter { menu ->
+            (filter == null || menu.mealType == filter) &&
+                (audienceFilter == null || menu.audience == audienceFilter)
         }
 
         val availableCandidates = if (today == null) {
@@ -26,19 +26,22 @@ object DiceSelector {
         return availableCandidates[nextIndex(availableCandidates.size)]
     }
 
-    fun hasCandidates(menus: List<FoodMenu>, filter: MealType?): Boolean {
-        return if (filter == null) {
-            menus.isNotEmpty()
-        } else {
-            menus.any { it.mealType == filter }
+    fun hasCandidates(menus: List<FoodMenu>, filter: MealType?, audienceFilter: MenuAudience? = null): Boolean {
+        return menus.any { menu ->
+            (filter == null || menu.mealType == filter) &&
+                (audienceFilter == null || menu.audience == audienceFilter)
         }
     }
 
-    fun availableCandidateCount(menus: List<FoodMenu>, filter: MealType?, today: String? = null): Int {
-        val candidates = if (filter == null) {
-            menus
-        } else {
-            menus.filter { it.mealType == filter }
+    fun availableCandidateCount(
+        menus: List<FoodMenu>,
+        filter: MealType?,
+        audienceFilter: MenuAudience? = null,
+        today: String? = null
+    ): Int {
+        val candidates = menus.filter { menu ->
+            (filter == null || menu.mealType == filter) &&
+                (audienceFilter == null || menu.audience == audienceFilter)
         }
 
         return if (today == null) {

@@ -1,6 +1,7 @@
 package com.menudado.ai
 
 import com.menudado.domain.MealType
+import com.menudado.domain.MenuAudience
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import org.junit.Assert.assertFalse
@@ -52,6 +53,19 @@ class MenuGenerationPromptTest {
     }
 
     @Test
+    fun `prompt includes health conditions written in dietary profile`() {
+        val prompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList(),
+            dietaryProfile = DietaryProfile(otherAvoidances = "diabetico, hipertenso")
+        ).lowercase()
+
+        assertTrue(prompt.contains("condiciones de salud"))
+        assertTrue(prompt.contains("diabetico, hipertenso"))
+        assertTrue(prompt.contains("ajusta el menu"))
+    }
+
+    @Test
     fun `prompt asks to use base ingredients when provided`() {
         val prompt = MenuGenerationPrompt.build(
             mealType = MealType.LUNCH,
@@ -63,5 +77,40 @@ class MenuGenerationPromptTest {
         assertTrue(prompt.contains("ingredientes base"))
         assertTrue(prompt.contains("berenjena, tomate"))
         assertTrue(prompt.contains("debe usar esos ingredientes"))
+    }
+
+    @Test
+    fun `prompt includes selected audience age range`() {
+        val prompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList(),
+            dietaryProfile = DietaryProfile(ageRange = "8-10 meses"),
+            audience = MenuAudience.BABY
+        ).lowercase()
+
+        assertTrue(prompt.contains("8-10 meses"))
+        assertTrue(prompt.contains("alimentacion complementaria"))
+    }
+
+    @Test
+    fun `prompt includes pregnancy restriction for adult profile`() {
+        val prompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList(),
+            dietaryProfile = DietaryProfile(isPregnant = true),
+            audience = MenuAudience.ADULT
+        ).lowercase()
+
+        assertTrue(prompt.contains("embarazada"))
+        assertTrue(prompt.contains("seguridad alimentaria"))
+    }
+
+    @Test
+    fun `prompt asks for brief non judgmental health analysis`() {
+        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+
+        assertTrue(prompt.contains("evaluacion saludable"))
+        assertTrue(prompt.contains("breve"))
+        assertTrue(prompt.contains("sin tono de juicio"))
     }
 }

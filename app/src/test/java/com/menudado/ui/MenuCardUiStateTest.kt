@@ -7,6 +7,7 @@ import com.menudado.domain.HealthStatus
 import com.menudado.domain.MealType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MenuCardUiStateTest {
@@ -112,12 +113,17 @@ class MenuCardUiStateTest {
 
         assertEquals(4, steps.size)
         assertEquals("Completa tu perfil", steps[0].title)
-        assert(steps[0].body.contains("perfil alimentario"))
-        assert(steps[0].body.contains("alergias"))
+        assertTrue(steps[0].body.contains("perfil alimentario"))
+        assertTrue(steps[0].body.contains("adulto"))
+        assertTrue(steps[0].body.contains("nino"))
+        assertTrue(steps[0].body.contains("bebe"))
+        assertTrue(steps[0].body.contains("embarazo"))
+        assertTrue(steps[0].body.contains("alergias"))
+        assertTrue(steps[0].body.contains("condiciones de salud"))
         assertEquals("Guarda tus menus", steps[1].title)
         assertEquals("Personaliza con IA", steps[2].title)
-        assert(steps[2].body.contains("20 ayudas de IA"))
-        assert(steps[2].body.contains("9 am"))
+        assertTrue(steps[2].body.contains("20 ayudas de IA"))
+        assertTrue(steps[2].body.contains("9 am"))
         assertEquals("Lanza el dado", steps[3].title)
     }
 

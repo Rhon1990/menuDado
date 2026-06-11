@@ -6,6 +6,12 @@ enum class MealType(val label: String) {
     DINNER("Cena")
 }
 
+enum class MenuAudience(val label: String, val defaultAgeRange: String) {
+    ADULT("Adulto", "18+ años"),
+    CHILD("Niño", "2-12 años"),
+    BABY("Bebé", "6-24 meses")
+}
+
 enum class HealthStatus(val label: String) {
     HEALTHY("Saludable"),
     IMPROVABLE("Intermedio"),
@@ -24,6 +30,7 @@ data class FoodMenu(
     val id: Long = 0,
     val name: String,
     val mealType: MealType,
+    val audience: MenuAudience = MenuAudience.ADULT,
     val description: String,
     val notes: String = "",
     val healthAnalysis: HealthAnalysis? = null,
@@ -53,11 +60,14 @@ enum class DietaryAllergen(val label: String, val promptName: String) {
 }
 
 data class DietaryProfile(
+    val isEnabled: Boolean = true,
+    val ageRange: String = "",
+    val isPregnant: Boolean = false,
     val isVegan: Boolean = false,
     val hasAllergies: Boolean = false,
     val allergens: Set<DietaryAllergen> = emptySet(),
     val otherAvoidances: String = ""
 ) {
     val hasRestrictions: Boolean
-        get() = isVegan || hasAllergies && allergens.isNotEmpty() || otherAvoidances.isNotBlank()
+        get() = isPregnant || isVegan || hasAllergies && allergens.isNotEmpty() || otherAvoidances.isNotBlank()
 }

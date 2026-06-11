@@ -44,6 +44,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -105,6 +107,7 @@ import com.menudado.domain.DietaryProfile
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
+import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import com.menudado.ui.theme.MenuDadoColors
 import kotlinx.coroutines.delay
@@ -183,6 +186,7 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
         EditMenuDialog(
             state = state,
             onMealTypeChanged = viewModel::setEditMealType,
+            onAudienceChanged = viewModel::setEditAudience,
             onNameChanged = viewModel::updateEditName,
             onDescriptionChanged = viewModel::updateEditDescription,
             onNotesChanged = viewModel::updateEditNotes,
@@ -228,7 +232,13 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                     MenuDadoDestination.PROFILE -> {
                         item {
                             DietaryProfileSection(
+                                audience = state.dietaryProfileAudience,
+                                audienceAgeRanges = state.audienceAgeRanges,
+                                enabledAudienceCount = state.enabledAudiences.size,
                                 profile = state.dietaryProfile,
+                                onAudienceChanged = viewModel::setDietaryProfileAudience,
+                                onAudienceEnabledChanged = viewModel::setDietaryProfileAudienceEnabled,
+                                onPregnantChanged = viewModel::setDietaryProfilePregnant,
                                 onVeganChanged = viewModel::setDietaryProfileVegan,
                                 onHasAllergiesChanged = viewModel::setDietaryProfileHasAllergies,
                                 onAllergenToggled = viewModel::toggleDietaryAllergen,
@@ -245,16 +255,21 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                         item {
                             DiceSection(
                                 filter = state.diceFilter,
+                                audienceFilter = state.diceAudienceFilter,
+                                enabledAudiences = state.enabledAudiences,
                                 isRolling = state.isRolling,
                                 diceFaceIndex = diceFaceIndex,
                                 onFilterChanged = viewModel::setDiceFilter,
+                                onAudienceFilterChanged = viewModel::setDiceAudienceFilter,
                                 onRoll = viewModel::rollDice
                             )
                         }
                         item {
                             MenuForm(
                                 state = state,
+                                enabledAudiences = state.enabledAudiences,
                                 onMealTypeChanged = viewModel::setFormMealType,
+                                onAudienceChanged = viewModel::setFormAudience,
                                 onNameChanged = viewModel::updateName,
                                 onDescriptionChanged = viewModel::updateDescription,
                                 onNotesChanged = viewModel::updateNotes,
@@ -415,7 +430,7 @@ internal data class OnboardingStep(
 internal fun onboardingSteps(): List<OnboardingStep> = listOf(
     OnboardingStep(
         title = "Completa tu perfil",
-        body = "Configura tu perfil alimentario con alergias y alimentos que prefieres evitar para que las ideas se adapten mejor a ti."
+        body = "Activa si cocinas para adulto, nino o bebe. En el perfil alimentario puedes indicar embarazo, alergias y condiciones de salud para adaptar mejor las ideas."
     ),
     OnboardingStep(
         title = "Guarda tus menus",
@@ -423,11 +438,11 @@ internal fun onboardingSteps(): List<OnboardingStep> = listOf(
     ),
     OnboardingStep(
         title = "Personaliza con IA",
-        body = "Genera ideas y revisa si son saludables. Tienes hasta 20 ayudas de IA al dia y se renuevan cada manana a las 9 am."
+        body = "Genera ideas segun el tipo de comida y el perfil elegido, y revisa si son saludables. Tienes hasta 20 ayudas de IA al dia y se renuevan cada manana a las 9 am."
     ),
     OnboardingStep(
         title = "Lanza el dado",
-        body = "Escoge desayuno, almuerzo o cena y deja que MenuDado elija por ti."
+        body = "Escoge desayuno, almuerzo o cena, selecciona para quien es y deja que MenuDado elija por ti."
     )
 )
 
@@ -526,7 +541,13 @@ private fun AboutAppSection() {
 
 @Composable
 private fun DietaryProfileSection(
+    audience: MenuAudience,
+    audienceAgeRanges: Map<MenuAudience, String>,
+    enabledAudienceCount: Int,
     profile: DietaryProfile,
+    onAudienceChanged: (MenuAudience) -> Unit,
+    onAudienceEnabledChanged: (Boolean) -> Unit,
+    onPregnantChanged: (Boolean) -> Unit,
     onVeganChanged: (Boolean) -> Unit,
     onHasAllergiesChanged: (Boolean) -> Unit,
     onAllergenToggled: (DietaryAllergen) -> Unit,
@@ -550,17 +571,52 @@ private fun DietaryProfileSection(
                 fontWeight = FontWeight.Black,
                 color = MenuDadoColors.Ink
             )
+            Text(
+                text = "Configura restricciones distintas para adulto, niño o bebé.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MenuDadoColors.MutedInk
+            )
+            ProfileAudienceFilter(
+                selected = audience,
+                ageRanges = audienceAgeRanges,
+                onSelected = { selectedAudience ->
+                    onAudienceChanged(selectedAudience)
+                }
+            )
+            if (audience == MenuAudience.BABY) {
+                Text(
+                    text = "Bebé se usa para alimentación complementaria desde aprox. 6 meses.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MenuDadoColors.MutedInk
+                )
+            }
+            DietarySwitchRow(
+                title = "Activo",
+                checked = profile.isEnabled,
+                enabled = !profile.isEnabled || enabledAudienceCount > 1,
+                onCheckedChange = onAudienceEnabledChanged
+            )
+            if (audience == MenuAudience.ADULT) {
+                DietarySwitchRow(
+                    title = "Embarazada",
+                    checked = profile.isPregnant,
+                    enabled = profile.isEnabled,
+                    onCheckedChange = onPregnantChanged
+                )
+            }
             DietarySwitchRow(
                 title = "Vegano",
                 checked = profile.isVegan,
+                enabled = profile.isEnabled,
                 onCheckedChange = onVeganChanged
             )
             DietarySwitchRow(
                 title = "Alergias",
                 checked = profile.hasAllergies,
+                enabled = profile.isEnabled,
                 onCheckedChange = onHasAllergiesChanged
             )
-            AnimatedVisibility(visible = profile.hasAllergies) {
+            AnimatedVisibility(visible = profile.isEnabled && profile.hasAllergies) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     DietaryAllergen.entries.forEach { allergen ->
                         DietaryAllergenRow(
@@ -575,7 +631,9 @@ private fun DietaryProfileSection(
                 value = profile.otherAvoidances,
                 onValueChange = onOtherAvoidancesChanged,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Otros alimentos a evitar") },
+                label = { Text("Alimentos a evitar o condiciones de salud") },
+                placeholder = { Text("Ej: diabético, hipertenso, sin picante") },
+                enabled = profile.isEnabled,
                 minLines = 2
             )
         }
@@ -586,6 +644,7 @@ private fun DietaryProfileSection(
 private fun DietarySwitchRow(
     title: String,
     checked: Boolean,
+    enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
@@ -597,9 +656,13 @@ private fun DietarySwitchRow(
             text = title,
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
-            color = MenuDadoColors.Ink
+            color = if (enabled) MenuDadoColors.Ink else MenuDadoColors.MutedInk.copy(alpha = 0.62f)
         )
-        MenuDadoBrandSwitch(checked = checked, onCheckedChange = onCheckedChange)
+        MenuDadoBrandSwitch(
+            checked = checked,
+            enabled = enabled,
+            onCheckedChange = onCheckedChange
+        )
     }
 }
 
@@ -761,9 +824,12 @@ private fun Header(onMenuClick: () -> Unit) {
 @Composable
 private fun DiceSection(
     filter: MealType?,
+    audienceFilter: MenuAudience?,
+    enabledAudiences: List<MenuAudience>,
     isRolling: Boolean,
     diceFaceIndex: Int,
     onFilterChanged: (MealType?) -> Unit,
+    onAudienceFilterChanged: (MenuAudience?) -> Unit,
     onRoll: () -> Unit
 ) {
     val idleRotation by animateFloatAsState(
@@ -793,16 +859,25 @@ private fun DiceSection(
                     color = MenuDadoColors.Ink
                 )
                 Text(
-                    text = "Escoge desayuno, almuerzo o cena y deja que el dado elija.",
+                    text = "Escoge tipo y para quien es el menu; luego deja que el dado elija.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MenuDadoColors.MutedInk
                 )
             }
-            MealTypeFilter(
-                selected = filter,
-                includeAll = false,
-                onSelected = onFilterChanged
+            CompactMenuSelectors(
+                mealType = filter,
+                audience = audienceFilter,
+                audiences = enabledAudiences,
+                onMealTypeSelected = onFilterChanged,
+                onAudienceSelected = onAudienceFilterChanged
             )
+            if (enabledAudiences.isEmpty()) {
+                Text(
+                    text = "Activa adulto, niño o bebé en el perfil alimentario.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MenuDadoColors.MutedInk
+                )
+            }
             Button(
                 onClick = onRoll,
                 enabled = !isRolling,
@@ -1175,7 +1250,9 @@ private fun Color.shade(factor: Float): Color {
 @Composable
 private fun MenuForm(
     state: MenuDadoUiState,
+    enabledAudiences: List<MenuAudience>,
     onMealTypeChanged: (MealType) -> Unit,
+    onAudienceChanged: (MenuAudience) -> Unit,
     onNameChanged: (String) -> Unit,
     onDescriptionChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
@@ -1186,7 +1263,10 @@ private fun MenuForm(
     var selectedModeName by rememberSaveable { mutableStateOf(MenuFormMode.Manual.name) }
     val selectedMode = MenuFormMode.valueOf(selectedModeName)
     val hasAiDraft = selectedMode == MenuFormMode.Ai && state.calories != null
-    val canUseFormActions = state.formMealType != null && !state.isAnalyzing && !state.isGeneratingMenu
+    val canUseFormActions = state.formMealType != null &&
+        state.formAudience != null &&
+        !state.isAnalyzing &&
+        !state.isGeneratingMenu
 
     Card(
         modifier = Modifier
@@ -1216,14 +1296,27 @@ private fun MenuForm(
                 selected = selectedMode,
                 onSelected = { mode -> selectedModeName = mode.name }
             )
-            MealTypeFilter(
-                selected = state.formMealType,
-                includeAll = false,
-                onSelected = { mealType -> if (mealType != null) onMealTypeChanged(mealType) }
+            CompactMenuSelectors(
+                mealType = state.formMealType,
+                audience = state.formAudience,
+                audiences = enabledAudiences,
+                onMealTypeSelected = onMealTypeChanged,
+                onAudienceSelected = onAudienceChanged
             )
             if (state.formMealType == null) {
                 Text(
                     text = "Selecciona desayuno, almuerzo o cena.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MenuDadoColors.MutedInk
+                )
+            }
+            if (state.formAudience == null) {
+                Text(
+                    text = if (enabledAudiences.isEmpty()) {
+                        "Activa adulto, niño o bebé en el perfil alimentario."
+                    } else {
+                        "Selecciona si es para adulto, niño o bebe."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MenuDadoColors.MutedInk
                 )
@@ -1295,6 +1388,7 @@ private fun MenuForm(
 private fun EditMenuDialog(
     state: MenuDadoUiState,
     onMealTypeChanged: (MealType) -> Unit,
+    onAudienceChanged: (MenuAudience) -> Unit,
     onNameChanged: (String) -> Unit,
     onDescriptionChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
@@ -1331,6 +1425,12 @@ private fun EditMenuDialog(
                     selected = state.editMealType,
                     includeAll = false,
                     onSelected = { mealType -> if (mealType != null) onMealTypeChanged(mealType) }
+                )
+                AudienceFilter(
+                    selected = state.editAudience,
+                    audiences = (state.enabledAudiences + listOfNotNull(state.editAudience)).distinct(),
+                    includeAll = false,
+                    onSelected = { audience -> if (audience != null) onAudienceChanged(audience) }
                 )
                 OutlinedTextField(
                     value = state.editName,
@@ -1531,17 +1631,18 @@ private fun <T> MenuDadoSegmentedSwitch(
 @Composable
 private fun MenuDadoBrandSwitch(
     checked: Boolean,
+    enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    val trackColor = if (checked) {
-        MenuDadoColors.BrandGreen
-    } else {
-        MenuDadoColors.SoftSand
+    val trackColor = when {
+        !enabled -> MenuDadoColors.SoftSand.copy(alpha = 0.48f)
+        checked -> MenuDadoColors.BrandGreen
+        else -> MenuDadoColors.SoftSand
     }
-    val knobColor = if (checked) {
-        MenuDadoColors.EggYellow
-    } else {
-        MenuDadoColors.Surface
+    val knobColor = when {
+        !enabled -> MenuDadoColors.Surface.copy(alpha = 0.72f)
+        checked -> MenuDadoColors.EggYellow
+        else -> MenuDadoColors.Surface
     }
     val knobAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart
     Box(
@@ -1553,11 +1654,15 @@ private fun MenuDadoBrandSwitch(
             .border(
                 BorderStroke(
                     1.dp,
-                    if (checked) MenuDadoColors.DeepGreen.copy(alpha = 0.38f) else MenuDadoColors.OutlineBrown.copy(alpha = 0.28f)
+                    when {
+                        !enabled -> MenuDadoColors.OutlineBrown.copy(alpha = 0.14f)
+                        checked -> MenuDadoColors.DeepGreen.copy(alpha = 0.38f)
+                        else -> MenuDadoColors.OutlineBrown.copy(alpha = 0.28f)
+                    }
                 ),
                 RoundedCornerShape(18.dp)
             )
-            .clickable { onCheckedChange(!checked) }
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
             .padding(4.dp),
         contentAlignment = knobAlignment
     ) {
@@ -1576,7 +1681,13 @@ private fun MenuDadoBrandSwitch(
                 modifier = Modifier
                     .size(8.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(if (checked) MenuDadoColors.DeepGreen else MenuDadoColors.OutlineBrown.copy(alpha = 0.48f))
+                    .background(
+                        when {
+                            !enabled -> MenuDadoColors.OutlineBrown.copy(alpha = 0.28f)
+                            checked -> MenuDadoColors.DeepGreen
+                            else -> MenuDadoColors.OutlineBrown.copy(alpha = 0.48f)
+                        }
+                    )
             )
         }
     }
@@ -1602,6 +1713,180 @@ private fun MealTypeFilter(
         selected = selected,
         onSelected = onSelected
     )
+}
+
+@Composable
+private fun CompactMenuSelectors(
+    mealType: MealType?,
+    audience: MenuAudience?,
+    audiences: List<MenuAudience>,
+    onMealTypeSelected: (MealType) -> Unit,
+    onAudienceSelected: (MenuAudience) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        CompactDropdownSelector(
+            label = "Comida",
+            value = mealType?.label ?: "Elegir",
+            options = MealType.entries,
+            optionLabel = { it.label },
+            onSelected = onMealTypeSelected,
+            modifier = Modifier.weight(1f)
+        )
+        CompactDropdownSelector(
+            label = "Para",
+            value = audience?.label ?: "Elegir",
+            options = audiences,
+            optionLabel = { it.label },
+            onSelected = onAudienceSelected,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun <T> CompactDropdownSelector(
+    label: String,
+    value: String,
+    options: List<T>,
+    optionLabel: (T) -> String,
+    onSelected: (T) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val enabled = options.isNotEmpty()
+
+    Box(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MenuDadoColors.Cream)
+                .border(
+                    BorderStroke(1.dp, MenuDadoColors.OutlineBrown.copy(alpha = 0.24f)),
+                    RoundedCornerShape(8.dp)
+                )
+                .clickable(enabled = enabled) { expanded = true }
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MenuDadoColors.MutedInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = if (enabled) value else "Sin opciones",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Black,
+                    color = if (enabled) MenuDadoColors.DeepGreen else MenuDadoColors.MutedInk.copy(alpha = 0.62f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                text = "▾",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (enabled) MenuDadoColors.Tomato else MenuDadoColors.MutedInk.copy(alpha = 0.62f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(optionLabel(option)) },
+                    onClick = {
+                        expanded = false
+                        onSelected(option)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AudienceFilter(
+    selected: MenuAudience?,
+    audiences: List<MenuAudience> = MenuAudience.entries,
+    includeAll: Boolean,
+    onSelected: (MenuAudience?) -> Unit
+) {
+    val options = buildList<MenuDadoSegmentOption<MenuAudience?>> {
+        if (includeAll) {
+            add(MenuDadoSegmentOption(value = null, label = "Todos"))
+        }
+        addAll(audiences.map { audience ->
+            MenuDadoSegmentOption(value = audience, label = audience.label)
+        })
+    }
+
+    MenuDadoSegmentedSwitch(
+        options = options,
+        selected = selected,
+        onSelected = onSelected
+    )
+}
+
+@Composable
+private fun ProfileAudienceFilter(
+    selected: MenuAudience,
+    ageRanges: Map<MenuAudience, String>,
+    onSelected: (MenuAudience) -> Unit
+) {
+    val options = MenuAudience.entries.map { audience ->
+        MenuDadoSegmentOption(
+            value = audience,
+            label = audience.label
+        )
+    }
+    val selectedRange = ageRanges[selected].orEmpty().ifBlank { selected.defaultAgeRange }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        MenuDadoSegmentedSwitch(
+            options = options,
+            selected = selected,
+            onSelected = onSelected
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            MenuAudience.entries.forEach { audience ->
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (audience == selected) {
+                        Text(
+                            text = selectedRange,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MenuDadoColors.MutedInk,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -1722,7 +2007,7 @@ private fun MenuCard(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = menu.mealType.label,
+                        text = "${menu.mealType.label} · ${menu.audience.label}",
                         color = MenuDadoColors.Tomato
                     )
                     Row(
@@ -2201,7 +2486,7 @@ private fun ResultDialog(
                                 fontWeight = FontWeight.Black
                             )
                             Text(
-                                text = menu.mealType.label,
+                                text = "${menu.mealType.label} · ${menu.audience.label}",
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(MenuDadoColors.Tomato.copy(alpha = 0.12f))

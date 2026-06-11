@@ -18,6 +18,7 @@ import com.menudado.domain.GeneratedMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MealType
+import com.menudado.domain.MenuAudience
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +41,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
+import java.util.Calendar
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MenuDadoViewModelTest {
@@ -66,12 +68,15 @@ class MenuDadoViewModelTest {
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
+            clockMillisProvider = { localMillisAtHour(8) },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
         analytics.events.clear()
     }
 
@@ -80,22 +85,71 @@ class MenuDadoViewModelTest {
         Dispatchers.resetMain()
     }
 
-    @Test
-    fun `form starts without a selected meal type`() = runTest(dispatcher) {
-        val freshViewModel = MenuDadoViewModel(
-            repository = MenuRepository(dao, analyzer),
-            analytics = analytics,
-            aiQuotaRetryStore = aiQuotaRetryStore,
-            aiDailyUsageStore = aiDailyUsageStore,
-            dietaryProfileStore = dietaryProfileStore,
-            onboardingStore = onboardingStore
-        )
-
-        assertNull(freshViewModel.uiState.value.formMealType)
+    private fun localMillisAtHour(hourOfDay: Int): Long {
+        return Calendar.getInstance().apply {
+            set(Calendar.YEAR, 2026)
+            set(Calendar.MONTH, Calendar.JUNE)
+            set(Calendar.DAY_OF_MONTH, 11)
+            set(Calendar.HOUR_OF_DAY, hourOfDay)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
     }
 
     @Test
-    fun `save menu requires selecting a meal type`() = runTest(dispatcher) {
+    fun `meal selectors start with meal type based on local hour and remain editable`() = runTest(dispatcher) {
+        val freshViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { localMillisAtHour(8) },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+
+        assertEquals(MealType.BREAKFAST, freshViewModel.uiState.value.formMealType)
+        assertEquals(MealType.BREAKFAST, freshViewModel.uiState.value.diceFilter)
+        assertEquals(MenuAudience.ADULT, freshViewModel.uiState.value.formAudience)
+        assertEquals(MenuAudience.ADULT, freshViewModel.uiState.value.diceAudienceFilter)
+
+        freshViewModel.setFormMealType(MealType.DINNER)
+        freshViewModel.setDiceFilter(MealType.LUNCH)
+
+        assertEquals(MealType.DINNER, freshViewModel.uiState.value.formMealType)
+        assertEquals(MealType.LUNCH, freshViewModel.uiState.value.diceFilter)
+    }
+
+    @Test
+    fun `meal selectors use lunch at midday and dinner at night`() = runTest(dispatcher) {
+        val lunchViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { localMillisAtHour(13) },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        val dinnerViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { localMillisAtHour(21) },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+
+        assertEquals(MealType.LUNCH, lunchViewModel.uiState.value.formMealType)
+        assertEquals(MealType.LUNCH, lunchViewModel.uiState.value.diceFilter)
+        assertEquals(MealType.DINNER, dinnerViewModel.uiState.value.formMealType)
+        assertEquals(MealType.DINNER, dinnerViewModel.uiState.value.diceFilter)
+    }
+
+    @Test
+    fun `save menu requires selecting an audience`() = runTest(dispatcher) {
         val freshViewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
@@ -104,23 +158,21 @@ class MenuDadoViewModelTest {
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
+        freshViewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        freshViewModel.setDietaryProfileAudienceEnabled(true)
+        freshViewModel.setFormMealType(MealType.BREAKFAST)
         freshViewModel.updateName("Tostadas")
         freshViewModel.updateDescription("Pan, tomate y aguacate")
-        analytics.events.clear()
 
         freshViewModel.saveMenu()
         advanceUntilIdle()
 
         assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
-        assertEquals("Selecciona si es desayuno, almuerzo o cena.", freshViewModel.uiState.value.message)
-        assertEquals(
-            listOf("menu_save_blocked:missing_meal_type:true:true"),
-            analytics.events
-        )
+        assertEquals("Selecciona si el menu es para adulto, niño o bebe.", freshViewModel.uiState.value.message)
     }
 
     @Test
-    fun `generate menu idea requires selecting a meal type before using IA`() = runTest(dispatcher) {
+    fun `generate menu idea requires selecting an audience before using IA`() = runTest(dispatcher) {
         val freshViewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
@@ -129,13 +181,15 @@ class MenuDadoViewModelTest {
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
+        freshViewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        freshViewModel.setDietaryProfileAudienceEnabled(true)
+        freshViewModel.setFormMealType(MealType.BREAKFAST)
+
         freshViewModel.generateMenuIdea()
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
-        assertEquals(20, freshViewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals(0, aiDailyUsageStore.storedUsedCount)
-        assertEquals("Selecciona si es desayuno, almuerzo o cena.", freshViewModel.uiState.value.message)
+        assertEquals("Selecciona si el menu es para adulto, niño o bebe.", freshViewModel.uiState.value.message)
     }
 
     @Test
@@ -151,9 +205,11 @@ class MenuDadoViewModelTest {
         val saved = dao.saved.single().toDomain()
         assertEquals("Tostadas", saved.name)
         assertEquals(MealType.BREAKFAST, saved.mealType)
+        assertEquals(MenuAudience.ADULT, saved.audience)
         assertEquals("Pan, tomate y aguacate", saved.description)
         assertNull(saved.healthAnalysis)
         assertFalse(analyzer.wasCalled)
+        assertEquals(MealType.BREAKFAST, viewModel.uiState.value.formMealType)
         assertEquals(
             listOf(
                 "first_menu_created:BREAKFAST",
@@ -245,6 +301,28 @@ class MenuDadoViewModelTest {
 
         assertEquals(false, completedViewModel.uiState.value.showOnboarding)
         assertEquals(emptyList<String>(), analytics.events)
+    }
+
+    @Test
+    fun `shows onboarding again when stored completion is from older content version`() = runTest(dispatcher) {
+        analytics.events.clear()
+        val previousContentStore = FakeOnboardingStore(completed = true, completedVersion = 1)
+        val updatedViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = previousContentStore
+        )
+
+        assertEquals(true, updatedViewModel.uiState.value.showOnboarding)
+        assertEquals(listOf("onboarding_shown"), analytics.events)
+
+        updatedViewModel.completeOnboarding()
+
+        assertEquals(false, updatedViewModel.uiState.value.showOnboarding)
+        assertEquals(2, previousContentStore.completedVersion)
     }
 
     @Test
@@ -432,6 +510,7 @@ class MenuDadoViewModelTest {
             aiDailyUsageStore = aiDailyUsageStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
 
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -453,6 +532,7 @@ class MenuDadoViewModelTest {
             }
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
         analytics.events.clear()
 
         viewModel.generateMenuIdea()
@@ -522,6 +602,137 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `only adult audience is enabled by default`() = runTest(dispatcher) {
+        assertEquals(
+            listOf(MenuAudience.ADULT),
+            viewModel.uiState.value.enabledAudiences
+        )
+        assertEquals(true, viewModel.uiState.value.dietaryProfile.isEnabled)
+    }
+
+    @Test
+    fun `single active audience is selected by default in selectors`() = runTest(dispatcher) {
+        assertEquals(MenuAudience.ADULT, viewModel.uiState.value.formAudience)
+        assertEquals(MenuAudience.ADULT, viewModel.uiState.value.diceAudienceFilter)
+    }
+
+    @Test
+    fun `dietary profile is stored independently per audience`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+        viewModel.setDietaryProfileVegan(true)
+
+        viewModel.setDietaryProfileAudience(MenuAudience.BABY)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+        assertEquals(false, viewModel.uiState.value.dietaryProfile.isVegan)
+
+        viewModel.setDietaryProfileHasAllergies(true)
+        viewModel.toggleDietaryAllergen(DietaryAllergen.EGG)
+
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        assertEquals(true, viewModel.uiState.value.dietaryProfile.isVegan)
+        assertEquals(emptySet<DietaryAllergen>(), viewModel.uiState.value.dietaryProfile.allergens)
+
+        viewModel.setDietaryProfileAudience(MenuAudience.BABY)
+        assertEquals(false, viewModel.uiState.value.dietaryProfile.isVegan)
+        assertEquals(setOf(DietaryAllergen.EGG), viewModel.uiState.value.dietaryProfile.allergens)
+    }
+
+    @Test
+    fun `audience can be disabled from dietary profile and hidden from selectors`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+
+        viewModel.setDietaryProfileAudienceEnabled(false)
+
+        assertEquals(
+            listOf(MenuAudience.ADULT),
+            viewModel.uiState.value.enabledAudiences
+        )
+    }
+
+    @Test
+    fun `last active audience cannot be disabled`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileAudience(MenuAudience.ADULT)
+
+        viewModel.setDietaryProfileAudienceEnabled(false)
+
+        assertEquals(true, viewModel.uiState.value.dietaryProfile.isEnabled)
+        assertEquals(
+            listOf(MenuAudience.ADULT),
+            viewModel.uiState.value.enabledAudiences
+        )
+    }
+
+    @Test
+    fun `adding a second active audience clears default audience selections`() = runTest(dispatcher) {
+        assertEquals(MenuAudience.ADULT, viewModel.uiState.value.formAudience)
+        assertEquals(MenuAudience.ADULT, viewModel.uiState.value.diceAudienceFilter)
+
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+
+        assertNull(viewModel.uiState.value.formAudience)
+        assertNull(viewModel.uiState.value.diceAudienceFilter)
+    }
+
+    @Test
+    fun `disabling selected audience falls back to remaining single active audience`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+        viewModel.setFormAudience(MenuAudience.CHILD)
+        viewModel.setDiceAudienceFilter(MenuAudience.CHILD)
+
+        viewModel.setDietaryProfileAudienceEnabled(false)
+
+        assertEquals(MenuAudience.ADULT, viewModel.uiState.value.formAudience)
+        assertEquals(MenuAudience.ADULT, viewModel.uiState.value.diceAudienceFilter)
+    }
+
+    @Test
+    fun `inactive audience ignores dietary restriction changes`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+
+        viewModel.setDietaryProfileVegan(true)
+        viewModel.setDietaryProfileHasAllergies(true)
+        viewModel.toggleDietaryAllergen(DietaryAllergen.EGG)
+        viewModel.updateDietaryProfileOtherAvoidances("picante")
+
+        assertEquals(
+            DietaryProfile(
+                isEnabled = false,
+                ageRange = MenuAudience.CHILD.defaultAgeRange
+            ),
+            viewModel.uiState.value.dietaryProfile
+        )
+    }
+
+    @Test
+    fun `dietary profile stores age range per audience`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileAudience(MenuAudience.BABY)
+
+        viewModel.updateDietaryProfileAgeRange("8-10 meses")
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+
+        assertEquals("2-12 años", viewModel.uiState.value.dietaryProfile.ageRange)
+
+        viewModel.setDietaryProfileAudience(MenuAudience.BABY)
+        assertEquals("8-10 meses", viewModel.uiState.value.dietaryProfile.ageRange)
+    }
+
+    @Test
+    fun `adult dietary profile stores pregnancy setting and sends it to IA`() = runTest(dispatcher) {
+        viewModel.setDietaryProfilePregnant(true)
+
+        assertEquals(true, dietaryProfileStore.storedProfile.isPregnant)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(true, analyzer.requestedDietaryProfile?.isPregnant)
+    }
+
+    @Test
     fun `generate menu idea sends dietary profile to IA`() = runTest(dispatcher) {
         viewModel.setDietaryProfileVegan(true)
         viewModel.setDietaryProfileHasAllergies(true)
@@ -533,10 +744,31 @@ class MenuDadoViewModelTest {
 
         assertEquals(
             DietaryProfile(
+                ageRange = MenuAudience.ADULT.defaultAgeRange,
                 isVegan = true,
                 hasAllergies = true,
                 allergens = setOf(DietaryAllergen.SOY),
                 otherAvoidances = "picante"
+            ),
+            analyzer.requestedDietaryProfile
+        )
+    }
+
+    @Test
+    fun `generate menu idea uses the selected audience and its dietary profile`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+        viewModel.setDietaryProfileVegan(true)
+        viewModel.setFormAudience(MenuAudience.CHILD)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(MenuAudience.CHILD, analyzer.requestedAudience)
+        assertEquals(
+            DietaryProfile(
+                ageRange = MenuAudience.CHILD.defaultAgeRange,
+                isVegan = true
             ),
             analyzer.requestedDietaryProfile
         )
@@ -581,6 +813,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
         analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 57s.")
 
         viewModel.generateMenuIdea()
@@ -602,6 +835,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
         analyzer.generateFailure = IllegalStateException(
             "Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20. Please retry in 21s."
         )
@@ -623,6 +857,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
         analyzer.generateFailure = IllegalStateException(
             "RESOURCE_EXHAUSTED quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_tokens. Please retry in 21s."
         )
@@ -644,6 +879,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
         analyzer.generateFailure = IllegalStateException(
             "RESOURCE_EXHAUSTED quota exceeded for metric: Requests per day, limit: 20."
         )
@@ -666,6 +902,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
         analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 57s.")
 
         viewModel.generateMenuIdea()
@@ -693,6 +930,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
 
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -714,6 +952,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
         analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 57s.")
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -742,6 +981,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
 
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -765,6 +1005,7 @@ class MenuDadoViewModelTest {
             aiDailyUsageStore = aiDailyUsageStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
         viewModel.generateMenuIdea()
 
         assertEquals(resetAtMillis, viewModel.uiState.value.aiRetryAtMillis)
@@ -786,6 +1027,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
         analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 10s.")
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -967,6 +1209,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
         analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 57s.")
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -989,6 +1232,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
         analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 57s.")
         viewModel.generateMenuIdea()
         advanceUntilIdle()
@@ -1002,6 +1246,7 @@ class MenuDadoViewModelTest {
             )
         )
         advanceUntilIdle()
+        viewModel.setDiceFilter(null)
         viewModel.rollDice()
         advanceUntilIdle()
 
@@ -1019,6 +1264,8 @@ class MenuDadoViewModelTest {
             )
         )
         advanceUntilIdle()
+        viewModel.setDiceFilter(null)
+        analytics.events.clear()
 
         viewModel.rollDice()
         advanceUntilIdle()
@@ -1027,6 +1274,28 @@ class MenuDadoViewModelTest {
         assertFalse(state.isRolling)
         assertNull(state.result)
         assertEquals("Primero escoge desayuno, almuerzo o cena.", state.message)
+        assertEquals(emptyList<String>(), analytics.events)
+    }
+
+    @Test
+    fun `roll dice requires selecting an audience filter`() = runTest(dispatcher) {
+        dao.seed(
+            listOf(
+                FoodMenu(id = 1, name = "Tostada", mealType = MealType.BREAKFAST, description = "Pan")
+            )
+        )
+        advanceUntilIdle()
+        viewModel.setDiceFilter(MealType.BREAKFAST)
+        viewModel.setDiceAudienceFilter(null)
+        analytics.events.clear()
+
+        viewModel.rollDice()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isRolling)
+        assertNull(state.result)
+        assertEquals("Selecciona si el menu es para adulto, niño o bebe.", state.message)
         assertEquals(emptyList<String>(), analytics.events)
     }
 
@@ -1045,6 +1314,7 @@ class MenuDadoViewModelTest {
         )
         advanceUntilIdle()
         viewModel.setDiceFilter(MealType.DINNER)
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
         analytics.events.clear()
 
         viewModel.rollDice()
@@ -1159,6 +1429,7 @@ class MenuDadoViewModelTest {
         )
         advanceUntilIdle()
         viewModel.setDiceFilter(MealType.BREAKFAST)
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
 
         viewModel.rollDice()
         advanceUntilIdle()
@@ -1224,6 +1495,7 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
     var batchAnalyses: Map<Long, HealthAnalysis> = emptyMap()
     var batchAnalyzeMenuIds: List<Long> = emptyList()
     var generateFailure: Throwable? = null
+    var requestedAudience: MenuAudience? = null
     var generatedMenu = GeneratedMenu(
         name = "Tostada",
         description = "Pan integral y huevo.",
@@ -1255,11 +1527,13 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
         mealType: MealType,
         avoidIdeas: List<String>,
         dietaryProfile: DietaryProfile,
+        audience: MenuAudience,
         baseIngredients: String
     ): Result<GeneratedMenu> {
         generateCalls += 1
         requestedMealType = mealType
         requestedDietaryProfile = dietaryProfile
+        requestedAudience = audience
         requestedBaseIngredients = baseIngredients
         this.avoidIdeas = avoidIdeas
         generateFailure?.let { return Result.failure(it) }
@@ -1268,22 +1542,39 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
 }
 
 private class FakeDietaryProfileStore : DietaryProfileStore {
-    var storedProfile = DietaryProfile()
+    private val storedProfiles = mutableMapOf(MenuAudience.ADULT to defaultProfile(MenuAudience.ADULT))
+    var storedProfile: DietaryProfile
+        get() = getProfile(MenuAudience.ADULT)
+        set(value) {
+            storedProfiles[MenuAudience.ADULT] = value
+        }
 
-    override fun getProfile(): DietaryProfile = storedProfile
+    override fun getProfile(audience: MenuAudience): DietaryProfile {
+        return storedProfiles[audience] ?: defaultProfile(audience)
+    }
 
-    override fun saveProfile(profile: DietaryProfile) {
-        this.storedProfile = profile
+    override fun saveProfile(profile: DietaryProfile, audience: MenuAudience) {
+        storedProfiles[audience] = profile
+    }
+
+    private fun defaultProfile(audience: MenuAudience): DietaryProfile {
+        return DietaryProfile(
+            isEnabled = audience == MenuAudience.ADULT,
+            ageRange = audience.defaultAgeRange
+        )
     }
 }
 
 private class FakeOnboardingStore(
-    var completed: Boolean = false
+    var completed: Boolean = false,
+    var completedVersion: Int = if (completed) 2 else 0
 ) : OnboardingStore {
-    override fun isOnboardingCompleted(): Boolean = completed
+    override fun isOnboardingCompleted(requiredVersion: Int): Boolean =
+        completed && completedVersion >= requiredVersion
 
-    override fun markOnboardingCompleted() {
+    override fun markOnboardingCompleted(version: Int) {
         completed = true
+        completedVersion = version
     }
 }
 

@@ -5,6 +5,7 @@ import androidx.room.PrimaryKey
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
+import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 
 @Entity(tableName = "menus")
@@ -13,6 +14,7 @@ data class MenuEntity(
     val id: Long = 0,
     val name: String,
     val mealType: String,
+    val audience: String = MenuAudience.ADULT.name,
     val description: String,
     val notes: String,
     val healthStatus: String?,
@@ -27,6 +29,7 @@ data class MenuEntity(
             id = id,
             name = name,
             mealType = MealType.valueOf(mealType),
+            audience = runCatching { MenuAudience.valueOf(audience) }.getOrDefault(MenuAudience.ADULT),
             description = description,
             notes = notes,
             healthAnalysis = healthStatus?.let {
@@ -49,6 +52,7 @@ fun FoodMenu.toEntity(): MenuEntity {
         id = id,
         name = name,
         mealType = mealType.name,
+        audience = audience.name,
         description = description,
         notes = notes,
         healthStatus = healthAnalysis?.status?.name,

@@ -40,6 +40,24 @@ class DiceSelectorTest {
     }
 
     @Test
+    fun `con filtro de publico solo usa menus del publico elegido`() {
+        val selected = DiceSelector.select(
+            menus = listOf(
+                FoodMenu(id = 1, name = "Tostada", mealType = MealType.BREAKFAST, audience = MenuAudience.ADULT, description = "Pan"),
+                FoodMenu(id = 2, name = "Pure de pera", mealType = MealType.BREAKFAST, audience = MenuAudience.BABY, description = "Pera cocida")
+            ),
+            filter = MealType.BREAKFAST,
+            audienceFilter = MenuAudience.BABY,
+            nextIndex = { bound ->
+                assertEquals(1, bound)
+                0
+            }
+        )
+
+        assertEquals("Pure de pera", selected?.name)
+    }
+
+    @Test
     fun `devuelve null cuando no hay candidatos para el filtro`() {
         val selected = DiceSelector.select(
             menus = menus.filterNot { it.mealType == MealType.DINNER },
