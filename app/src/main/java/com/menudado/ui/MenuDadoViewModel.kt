@@ -146,13 +146,12 @@ class MenuDadoViewModel(
     fun setFormMealType(mealType: MealType) {
         analytics.trackMealTypeSelected(mealType, formHasContent = _uiState.value.formHasContent())
         _uiState.update {
-            val notice = it.generatedHealthAnalysis.manualEditNotice()
+            if (it.formMealType == mealType) {
+                return@update it
+            }
             it.copy(
                 formMealType = mealType,
-                generatedHealthAnalysis = null,
-                message = notice ?: it.message,
-                isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
-            )
+            ).withoutMenuFormDraft()
         }
     }
 
@@ -161,13 +160,12 @@ class MenuDadoViewModel(
             if (audience !in it.enabledAudiences) {
                 return@update it
             }
-            val notice = it.generatedHealthAnalysis.manualEditNotice()
+            if (it.formAudience == audience) {
+                return@update it
+            }
             it.copy(
                 formAudience = audience,
-                generatedHealthAnalysis = null,
-                message = notice ?: it.message,
-                isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
-            )
+            ).withoutMenuFormDraft()
         }
     }
 
@@ -885,6 +883,19 @@ class MenuDadoViewModel(
 
     private fun MenuDadoUiState.formHasContent(): Boolean {
         return name.isNotBlank() || description.isNotBlank() || notes.isNotBlank()
+    }
+
+    private fun MenuDadoUiState.withoutMenuFormDraft(): MenuDadoUiState {
+        return copy(
+            name = "",
+            description = "",
+            notes = "",
+            aiBaseIngredients = "",
+            calories = null,
+            generatedHealthAnalysis = null,
+            message = null,
+            isAiRetryNoticeVisible = false
+        )
     }
 
     private fun FoodMenu.hasEditableChanges(

@@ -490,6 +490,73 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `changing form meal type resets menu form fields`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Bowl de lentejas",
+            description = "Lentejas, arroz integral y tomate.",
+            notes = "Puedes usar lentejas cocidas.",
+            calories = 540,
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Aporta fibra.",
+                suggestion = "Mantener variedad.",
+                calories = 540
+            )
+        )
+        viewModel.updateAiBaseIngredients("lentejas")
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        viewModel.setFormMealType(MealType.DINNER)
+
+        val state = viewModel.uiState.value
+        assertEquals(MealType.DINNER, state.formMealType)
+        assertEquals("", state.name)
+        assertEquals("", state.description)
+        assertEquals("", state.notes)
+        assertEquals("", state.aiBaseIngredients)
+        assertNull(state.calories)
+        assertNull(state.generatedHealthAnalysis)
+    }
+
+    @Test
+    fun `changing form audience resets menu form fields`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+        viewModel.updateName("Pasta suave")
+        viewModel.updateDescription("Pasta, tomate y queso")
+        viewModel.updateNotes("Cortar pequeno")
+        viewModel.updateAiBaseIngredients("pasta")
+
+        viewModel.setFormAudience(MenuAudience.CHILD)
+
+        val state = viewModel.uiState.value
+        assertEquals(MenuAudience.CHILD, state.formAudience)
+        assertEquals("", state.name)
+        assertEquals("", state.description)
+        assertEquals("", state.notes)
+        assertEquals("", state.aiBaseIngredients)
+        assertNull(state.calories)
+        assertNull(state.generatedHealthAnalysis)
+    }
+
+    @Test
+    fun `editing form text keeps the other existing text fields`() = runTest(dispatcher) {
+        viewModel.updateName("Pasta")
+        viewModel.updateDescription("Pasta, tomate y queso")
+        viewModel.updateNotes("Sin picante")
+        viewModel.updateAiBaseIngredients("tomate")
+
+        viewModel.updateName("Pasta cremosa")
+
+        val state = viewModel.uiState.value
+        assertEquals("Pasta cremosa", state.name)
+        assertEquals("Pasta, tomate y queso", state.description)
+        assertEquals("Sin picante", state.notes)
+        assertEquals("tomate", state.aiBaseIngredients)
+    }
+
+    @Test
     fun `starts with daily IA uses available`() = runTest(dispatcher) {
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),

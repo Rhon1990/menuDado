@@ -53,6 +53,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Si solo hay un público activo, el selector de público se muestra ya seleccionado con ese público. Si hay dos o más públicos activos, el selector queda vacío y obliga al usuario a elegir para quién es el menú.
    - En modo manual se muestran los campos de nombre del plato o menú, ingredientes o descripción y notas opcionales.
    - En modo IA se muestra primero la selección de tipo, un campo opcional de ingredientes base y la acción de generar; los campos de texto aparecen después de que la IA completa la idea para que el usuario la revise y guarde.
+   - Si el usuario cambia el tipo de comida o el público objetivo del formulario, se limpia el borrador actual del menú para evitar mezclar contenido de contextos distintos; editar los campos de texto conserva el resto del formulario.
    - Calorías estimadas opcionales.
    - Se guarda con una única acción principal: `Guardar menú`.
    - El análisis IA no forma parte del guardado inicial; se ejecuta después desde la tarjeta del menú guardado.
