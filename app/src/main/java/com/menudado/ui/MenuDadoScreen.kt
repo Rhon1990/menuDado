@@ -179,6 +179,18 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
         )
     }
 
+    if (state.editingMenuId != null) {
+        EditMenuDialog(
+            state = state,
+            onMealTypeChanged = viewModel::setEditMealType,
+            onNameChanged = viewModel::updateEditName,
+            onDescriptionChanged = viewModel::updateEditDescription,
+            onNotesChanged = viewModel::updateEditNotes,
+            onSave = viewModel::saveEditedMenu,
+            onDismiss = viewModel::cancelEditingMenu
+        )
+    }
+
     BoxWithConstraints(
         modifier = Modifier.hideKeyboardOnTouch(focusManager, keyboardController)
     ) {
@@ -292,6 +304,7 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                                         expandedMenuId = nextExpandedMenuId
                                     },
                                     onAnalyze = { viewModel.analyzeExisting(menu) },
+                                    onEdit = { viewModel.startEditingMenu(menu) },
                                     onDelete = { viewModel.deleteMenu(menu) }
                                 )
                             }
@@ -1217,6 +1230,7 @@ private fun MenuForm(
                     )
                     SaveMenuButton(
                         enabled = canUseFormActions,
+                        text = "Guardar menu",
                         onSave = onSave
                     )
                 }
@@ -1258,9 +1272,110 @@ private fun MenuForm(
                             )
                             SaveMenuButton(
                                 enabled = canUseFormActions,
+                                text = "Guardar menu",
                                 onSave = onSave
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditMenuDialog(
+    state: MenuDadoUiState,
+    onMealTypeChanged: (MealType) -> Unit,
+    onNameChanged: (String) -> Unit,
+    onDescriptionChanged: (String) -> Unit,
+    onNotesChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(18.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = "Editar menu",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = MenuDadoColors.Ink
+                    )
+                    Text(
+                        text = "Ajusta este menu y vuelve a analizarlo si cambiaste la receta.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MenuDadoColors.MutedInk
+                    )
+                }
+                MealTypeFilter(
+                    selected = state.editMealType,
+                    includeAll = false,
+                    onSelected = { mealType -> if (mealType != null) onMealTypeChanged(mealType) }
+                )
+                OutlinedTextField(
+                    value = state.editName,
+                    onValueChange = onNameChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Nombre del plato o menu") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = state.editDescription,
+                    onValueChange = onDescriptionChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Ingredientes o descripcion") },
+                    minLines = 2
+                )
+                OutlinedTextField(
+                    value = state.editNotes,
+                    onValueChange = onNotesChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Notas opcionales") },
+                    minLines = 1
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = "Cancelar",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Button(
+                        onClick = onSave,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MenuDadoColors.BrandGreen,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(
+                            text = "Guardar cambios",
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -1320,6 +1435,7 @@ private fun MenuTextFields(
 @Composable
 private fun SaveMenuButton(
     enabled: Boolean,
+    text: String,
     onSave: () -> Unit
 ) {
     Button(
@@ -1333,7 +1449,7 @@ private fun SaveMenuButton(
         )
     ) {
         Text(
-            text = "Guardar menu",
+            text = text,
             modifier = Modifier.padding(vertical = 8.dp),
             fontWeight = FontWeight.Bold
         )
@@ -1553,6 +1669,7 @@ private fun MenuCard(
     isAiPaused: Boolean,
     onToggleExpanded: () -> Unit,
     onAnalyze: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val headerHealthStatus = menuHeaderHealthStatus(menu, isExpanded)
@@ -1665,14 +1782,24 @@ private fun MenuCard(
                                     softWrap = false
                                 )
                             }
+                            EditMenuButton(
+                                onEdit = onEdit,
+                                compact = true
+                            )
                             DeleteMenuButton(
                                 onDelete = onDelete,
                                 compact = true
                             )
                         } else {
+                            EditMenuButton(
+                                onEdit = onEdit,
+                                compact = false,
+                                modifier = Modifier.weight(1f)
+                            )
                             DeleteMenuButton(
                                 onDelete = onDelete,
-                                compact = false
+                                compact = false,
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
@@ -1707,18 +1834,56 @@ internal fun menuExpandToggleIconRes(isExpanded: Boolean): Int {
 }
 
 @Composable
+private fun EditMenuButton(
+    onEdit: () -> Unit,
+    compact: Boolean,
+    modifier: Modifier = Modifier
+) {
+    TextButton(
+        onClick = onEdit,
+        modifier = if (compact) {
+            modifier
+                .width(54.dp)
+                .semantics { contentDescription = "Editar menu" }
+        } else {
+            modifier.fillMaxWidth()
+        },
+        shape = RoundedCornerShape(8.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.ic_edit),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            colorFilter = ColorFilter.tint(MenuDadoColors.BrandGreen)
+        )
+        if (!compact) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Editar",
+                color = MenuDadoColors.BrandGreen,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
 private fun DeleteMenuButton(
     onDelete: () -> Unit,
-    compact: Boolean
+    compact: Boolean,
+    modifier: Modifier = Modifier
 ) {
     TextButton(
         onClick = onDelete,
         modifier = if (compact) {
-            Modifier
+            modifier
                 .width(54.dp)
                 .semantics { contentDescription = "Eliminar menu" }
         } else {
-            Modifier.fillMaxWidth()
+            modifier.fillMaxWidth()
         },
         shape = RoundedCornerShape(8.dp),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)

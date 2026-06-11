@@ -61,6 +61,8 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - La generación de idea con IA debe devolver también el análisis saludable y calorías en la misma llamada. Si el usuario guarda esa idea sin modificarla, el menú debe quedar ya analizado sin hacer una segunda llamada a Firebase IA.
    - Si el usuario modifica manualmente nombre, descripción, notas o tipo después de generar la idea, la evaluación precalculada debe descartarse para evitar guardar un análisis desactualizado y debe mostrarse el aviso: `Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA.`
    - Cada generación debe intentar diferenciarse de menús guardados del mismo tipo y de la idea actual del formulario, evitando repetir plato, base principal, proteína o preparación.
+   - Los menús ya guardados se pueden editar desde un diálogo `Editar menu` abierto desde la propia tarjeta para evitar que el usuario pierda el contexto.
+   - Si al editar un menú se cambia nombre, tipo, descripción o notas, el análisis IA y las calorías asociadas se descartan para evitar mostrar una evaluación desactualizada; el usuario puede volver a tocar `Analizar IA`.
 
 2. Ver menús guardados.
    - Filtrar por desayuno, almuerzo, cena o todos.
@@ -180,6 +182,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 ## Foco de Validación
 
 - Crear y persistir menús localmente.
+- Editar menús guardados conservando el mismo registro local y descartando análisis IA cuando cambie la receta.
 - Filtrar menús por tipo de comida.
 - Ejecutar la selección aleatoria solo cuando existan menús aplicables al filtro elegido.
 - Validar que el dado exige escoger desayuno, almuerzo o cena antes de lanzar y que el filtro seleccionado limita correctamente los candidatos.

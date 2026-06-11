@@ -46,6 +46,11 @@ import kotlin.math.ceil
 data class MenuDadoUiState(
     val menus: List<FoodMenu> = emptyList(),
     val diceFilter: MealType? = null,
+    val editingMenuId: Long? = null,
+    val editMealType: MealType? = null,
+    val editName: String = "",
+    val editDescription: String = "",
+    val editNotes: String = "",
     val formMealType: MealType? = null,
     val name: String = "",
     val description: String = "",
@@ -224,6 +229,40 @@ class MenuDadoViewModel(
         )
     }
 
+    fun startEditingMenu(menu: FoodMenu) {
+        _uiState.update {
+            it.copy(
+                editingMenuId = menu.id,
+                editMealType = menu.mealType,
+                editName = menu.name,
+                editDescription = menu.description,
+                editNotes = menu.notes,
+                message = null,
+                isAiRetryNoticeVisible = false
+            )
+        }
+    }
+
+    fun cancelEditingMenu() {
+        resetEditForm()
+    }
+
+    fun setEditMealType(mealType: MealType) {
+        _uiState.update { it.copy(editMealType = mealType) }
+    }
+
+    fun updateEditName(value: String) {
+        _uiState.update { it.copy(editName = value) }
+    }
+
+    fun updateEditDescription(value: String) {
+        _uiState.update { it.copy(editDescription = value) }
+    }
+
+    fun updateEditNotes(value: String) {
+        _uiState.update { it.copy(editNotes = value) }
+    }
+
     fun rollDice() {
         val state = _uiState.value
         if (state.isRolling) return
@@ -347,18 +386,68 @@ class MenuDadoViewModel(
                 analyzedMenuCount = state.menus.countAnalyzed() + if (menu.healthAnalysis != null) 1 else 0,
                 pendingAnalysisCount = state.menus.countPendingAnalysis() + if (menu.healthAnalysis == null) 1 else 0
             )
+            resetForm()
+            hasTrackedMenuFormStarted = false
+        }
+    }
+
+    fun saveEditedMenu() {
+        val state = _uiState.value
+        val editingMenuId = state.editingMenuId ?: return
+        val existingMenu = state.menus.firstOrNull { it.id == editingMenuId } ?: run {
+            resetEditForm()
+            return
+        }
+        val name = state.editName.trim()
+        val description = state.editDescription.trim()
+        val notes = state.editNotes.trim()
+        val mealType = state.editMealType
+
+        if (mealType == null) {
+            _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            return
+        }
+
+        if (name.isBlank() || description.isBlank()) {
             _uiState.update {
                 it.copy(
-                    name = "",
-                    description = "",
-                    notes = "",
-                    aiBaseIngredients = "",
-                    calories = null,
-                    generatedHealthAnalysis = null,
-                    formMealType = null
+                    message = "Agrega nombre e ingredientes para guardar el menu.",
+                    isAiRetryNoticeVisible = false
                 )
             }
-            hasTrackedMenuFormStarted = false
+            return
+        }
+
+        viewModelScope.launch {
+            val changedExistingMenu = existingMenu.hasEditableChanges(
+                name = name,
+                mealType = mealType,
+                description = description,
+                notes = notes
+            )
+            val menu = existingMenu.copy(
+                name = name,
+                mealType = mealType,
+                description = description,
+                notes = notes,
+                healthAnalysis = if (changedExistingMenu) null else existingMenu.healthAnalysis,
+                calories = if (changedExistingMenu) null else existingMenu.calories
+            )
+
+            repository.save(menu)
+            analytics.trackMenuSaved(
+                mealType = menu.mealType,
+                hasAiAnalysis = menu.healthAnalysis != null,
+                hasCalories = menu.calories != null,
+                menuCount = state.menus.size
+            )
+            val inventoryMenus = state.menus.map { if (it.id == menu.id) menu else it }
+            analytics.trackMenuInventoryChanged(
+                menuCount = inventoryMenus.size,
+                analyzedMenuCount = inventoryMenus.countAnalyzed(),
+                pendingAnalysisCount = inventoryMenus.countPendingAnalysis()
+            )
+            resetEditForm()
         }
     }
 
@@ -640,6 +729,44 @@ class MenuDadoViewModel(
 
     private fun MenuDadoUiState.formHasContent(): Boolean {
         return name.isNotBlank() || description.isNotBlank() || notes.isNotBlank()
+    }
+
+    private fun FoodMenu.hasEditableChanges(
+        name: String,
+        mealType: MealType,
+        description: String,
+        notes: String
+    ): Boolean {
+        return this.name != name ||
+            this.mealType != mealType ||
+            this.description != description ||
+            this.notes != notes
+    }
+
+    private fun resetForm() {
+        _uiState.update {
+            it.copy(
+                name = "",
+                description = "",
+                notes = "",
+                aiBaseIngredients = "",
+                calories = null,
+                generatedHealthAnalysis = null,
+                formMealType = null
+            )
+        }
+    }
+
+    private fun resetEditForm() {
+        _uiState.update {
+            it.copy(
+                editingMenuId = null,
+                editMealType = null,
+                editName = "",
+                editDescription = "",
+                editNotes = ""
+            )
+        }
     }
 
     private fun FoodMenu.matchesDiceFilter(filter: MealType?): Boolean {

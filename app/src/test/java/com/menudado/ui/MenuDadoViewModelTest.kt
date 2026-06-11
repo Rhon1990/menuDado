@@ -165,6 +165,55 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `editing saved menu updates same menu and clears stale IA analysis`() = runTest(dispatcher) {
+        val savedMenu = FoodMenu(
+            id = 7,
+            name = "Tostada",
+            mealType = MealType.BREAKFAST,
+            description = "Pan y aguacate",
+            notes = "Con semillas",
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Equilibrado.",
+                suggestion = "Mantener."
+            ),
+            calories = 420,
+            lastPickedDate = "2026-06-10",
+            createdAt = 123L
+        )
+        dao.seed(listOf(savedMenu))
+        advanceUntilIdle()
+
+        viewModel.startEditingMenu(savedMenu)
+        assertEquals("", viewModel.uiState.value.name)
+        assertEquals("Tostada", viewModel.uiState.value.editName)
+
+        viewModel.updateEditName("Tostada con huevo")
+        viewModel.updateEditDescription("Pan, aguacate y huevo")
+        viewModel.saveEditedMenu()
+        advanceUntilIdle()
+
+        val updated = dao.saved.single().toDomain()
+        assertEquals(7L, updated.id)
+        assertEquals("Tostada con huevo", updated.name)
+        assertEquals("Pan, aguacate y huevo", updated.description)
+        assertNull(updated.healthAnalysis)
+        assertNull(updated.calories)
+        assertEquals("2026-06-10", updated.lastPickedDate)
+        assertEquals(123L, updated.createdAt)
+        assertNull(viewModel.uiState.value.editingMenuId)
+        assertEquals("", viewModel.uiState.value.editName)
+        assertEquals("", viewModel.uiState.value.name)
+        assertEquals(
+            listOf(
+                "menu_saved:BREAKFAST:false:false:1",
+                "menu_inventory_changed:1:0:1"
+            ),
+            analytics.events
+        )
+    }
+
+    @Test
     fun `shows onboarding when it has not been completed and tracks it once`() = runTest(dispatcher) {
         analytics.events.clear()
         val firstRunStore = FakeOnboardingStore(completed = false)
