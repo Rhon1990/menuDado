@@ -399,6 +399,14 @@ internal fun menuDadoHeaderSubtitleFontSizeSp(): Int = 14
 
 internal fun menuDadoHeaderSubtitleTopOffsetDp(): Int = -5
 
+internal fun resultDialogMaxHeightPercent(): Int = 92
+
+internal fun resultDialogHorizontalPaddingDp(): Int = 14
+
+internal fun resultDialogHeroHeightDp(): Int = 184
+
+internal fun resultDialogTitleMaxLines(): Int = 4
+
 internal data class OnboardingStep(
     val title: String,
     val body: String
@@ -2159,52 +2167,92 @@ private fun ResultDialog(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.88f)
-                .padding(horizontal = 22.dp),
+                .fillMaxHeight(resultDialogMaxHeightPercent() / 100f)
+                .padding(horizontal = resultDialogHorizontalPaddingDp().dp),
             colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
             shape = RoundedCornerShape(8.dp)
         ) {
             Column {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MenuDadoColors.DeepGreen)
+                        .height(resultDialogHeroHeightDp().dp)
+                        .background(MenuDadoColors.Cream)
                         .padding(18.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MenuDadoColors.Cream)
-                                .padding(8.dp),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            DiceCube3D(
-                                modifier = Modifier.size(54.dp),
-                                rotationX = dicePose.rotationX,
-                                rotationY = dicePose.rotationY,
-                                rotationZ = dicePose.rotationZ - 4f
-                            )
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
                                 text = "Hoy toca",
-                                color = Color.White.copy(alpha = 0.86f),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MenuDadoColors.DeepGreen)
+                                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Black
                             )
                             Text(
-                                text = menu.name,
-                                color = Color.White,
-                                style = MaterialTheme.typography.headlineSmall,
+                                text = menu.mealType.label,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MenuDadoColors.Tomato.copy(alpha = 0.12f))
+                                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                                color = MenuDadoColors.Tomato,
                                 fontWeight = FontWeight.Black,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                                style = MaterialTheme.typography.labelLarge
                             )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(92.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MenuDadoColors.Surface)
+                                    .border(
+                                        BorderStroke(1.dp, MenuDadoColors.OutlineBrown.copy(alpha = 0.16f)),
+                                        RoundedCornerShape(8.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                DiceCube3D(
+                                    modifier = Modifier.size(70.dp),
+                                    rotationX = dicePose.rotationX,
+                                    rotationY = dicePose.rotationY,
+                                    rotationZ = dicePose.rotationZ - 4f
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Tu opcion para hoy",
+                                    color = MenuDadoColors.DeepGreen,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = menu.name,
+                                    color = MenuDadoColors.Ink,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Black,
+                                    maxLines = resultDialogTitleMaxLines(),
+                                    overflow = TextOverflow.Clip
+                                )
+                            }
                         }
                     }
                 }
@@ -2213,32 +2261,14 @@ private fun ResultDialog(
                     modifier = Modifier
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
-                        .padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MenuDadoColors.Tomato.copy(alpha = 0.12f))
-                                .padding(horizontal = 12.dp, vertical = 7.dp)
-                        ) {
-                            Text(
-                                text = menu.mealType.label,
-                                color = MenuDadoColors.Tomato,
-                                fontWeight = FontWeight.Black,
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                        menuVisibleCalories(menu)?.let { calories ->
-                            CaloriesPill(calories = calories)
-                        }
+                    menuVisibleCalories(menu)?.let { calories ->
+                        ResultDialogCaloriesChip(calories = calories)
                     }
 
-                    DialogSection(title = "Menu elegido") {
+                    PremiumDialogSection(title = "Menu elegido") {
                         Text(
                             text = menu.description,
                             style = MaterialTheme.typography.bodyLarge,
@@ -2247,7 +2277,7 @@ private fun ResultDialog(
                     }
 
                     if (menu.notes.isNotBlank()) {
-                        DialogSection(title = "Notas") {
+                        PremiumDialogSection(title = "Notas") {
                             Text(
                                 text = menu.notes,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -2257,7 +2287,7 @@ private fun ResultDialog(
                     }
 
                     menu.healthAnalysis?.let { analysis ->
-                        HealthAnalysisPanel(analysis = analysis)
+                        PremiumHealthAnalysisPanel(analysis = analysis)
                     }
                 }
 
@@ -2284,15 +2314,17 @@ private fun ResultDialog(
 }
 
 @Composable
-private fun DialogSection(
+private fun PremiumDialogSection(
     title: String,
     content: @Composable () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(MenuDadoColors.Background)
+            .border(
+                BorderStroke(1.dp, MenuDadoColors.OutlineBrown.copy(alpha = 0.14f)),
+                RoundedCornerShape(8.dp)
+            )
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -2303,5 +2335,79 @@ private fun DialogSection(
             fontWeight = FontWeight.Black
         )
         content()
+    }
+}
+
+@Composable
+private fun ResultDialogCaloriesChip(calories: Int) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MenuDadoColors.EggYellow.copy(alpha = 0.24f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "$calories kcal aprox.",
+            color = MenuDadoColors.DeepGreen,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Black
+        )
+    }
+}
+
+@Composable
+private fun PremiumHealthAnalysisPanel(analysis: HealthAnalysis) {
+    val accent = analysis.status.accentColor()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(accent.copy(alpha = 0.16f))
+            .border(
+                BorderStroke(1.dp, accent.copy(alpha = 0.26f)),
+                RoundedCornerShape(8.dp)
+            )
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Analisis IA",
+                style = MaterialTheme.typography.labelLarge,
+                color = MenuDadoColors.DeepGreen,
+                fontWeight = FontWeight.Black
+            )
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White.copy(alpha = 0.56f))
+                    .padding(horizontal = 12.dp, vertical = 7.dp)
+            ) {
+                Text(
+                    text = analysis.status.label,
+                    color = MenuDadoColors.Ink,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Black
+                )
+            }
+        }
+        Text(
+            text = analysis.reason,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MenuDadoColors.Ink
+        )
+        if (analysis.suggestion.isNotBlank()) {
+            Text(
+                text = analysis.suggestion,
+                style = MaterialTheme.typography.bodySmall,
+                color = MenuDadoColors.MutedInk
+            )
+        }
     }
 }

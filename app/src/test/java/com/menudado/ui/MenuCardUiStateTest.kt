@@ -99,6 +99,14 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `modal de resultado usa proporciones premium para movil`() {
+        assertEquals(92, resultDialogMaxHeightPercent())
+        assertEquals(14, resultDialogHorizontalPaddingDp())
+        assertEquals(184, resultDialogHeroHeightDp())
+        assertEquals(4, resultDialogTitleMaxLines())
+    }
+
+    @Test
     fun `onboarding explica los usos principales y recuerda el perfil alimentario`() {
         val steps = onboardingSteps()
 
