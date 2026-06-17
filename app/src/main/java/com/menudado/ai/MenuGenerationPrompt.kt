@@ -3,6 +3,8 @@ package com.menudado.ai
 import com.menudado.domain.DietaryProfile
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
+import com.menudado.domain.AppLanguage
+import com.menudado.domain.localizedLabel
 
 internal object MenuGenerationPrompt {
     fun build(
@@ -10,10 +12,11 @@ internal object MenuGenerationPrompt {
         avoidIdeas: List<String>,
         dietaryProfile: DietaryProfile = DietaryProfile(),
         audience: MenuAudience = MenuAudience.ADULT,
-        baseIngredients: String = ""
+        baseIngredients: String = "",
+        language: AppLanguage = AppLanguage.SPANISH
     ): String {
-        val guidance = mealType.generationGuidance()
-        val audienceGuidance = audience.generationGuidance(dietaryProfile.ageRange)
+        val guidance = mealType.generationGuidance(language)
+        val audienceGuidance = audience.generationGuidance(dietaryProfile.ageRange, language)
         val avoidBlock = if (avoidIdeas.isEmpty()) {
             "No hay platos previos que evitar."
         } else {
@@ -24,8 +27,8 @@ internal object MenuGenerationPrompt {
 
         return """
             ${guidance.opening}
-            Tipo seleccionado en la app: ${mealType.label}.
-            Publico seleccionado en la app: ${audience.label}.
+            Tipo seleccionado en la app: ${mealType.localizedLabel(language)}.
+            Publico seleccionado en la app: ${audience.localizedLabel(language)}.
             ${guidance.fitRule}
             ${guidance.exclusionRule}
             ${guidance.effortRule.orEmpty()}
@@ -39,11 +42,12 @@ internal object MenuGenerationPrompt {
             No repitas el mismo plato, ni una variante demasiado parecida.
             Cambia la base principal, la proteina principal, la preparacion y el estilo cuando sea posible.
             La evaluacion saludable debe ser breve, practica y sin tono de juicio.
+            Write name, description, notes, reason and suggestion in ${language.promptLanguageName}.
             Responde solo JSON valido, sin markdown, con estas claves:
             {
-              "name": "nombre breve del plato en espanol",
-              "description": "ingredientes y preparacion breve en espanol",
-              "notes": "nota practica opcional en espanol",
+              "name": "nombre breve del plato",
+              "description": "ingredientes y preparacion breve",
+              "notes": "nota practica opcional",
               "calories": 520,
               "health_status": "saludable|intermedio|no_saludable",
               "health_reason": "resumen breve de por que tiene ese estado",
@@ -88,7 +92,27 @@ internal object MenuGenerationPrompt {
         return rules.joinToString(separator = "\n")
     }
 
-    private fun MealType.generationGuidance(): GenerationGuidance {
+    private fun MealType.generationGuidance(language: AppLanguage): GenerationGuidance {
+        if (language != AppLanguage.SPANISH) {
+            return when (this) {
+                MealType.BREAKFAST -> GenerationGuidance(
+                    opening = "Generate a healthy ${localizedLabel(language).lowercase()} idea.",
+                    fitRule = "The recipe must clearly fit as ${localizedLabel(language).lowercase()}.",
+                    exclusionRule = "Do not generate recipes for other meal types."
+                )
+                MealType.LUNCH -> GenerationGuidance(
+                    opening = "Generate a healthy ${localizedLabel(language).lowercase()} idea.",
+                    fitRule = "The recipe must clearly fit as ${localizedLabel(language).lowercase()}.",
+                    exclusionRule = "Do not generate breakfast or dinner ideas."
+                )
+                MealType.DINNER -> GenerationGuidance(
+                    opening = "Generate a healthy ${localizedLabel(language).lowercase()} idea.",
+                    fitRule = "The recipe must clearly fit as a light, quick, low-energy night dinner.",
+                    exclusionRule = "Do not generate lunch or midday meal ideas.",
+                    effortRule = "For dinners use at most 10 minutes, at most 5 main ingredients and a preparation as simple as breakfast. Avoid oven dishes, roasts, multiple sides and multi-step preparations."
+                )
+            }
+        }
         return when (this) {
             MealType.BREAKFAST -> GenerationGuidance(
                 opening = "Genera un desayuno saludable.",
@@ -109,8 +133,15 @@ internal object MenuGenerationPrompt {
         }
     }
 
-    private fun MenuAudience.generationGuidance(ageRange: String): String {
+    private fun MenuAudience.generationGuidance(ageRange: String, language: AppLanguage): String {
         val range = ageRange.trim().ifBlank { defaultAgeRange }
+        if (language != AppLanguage.SPANISH) {
+            return when (this) {
+                MenuAudience.ADULT -> "The recipe must be designed for an adult in this age range: $range."
+                MenuAudience.CHILD -> "The recipe must be designed for kids in this age range: $range. Use moderate portions, familiar flavors, low salt and avoid obvious choking risks."
+                MenuAudience.BABY -> "The recipe must be designed for a baby in this age range: $range, already eating complementary foods. It must be soft or mashable, with no honey, no added salt, no added sugar, no hard or round pieces, no whole nuts, popcorn, whole grapes or other choking risks. If the dish is not appropriate for a baby, adapt it to a safe version."
+            }
+        }
         return when (this) {
             MenuAudience.ADULT -> "La receta debe estar pensada para una persona adulta en este rango de edad: $range."
             MenuAudience.CHILD -> "La receta debe estar pensada para un niño o niña en este rango de edad: $range. Usa porcion moderada, sabor familiar, baja en sal y sin riesgos obvios de atragantamiento."

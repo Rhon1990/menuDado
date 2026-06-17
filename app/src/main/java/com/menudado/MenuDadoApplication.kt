@@ -33,13 +33,19 @@ class MenuDadoApplication : Application() {
         }
     }
 
+    private val migration3To4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE menus ADD COLUMN imageUri TEXT")
+        }
+    }
+
     private val database: MenuDadoDatabase by lazy {
         Room.databaseBuilder(
             applicationContext,
             MenuDadoDatabase::class.java,
             "menu-dado.db"
         )
-            .addMigrations(migration1To2, migration2To3)
+            .addMigrations(migration1To2, migration2To3, migration3To4)
             .build()
     }
 

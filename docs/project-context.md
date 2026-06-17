@@ -46,10 +46,16 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 ## Funcionalidades Principales
 
+### Idioma de la app
+
+- La UI debe usar recursos Android y seguir el idioma del móvil cuando esté en español, inglés o francés; cualquier otro idioma debe caer en español.
+- Las etiquetas visibles de público en español son `Persona adulta`, `Peques` y `Bebé`.
+- La generación y el análisis con IA deben pedir nombre, descripción, notas, razón y sugerencia en el mismo idioma visible de la app para evitar mezclar idiomas en menús creados por IA.
+
 1. Crear menús localmente.
    - El formulario `Agregar menu` separa dos modos iniciales: `Escribir menu` y `Generar con IA`.
    - El tipo de comida es obligatorio y viene sugerido automaticamente segun la hora local del movil: desayuno por la mañana, almuerzo al mediodia/tarde y cena por la noche; el usuario puede cambiarlo antes de guardar o generar.
-   - El público objetivo también es obligatorio y no viene seleccionado por defecto; el usuario debe elegir adulto, niño o bebé entre los públicos activos del perfil alimentario.
+   - El público objetivo también es obligatorio y no viene seleccionado por defecto; el usuario debe elegir persona adulta, peques o bebé entre los públicos activos del perfil alimentario.
    - Si solo hay un público activo, el selector de público se muestra ya seleccionado con ese público. Si hay dos o más públicos activos, el selector queda vacío y obliga al usuario a elegir para quién es el menú.
    - En modo manual se muestran los campos de nombre del plato o menú, ingredientes o descripción y notas opcionales.
    - En modo IA se muestra primero la selección de tipo, un campo opcional de ingredientes base y la acción de generar; los campos de texto aparecen después de que la IA completa la idea para que el usuario la revise y guarde.
@@ -62,16 +68,20 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Las ideas generadas por IA deben ser saludables, ricas, simples y con ingredientes comunes de supermercado.
    - Si el tipo seleccionado es cena, la idea generada por IA debe ser ligera, rapida y de baja energia para la noche: maximo 10 minutos, pocos ingredientes y preparacion similar de sencilla a un desayuno; debe evitar horno, guarniciones multiples y recetas con varios pasos.
    - La generación de idea con IA debe devolver también el análisis saludable y calorías en la misma llamada. Si el usuario guarda esa idea sin modificarla, el menú debe quedar ya analizado sin hacer una segunda llamada a Firebase IA.
+   - La app no debe generar imágenes con IA para evitar costes y APIs adicionales. La foto del menú es opcional, debe venir de la cámara del móvil o de una imagen elegida desde la biblioteca, y solo se puede agregar o cambiar después de crear el menú desde `Tus menus` o `Editar menu`.
    - Si el usuario modifica manualmente nombre, descripción, notas o tipo después de generar la idea, la evaluación precalculada debe descartarse para evitar guardar un análisis desactualizado y debe mostrarse el aviso: `Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA.`
+   - Si el usuario edita solo la foto de un menú guardado, el análisis IA y las calorías existentes deben conservarse porque la receta no cambió.
    - Cada generación debe intentar diferenciarse de menús guardados del mismo tipo y del mismo público objetivo, además de la idea actual del formulario, evitando repetir plato, base principal, proteína o preparación.
    - Los menús ya guardados se pueden editar desde un diálogo `Editar menu` abierto desde la propia tarjeta para evitar que el usuario pierda el contexto.
    - Si al editar un menú se cambia nombre, tipo, público objetivo, descripción o notas, el análisis IA y las calorías asociadas se descartan para evitar mostrar una evaluación desactualizada; el usuario puede volver a tocar `Analizar IA`.
 
 2. Ver menús guardados.
    - Filtrar por desayuno, almuerzo, cena o todos.
-   - La lista `Tus menus` debe mostrarse colapsada por defecto para ahorrar espacio.
-   - Al tocar una tarjeta de `Tus menus`, esa tarjeta se expande y muestra descripción, notas, análisis IA y acciones.
-   - Solo una tarjeta de `Tus menus` debe permanecer expandida a la vez; al abrir otra, la anterior se colapsa.
+   - La sección `Tus menus` se organiza por público objetivo: persona adulta, peques y bebé, mostrando solo públicos con menús guardados.
+   - Cada público se presenta como carrusel horizontal con tarjetas compactas y visuales, mostrando por defecto los 10 menús más recientes de ese público.
+   - Las tarjetas muestran una portada: si el menú tiene `imageUri`, carga esa imagen local; si no, muestra un placeholder/skeleton visual coherente con la marca y el tipo de comida.
+   - La acción `Ver mas` aparece en cada sección con menús y abre una pantalla interna manteniendo el header de la app. Esa pantalla muestra todos los menús de ese público en grilla, sin scroll horizontal, separados por desayuno, almuerzo y cena.
+   - Al tocar un item de `Tus menus`, se abre un modal de detalle con descripción, notas, análisis IA y acciones.
    - Estado vacío que invita a crear el primer menú.
    - Si un menú tiene calorías estimadas, mostrarlas como `kcal aprox.` en tarjeta y modal solo cuando el menú ya tenga análisis IA.
 
@@ -83,12 +93,12 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Al detenerse después de cada lanzamiento, el dado debe quedar en una orientación de reposo distinta para que se vea una cara diferente.
    - El dado mostrado en el modal de resultado debe reflejar la misma orientación final del lanzamiento.
    - El resultado debe mostrarse en un modal diseñado, con cabecera de marca, dado 3D, secciones claras y botón principal de cierre; no debe ser un diálogo de texto plano.
-   - Antes de lanzar el dado, la app sugiere desayuno, almuerzo o cena segun la hora local del movil, y el usuario debe escoger adulto, niño o bebé; no hay opción `Todos` y el tipo de comida sugerido se puede cambiar.
+   - Antes de lanzar el dado, la app sugiere desayuno, almuerzo o cena segun la hora local del movil, y el usuario debe escoger persona adulta, peques o bebé; no hay opción `Todos` y el tipo de comida sugerido se puede cambiar.
    - Cada grupo de filtros del dado debe mantenerse como selector horizontal de lectura rápida.
    - Los filtros de público del dado solo muestran públicos activos en el perfil alimentario.
    - Si solo hay un público activo, el filtro de público del dado se muestra ya seleccionado con ese público. Si hay dos o más públicos activos, queda vacío y obliga al usuario a elegir.
    - Si el usuario elige filtros, el azar solo considera menús de ese tipo y público objetivo.
-   - Si no elige filtros y toca el dado, la app muestra un aviso pidiendo escoger desayuno, almuerzo o cena y adulto, niño o bebé antes de lanzar.
+   - Si no elige filtros y toca el dado, la app muestra un aviso pidiendo escoger desayuno, almuerzo o cena y persona adulta, peques o bebé antes de lanzar.
    - El azar no debe repetir durante el mismo día menús que ya hayan salido mientras queden candidatos nuevos para el filtro activo.
    - Si todos los menús del filtro activo ya salieron hoy, la memoria de ese filtro se reinicia automáticamente y el dado vuelve a elegir entre todos sus menús sin mostrar aviso.
    - La memoria de menús elegidos también se reinicia automáticamente al cambiar el día.
@@ -123,7 +133,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 6. Onboarding de primera apertura.
    - La primera vez que el usuario entra a la app, MenuDado muestra un onboarding breve en modal sin reemplazar la pantalla principal.
    - El onboarding explica cuatro pasos básicos en este orden: completar el perfil alimentario, guardar menús, usar IA y lanzar el dado.
-   - El paso de perfil debe recordar que el usuario puede activar adulto, niño o bebé e indicar embarazo, alergias y condiciones de salud para adaptar mejor las ideas generadas.
+   - El paso de perfil debe recordar que el usuario puede activar persona adulta, peques o bebé e indicar embarazo, alergias y condiciones de salud para adaptar mejor las ideas generadas.
    - El paso de IA debe comunicar en lenguaje simple que el usuario tiene hasta 20 ayudas de IA al día y que vuelven a estar disponibles cada mañana a las 9 am.
    - El usuario puede avanzar o retroceder por los pasos con swipe horizontal, empezar u omitir.
    - Al empezar u omitir, el onboarding se marca como completado en almacenamiento local y no vuelve a mostrarse en siguientes aperturas hasta que exista una nueva versión de contenido relevante.
@@ -131,11 +141,11 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 7. Perfil alimentario.
    - La app ofrece un menú hamburguesa con acceso a `Perfil alimentario`.
    - El perfil se guarda localmente en el móvil.
-   - El perfil alimentario se configura por público objetivo: adulto, niño y bebé.
-   - Cada público tiene un interruptor `Activo`; por defecto solo `Adulto` viene activo, y `Niño` y `Bebé` empiezan desactivados. Si un público está desactivado, no aparece como botón seleccionable al agregar menús ni al lanzar el dado. La app impide desactivar el último público activo para que siempre quede al menos uno disponible.
+   - El perfil alimentario se configura por público objetivo: persona adulta, peques y bebé.
+   - Cada público tiene un interruptor `Activo`; por defecto solo `Persona adulta` viene activo, y `Peques` y `Bebé` empiezan desactivados. Si un público está desactivado, no aparece como botón seleccionable al agregar menús ni al lanzar el dado. La app impide desactivar el último público activo para que siempre quede al menos uno disponible.
    - Si el público seleccionado no está activo, el resto de switches y campos del perfil alimentario quedan deshabilitados.
-   - El selector de público muestra el rango de edad como texto fijo bajo el botón seleccionado, sin campo editable visible. Valores iniciales: adulto `18+ años`, niño `2-12 años`, bebé `6-24 meses`.
-   - En el perfil de adulto se puede indicar si la persona está embarazada. Esta opción solo aparece para `Adulto` y se envía como restricción de seguridad alimentaria a la generación con IA.
+   - El selector de público muestra el rango de edad como texto fijo bajo el botón seleccionado, sin campo editable visible. Valores iniciales: persona adulta `18+ años`, peques `2-12 años`, bebé `6-24 meses`.
+   - En el perfil de persona adulta se puede indicar si la persona está embarazada. Esta opción solo aparece para `Persona adulta` y se envía como restricción de seguridad alimentaria a la generación con IA.
    - Permite indicar si el usuario es vegano.
    - Permite indicar si tiene alergias y seleccionar alérgenos comunes: gluten, lactosa/lácteos, huevo, frutos secos, cacahuete, soja, pescado, marisco y sésamo.
    - Permite escribir alimentos a evitar o condiciones de salud relevantes, por ejemplo `diabético`, `hipertenso` o `sin picante`.
@@ -156,7 +166,8 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Almacenamiento local: Room.
 - Arquitectura: MVVM con repositorios.
 - Estado y asincronía: Kotlin coroutines y Flow.
-- Integración IA: Firebase AI Logic con Gemini 2.5 Flash-Lite.
+- Integración IA: Firebase AI Logic con Gemini 2.5 Flash-Lite para análisis saludable y lote de pendientes.
+- Generación de ideas IA: Firebase AI Logic con Gemini 2.5 Flash-Lite para texto, análisis saludable y calorías. No se usan modelos de imagen IA; las fotos de menú son opcionales, tomadas con cámara o seleccionadas por el usuario desde biblioteca, y gestionadas después de crear el menú guardado.
 - Perfil alimentario: configuración local por público objetivo en SharedPreferences usada como restricciones del prompt de generación IA.
 - Onboarding: estado local en SharedPreferences para mostrar la guía solo en primera apertura.
 - Analítica:

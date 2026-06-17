@@ -11,29 +11,31 @@ import com.menudado.domain.GeneratedMenu
 import com.menudado.domain.GeneratedMenuParser
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthAnalysisParser
+import com.menudado.domain.AppLanguage
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import com.menudado.domain.isAiQuotaExceeded
+import com.menudado.domain.localizedLabel
 
 class FirebaseHealthAnalyzer : HealthAnalyzer {
-    override suspend fun analyze(menu: FoodMenu): Result<HealthAnalysis> {
+    override suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<HealthAnalysis> {
         return runCatching {
             val model = Firebase.ai(backend = GenerativeBackend.googleAI())
                 .generativeModel(BuildConfig.GEMINI_MODEL)
 
-            val response = model.generateContent(menu.toPrompt())
+            val response = model.generateContent(menu.toPrompt(language))
             HealthAnalysisParser.parse(response.text.orEmpty())
         }.onFailure { error ->
             logAiFailure("Health analysis failed", error)
         }
     }
 
-    override suspend fun analyzeBatch(menus: List<FoodMenu>): Result<Map<Long, HealthAnalysis>> {
+    override suspend fun analyzeBatch(menus: List<FoodMenu>, language: AppLanguage): Result<Map<Long, HealthAnalysis>> {
         return runCatching {
             val model = Firebase.ai(backend = GenerativeBackend.googleAI())
                 .generativeModel(BuildConfig.GEMINI_MODEL)
 
-            val response = model.generateContent(menus.toBatchPrompt())
+            val response = model.generateContent(menus.toBatchPrompt(language))
             HealthAnalysisParser.parseBatch(response.text.orEmpty())
         }.onFailure { error ->
             logAiFailure("Batch health analysis failed", error)
@@ -45,14 +47,15 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
         avoidIdeas: List<String>,
         dietaryProfile: DietaryProfile,
         audience: MenuAudience,
-        baseIngredients: String
+        baseIngredients: String,
+        language: AppLanguage
     ): Result<GeneratedMenu> {
         return runCatching {
             val model = Firebase.ai(backend = GenerativeBackend.googleAI())
                 .generativeModel(BuildConfig.GEMINI_MODEL)
 
             val response = model.generateContent(
-                MenuGenerationPrompt.build(mealType, avoidIdeas, dietaryProfile, audience, baseIngredients)
+                MenuGenerationPrompt.build(mealType, avoidIdeas, dietaryProfile, audience, baseIngredients, language)
             )
             GeneratedMenuParser.parse(response.text.orEmpty())
         }.onFailure { error ->
@@ -71,33 +74,34 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
         }
     }
 
-    private fun FoodMenu.toPrompt(): String {
+    private fun FoodMenu.toPrompt(language: AppLanguage): String {
         return """
             Evalua si este menu es saludable para: ${audience.promptName()}.
+            Write reason and suggestion in ${language.promptLanguageName}.
             Responde solo JSON valido, sin markdown, con estas claves:
             {
               "status": "saludable|intermedio|no_saludable",
-              "reason": "resumen breve en espanol",
-              "suggestion": "una sugerencia practica en espanol",
+              "reason": "resumen breve",
+              "suggestion": "una sugerencia practica",
               "calories": 520
             }
             Las calorias deben ser una estimacion numerica realista para una racion adecuada a ese publico.
 
-            Tipo de comida: ${mealType.label}
-            Publico: ${audience.label}
+            Tipo de comida: ${mealType.localizedLabel(language)}
+            Publico: ${audience.localizedLabel(language)}
             Nombre: $name
             Ingredientes o descripcion: $description
             Notas: $notes
         """.trimIndent()
     }
 
-    private fun List<FoodMenu>.toBatchPrompt(): String {
+    private fun List<FoodMenu>.toBatchPrompt(language: AppLanguage): String {
         val menusJson = joinToString(separator = ",\n") { menu ->
             """
             {
               "id": ${menu.id},
-              "meal_type": "${menu.mealType.label}",
-              "audience": "${menu.audience.label}",
+              "meal_type": "${menu.mealType.localizedLabel(language)}",
+              "audience": "${menu.audience.localizedLabel(language)}",
               "name": "${menu.name.promptSafe()}",
               "description": "${menu.description.promptSafe()}",
               "notes": "${menu.notes.promptSafe()}"
@@ -107,14 +111,15 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
 
         return """
             Evalua si estos menus son saludables para el publico indicado en cada elemento.
+            Write reason and suggestion in ${language.promptLanguageName}.
             Responde solo JSON valido, sin markdown, con esta estructura:
             {
               "results": [
                 {
                   "id": 1,
                   "status": "saludable|intermedio|no_saludable",
-                  "reason": "resumen breve en espanol",
-                  "suggestion": "una sugerencia practica en espanol",
+                  "reason": "resumen breve",
+                  "suggestion": "una sugerencia practica",
                   "calories": 520
                 }
               ]

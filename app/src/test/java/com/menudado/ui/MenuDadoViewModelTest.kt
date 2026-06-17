@@ -19,6 +19,7 @@ import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
+import com.menudado.domain.AppLanguage
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +43,7 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import java.util.Calendar
+import java.util.Locale
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MenuDadoViewModelTest {
@@ -54,9 +56,12 @@ class MenuDadoViewModelTest {
     private lateinit var onboardingStore: FakeOnboardingStore
     private lateinit var analytics: RecordingMenuDadoAnalytics
     private lateinit var viewModel: MenuDadoViewModel
+    private lateinit var originalLocale: Locale
 
     @Before
     fun setUp() {
+        originalLocale = Locale.getDefault()
+        Locale.setDefault(Locale("es"))
         Dispatchers.setMain(dispatcher)
         dao = FakeMenuDao()
         analyzer = RecordingHealthAnalyzer()
@@ -82,6 +87,7 @@ class MenuDadoViewModelTest {
 
     @After
     fun tearDown() {
+        Locale.setDefault(originalLocale)
         Dispatchers.resetMain()
     }
 
@@ -149,6 +155,20 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `generate menu sends current device language to AI`() = runTest(dispatcher) {
+        val originalLocale = Locale.getDefault()
+        Locale.setDefault(Locale.FRENCH)
+        try {
+            viewModel.generateMenuIdea()
+            advanceUntilIdle()
+
+            assertEquals(AppLanguage.FRENCH, analyzer.requestedLanguage)
+        } finally {
+            Locale.setDefault(originalLocale)
+        }
+    }
+
+    @Test
     fun `save menu requires selecting an audience`() = runTest(dispatcher) {
         val freshViewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
@@ -168,7 +188,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
-        assertEquals("Selecciona si el menu es para adulto, niño o bebe.", freshViewModel.uiState.value.message)
+        assertEquals("Selecciona si el menu es para persona adulta, peques o bebe.", freshViewModel.uiState.value.message)
     }
 
     @Test
@@ -189,7 +209,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
-        assertEquals("Selecciona si el menu es para adulto, niño o bebe.", freshViewModel.uiState.value.message)
+        assertEquals("Selecciona si el menu es para persona adulta, peques o bebe.", freshViewModel.uiState.value.message)
     }
 
     @Test
@@ -267,6 +287,37 @@ class MenuDadoViewModelTest {
             ),
             analytics.events
         )
+    }
+
+    @Test
+    fun `editing saved menu can update optional user photo without clearing IA analysis`() = runTest(dispatcher) {
+        val savedMenu = FoodMenu(
+            id = 9,
+            name = "Pasta",
+            mealType = MealType.LUNCH,
+            description = "Pasta con tomate",
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Equilibrado.",
+                suggestion = "Mantener."
+            ),
+            calories = 480
+        )
+        dao.seed(listOf(savedMenu))
+        advanceUntilIdle()
+
+        viewModel.startEditingMenu(savedMenu)
+        viewModel.updateEditImageUri("content://menu/photo/1")
+        assertEquals("content://menu/photo/1", viewModel.uiState.value.editImageUri)
+
+        viewModel.saveEditedMenu()
+        advanceUntilIdle()
+
+        val saved = dao.saved.single().toDomain()
+        assertEquals("Pasta", saved.name)
+        assertEquals("content://menu/photo/1", saved.imageUri)
+        assertEquals(HealthStatus.HEALTHY, saved.healthAnalysis?.status)
+        assertEquals(480, saved.calories)
     }
 
     @Test
@@ -458,6 +509,19 @@ class MenuDadoViewModelTest {
         assertEquals("Aporta fibra y proteina vegetal.", saved.healthAnalysis?.reason)
         assertEquals(540, saved.calories)
         assertEquals(540, menuVisibleCalories(saved))
+    }
+
+    @Test
+    fun `manual menu is created without photo from add form`() = runTest(dispatcher) {
+        viewModel.updateName("Crema de calabaza")
+        viewModel.updateDescription("Calabaza, patata y aceite de oliva.")
+
+        viewModel.saveMenu()
+        advanceUntilIdle()
+
+        val saved = dao.saved.single().toDomain()
+        assertEquals("Crema de calabaza", saved.name)
+        assertNull(saved.imageUri)
     }
 
     @Test
@@ -1362,7 +1426,7 @@ class MenuDadoViewModelTest {
         val state = viewModel.uiState.value
         assertFalse(state.isRolling)
         assertNull(state.result)
-        assertEquals("Selecciona si el menu es para adulto, niño o bebe.", state.message)
+        assertEquals("Selecciona si el menu es para persona adulta, peques o bebe.", state.message)
         assertEquals(emptyList<String>(), analytics.events)
     }
 
@@ -1563,6 +1627,7 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
     var batchAnalyzeMenuIds: List<Long> = emptyList()
     var generateFailure: Throwable? = null
     var requestedAudience: MenuAudience? = null
+    var requestedLanguage: AppLanguage? = null
     var generatedMenu = GeneratedMenu(
         name = "Tostada",
         description = "Pan integral y huevo.",
@@ -1570,8 +1635,9 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
         calories = 350
     )
 
-    override suspend fun analyze(menu: FoodMenu): Result<HealthAnalysis> {
+    override suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<HealthAnalysis> {
         wasCalled = true
+        requestedLanguage = language
         analysisFailure?.let { return Result.failure(it) }
         return Result.success(
             HealthAnalysis(
@@ -1583,8 +1649,9 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
         )
     }
 
-    override suspend fun analyzeBatch(menus: List<FoodMenu>): Result<Map<Long, HealthAnalysis>> {
+    override suspend fun analyzeBatch(menus: List<FoodMenu>, language: AppLanguage): Result<Map<Long, HealthAnalysis>> {
         batchAnalyzeCalls += 1
+        requestedLanguage = language
         batchAnalyzeMenuIds = menus.map { it.id }
         batchAnalysisFailure?.let { return Result.failure(it) }
         return Result.success(batchAnalyses)
@@ -1595,13 +1662,15 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
         avoidIdeas: List<String>,
         dietaryProfile: DietaryProfile,
         audience: MenuAudience,
-        baseIngredients: String
+        baseIngredients: String,
+        language: AppLanguage
     ): Result<GeneratedMenu> {
         generateCalls += 1
         requestedMealType = mealType
         requestedDietaryProfile = dietaryProfile
         requestedAudience = audience
         requestedBaseIngredients = baseIngredients
+        requestedLanguage = language
         this.avoidIdeas = avoidIdeas
         generateFailure?.let { return Result.failure(it) }
         return Result.success(generatedMenu)

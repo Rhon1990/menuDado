@@ -21,6 +21,7 @@ data class MenuEntity(
     val healthReason: String?,
     val healthSuggestion: String?,
     val calories: Int?,
+    val imageUri: String? = null,
     val lastPickedDate: String?,
     val createdAt: Long = System.currentTimeMillis()
 ) {
@@ -41,6 +42,7 @@ data class MenuEntity(
                 )
             },
             calories = calories,
+            imageUri = imageUri,
             lastPickedDate = lastPickedDate,
             createdAt = createdAt
         )
@@ -59,6 +61,7 @@ fun FoodMenu.toEntity(): MenuEntity {
         healthReason = healthAnalysis?.reason,
         healthSuggestion = healthAnalysis?.suggestion,
         calories = calories,
+        imageUri = imageUri,
         lastPickedDate = lastPickedDate,
         createdAt = createdAt
     )

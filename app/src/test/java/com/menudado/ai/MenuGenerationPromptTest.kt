@@ -2,6 +2,7 @@ package com.menudado.ai
 
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
+import com.menudado.domain.AppLanguage
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import org.junit.Assert.assertFalse
@@ -112,5 +113,22 @@ class MenuGenerationPromptTest {
         assertTrue(prompt.contains("evaluacion saludable"))
         assertTrue(prompt.contains("breve"))
         assertTrue(prompt.contains("sin tono de juicio"))
+    }
+
+    @Test
+    fun `prompt asks AI to generate content in selected app language`() {
+        val englishPrompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList(),
+            language = AppLanguage.ENGLISH
+        ).lowercase()
+        val frenchPrompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList(),
+            language = AppLanguage.FRENCH
+        ).lowercase()
+
+        assertTrue(englishPrompt.contains("write name, description, notes, reason and suggestion in english"))
+        assertTrue(frenchPrompt.contains("write name, description, notes, reason and suggestion in french"))
     }
 }

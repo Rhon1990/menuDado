@@ -1,8 +1,17 @@
 package com.menudado.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import android.content.Context
+import android.content.Intent
+import android.graphics.BitmapFactory
 import android.graphics.Paint as AndroidPaint
+import android.net.Uri
+import android.os.Environment
 import com.menudado.BuildConfig
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -20,6 +29,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,13 +39,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -72,14 +86,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
@@ -88,11 +105,13 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -102,6 +121,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import com.menudado.R
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
@@ -113,6 +134,7 @@ import com.menudado.domain.MealType
 import com.menudado.ui.theme.MenuDadoColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -125,16 +147,74 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
     val result = state.result
     val message = state.message
     val aiRetryAtMillis = state.aiRetryAtMillis
+    val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
     var previousRolling by remember { mutableStateOf(state.isRolling) }
     var diceFaceIndex by remember { mutableIntStateOf(0) }
-    var expandedMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var audienceDetailRoute by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedDetailMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var photoPickerMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var isPhotoSourceDialogVisible by rememberSaveable { mutableStateOf(false) }
+    var pendingCameraUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedDestination by rememberSaveable { mutableStateOf(MenuDadoDestination.HOME.name) }
     val pendingAnalysisCount = state.menus.count { it.healthAnalysis == null }
     val destination = MenuDadoDestination.valueOf(selectedDestination)
+    val audienceDetail = menuAudienceFromDetailRoute(audienceDetailRoute)
+    val homeListState = rememberLazyListState()
+    val audienceDetailListState = remember(audienceDetailRoute) { LazyListState() }
+    val activeListState = if (menuListStateKeyForAudienceDetail(audienceDetailRoute) == "home") {
+        homeListState
+    } else {
+        audienceDetailListState
+    }
+    val selectedDetailMenu = selectedDetailMenuId?.let { selectedId ->
+        state.menus.firstOrNull { it.id == selectedId }
+    }
+    fun saveSelectedPhoto(uriString: String) {
+        val menuId = photoPickerMenuId
+        if (menuId == null) {
+            viewModel.updateEditImageUri(uriString)
+        } else {
+            viewModel.updateMenuImageUri(menuId, uriString)
+        }
+    }
+    val photoPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            saveSelectedPhoto(it.toString())
+            photoPickerMenuId = null
+        }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { didTakePhoto ->
+        val cameraUri = pendingCameraUriString
+        if (didTakePhoto && cameraUri != null) {
+            saveSelectedPhoto(cameraUri)
+        }
+        pendingCameraUriString = null
+        photoPickerMenuId = null
+    }
+    fun showPhotoSourceFor(menuId: Long?) {
+        photoPickerMenuId = menuId
+        isPhotoSourceDialogVisible = true
+    }
+
+    BackHandler(enabled = audienceDetailRoute != null) {
+        audienceDetailRoute = menuAudienceDetailRouteAfterBack(audienceDetailRoute)
+    }
+
+    LaunchedEffect(audienceDetailRoute) {
+        if (menuShouldResetAudienceDetailScroll(audienceDetailRoute)) {
+            audienceDetailListState.scrollToItem(0)
+        }
+    }
 
     LaunchedEffect(state.isRolling) {
         if (previousRolling && !state.isRolling) {
@@ -144,8 +224,8 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
     }
 
     LaunchedEffect(state.menus) {
-        if (expandedMenuId != null && state.menus.none { it.id == expandedMenuId }) {
-            expandedMenuId = null
+        if (selectedDetailMenuId != null && state.menus.none { it.id == selectedDetailMenuId }) {
+            selectedDetailMenuId = null
         }
     }
 
@@ -168,10 +248,10 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
             onDismissRequest = viewModel::clearMessage,
             confirmButton = {
                 TextButton(onClick = viewModel::clearMessage) {
-                    Text("Entendido")
+                    Text(stringResource(id = R.string.common_understood))
                 }
             },
-            title = { Text("MenuDado") },
+            title = { Text(stringResource(id = R.string.app_name)) },
             text = { Text(message) }
         )
     }
@@ -183,6 +263,25 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
         )
     }
 
+    if (isPhotoSourceDialogVisible) {
+        MenuPhotoSourceDialog(
+            onTakePhoto = {
+                val uri = createMenuCameraImageUri(context)
+                pendingCameraUriString = uri.toString()
+                isPhotoSourceDialogVisible = false
+                cameraLauncher.launch(uri)
+            },
+            onChooseFromLibrary = {
+                isPhotoSourceDialogVisible = false
+                photoPickerLauncher.launch(arrayOf("image/*"))
+            },
+            onDismiss = {
+                isPhotoSourceDialogVisible = false
+                photoPickerMenuId = null
+            }
+        )
+    }
+
     if (state.editingMenuId != null) {
         EditMenuDialog(
             state = state,
@@ -191,8 +290,30 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
             onNameChanged = viewModel::updateEditName,
             onDescriptionChanged = viewModel::updateEditDescription,
             onNotesChanged = viewModel::updateEditNotes,
+            onPickImage = {
+                showPhotoSourceFor(menuId = null)
+            },
             onSave = viewModel::saveEditedMenu,
             onDismiss = viewModel::cancelEditingMenu
+        )
+    }
+
+    selectedDetailMenu?.let { menu ->
+        MenuDetailDialog(
+            menu = menu,
+            isAnalyzing = state.isAnalyzing,
+            aiUsesRemainingToday = state.aiUsesRemainingToday,
+            isAiPaused = state.aiRetryAtMillis != null,
+            onAnalyze = { viewModel.analyzeExisting(menu) },
+            onEdit = {
+                selectedDetailMenuId = null
+                viewModel.startEditingMenu(menu)
+            },
+            onDelete = {
+                selectedDetailMenuId = null
+                viewModel.deleteMenu(menu)
+            },
+            onDismiss = { selectedDetailMenuId = null }
         )
     }
 
@@ -210,12 +331,14 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                             viewModel.trackAboutAppOpened()
                         }
                         selectedDestination = selected.name
+                        audienceDetailRoute = null
                         coroutineScope.launch { drawerState.close() }
                     }
                 )
             }
         ) {
             LazyColumn(
+                state = activeListState,
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MenuDadoColors.Background),
@@ -253,76 +376,86 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                         }
                     }
                     MenuDadoDestination.HOME -> {
-                        item {
-                            DiceSection(
-                                filter = state.diceFilter,
-                                audienceFilter = state.diceAudienceFilter,
-                                enabledAudiences = state.enabledAudiences,
-                                isRolling = state.isRolling,
-                                diceFaceIndex = diceFaceIndex,
-                                onFilterChanged = viewModel::setDiceFilter,
-                                onAudienceFilterChanged = viewModel::setDiceAudienceFilter,
-                                onRoll = viewModel::rollDice
-                            )
-                        }
-                        item {
-                            MenuForm(
-                                state = state,
-                                enabledAudiences = state.enabledAudiences,
-                                onMealTypeChanged = viewModel::setFormMealType,
-                                onAudienceChanged = viewModel::setFormAudience,
-                                onNameChanged = viewModel::updateName,
-                                onDescriptionChanged = viewModel::updateDescription,
-                                onNotesChanged = viewModel::updateNotes,
-                                onAiBaseIngredientsChanged = viewModel::updateAiBaseIngredients,
-                                onGenerate = viewModel::generateMenuIdea,
-                                onSave = viewModel::saveMenu
-                            )
-                        }
-                        item {
-                            Text(
-                                text = "Tus menus",
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        if (pendingAnalysisCount > 0) {
+                        if (audienceDetail != null) {
                             item {
-                                PendingAnalysisButton(
-                                    isAnalyzing = state.isAnalyzing,
-                                    isAiPaused = state.aiRetryAtMillis != null,
-                                    usesRemaining = state.aiUsesRemainingToday,
-                                    onAnalyzePending = viewModel::analyzePendingMenus
+                                MenuAudienceDetailScreen(
+                                    audience = audienceDetail,
+                                    menus = state.menus,
+                                    onBack = { audienceDetailRoute = null },
+                                    onOpenMenu = { menu ->
+                                        viewModel.trackMenuCardOpened(menu)
+                                        selectedDetailMenuId = menu.id
+                                    },
+                                    onPickImage = { menu ->
+                                        showPhotoSourceFor(menuId = menu.id)
+                                    }
                                 )
-                            }
-                        }
-                        if (state.menus.isEmpty()) {
-                            item {
-                                EmptyState()
                             }
                         } else {
-                            items(items = state.menus, key = { it.id }) { menu ->
-                                MenuCard(
-                                    menu = menu,
-                                    isExpanded = expandedMenuId == menu.id,
-                                    isAnalyzing = state.isAnalyzing,
-                                    aiUsesRemainingToday = state.aiUsesRemainingToday,
-                                    isAiPaused = state.aiRetryAtMillis != null,
-                                    onToggleExpanded = {
-                                        val nextExpandedMenuId = nextExpandedMenuIdAfterMenuClick(
-                                            currentExpandedMenuId = expandedMenuId,
-                                            clickedMenuId = menu.id
-                                        )
-                                        if (nextExpandedMenuId == menu.id) {
-                                            viewModel.trackMenuCardOpened(menu)
-                                        }
-                                        expandedMenuId = nextExpandedMenuId
-                                    },
-                                    onAnalyze = { viewModel.analyzeExisting(menu) },
-                                    onEdit = { viewModel.startEditingMenu(menu) },
-                                    onDelete = { viewModel.deleteMenu(menu) }
+                            item {
+                                DiceSection(
+                                    filter = state.diceFilter,
+                                    audienceFilter = state.diceAudienceFilter,
+                                    enabledAudiences = state.enabledAudiences,
+                                    isRolling = state.isRolling,
+                                    diceFaceIndex = diceFaceIndex,
+                                    onFilterChanged = viewModel::setDiceFilter,
+                                    onAudienceFilterChanged = viewModel::setDiceAudienceFilter,
+                                    onRoll = viewModel::rollDice
                                 )
+                            }
+                            item {
+                                MenuForm(
+                                    state = state,
+                                    enabledAudiences = state.enabledAudiences,
+                                    onMealTypeChanged = viewModel::setFormMealType,
+                                    onAudienceChanged = viewModel::setFormAudience,
+                                    onNameChanged = viewModel::updateName,
+                                    onDescriptionChanged = viewModel::updateDescription,
+                                    onNotesChanged = viewModel::updateNotes,
+                                    onAiBaseIngredientsChanged = viewModel::updateAiBaseIngredients,
+                                    onGenerate = viewModel::generateMenuIdea,
+                                    onSave = viewModel::saveMenu
+                                )
+                            }
+                            item {
+                                Text(
+                                    text = stringResource(id = R.string.your_menus),
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            if (pendingAnalysisCount > 0) {
+                                item {
+                                    PendingAnalysisButton(
+                                        isAnalyzing = state.isAnalyzing,
+                                        isAiPaused = state.aiRetryAtMillis != null,
+                                        usesRemaining = state.aiUsesRemainingToday,
+                                        onAnalyzePending = viewModel::analyzePendingMenus
+                                    )
+                                }
+                            }
+                            if (state.menus.isEmpty()) {
+                                item {
+                                    EmptyState()
+                                }
+                            } else {
+                                item {
+                                    MenuCarouselSections(
+                                        menus = state.menus,
+                                        onViewMore = { audience ->
+                                            audienceDetailRoute = menuAudienceDetailRouteAfterViewMore(audience)
+                                        },
+                                        onOpenMenu = { menu ->
+                                            viewModel.trackMenuCardOpened(menu)
+                                            selectedDetailMenuId = menu.id
+                                        },
+                                        onPickImage = { menu ->
+                                            showPhotoSourceFor(menuId = menu.id)
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -367,24 +500,24 @@ private fun MenuDadoDrawer(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "MenuDado",
+                text = stringResource(id = R.string.app_name),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Black,
                 color = MenuDadoColors.DeepGreen
             )
             NavigationDrawerItem(
-                label = { Text("Inicio") },
+                label = { Text(stringResource(id = R.string.nav_home)) },
                 selected = selectedDestination == MenuDadoDestination.HOME,
                 onClick = { onDestinationSelected(MenuDadoDestination.HOME) }
             )
             NavigationDrawerItem(
-                label = { Text("Perfil alimentario") },
+                label = { Text(stringResource(id = R.string.nav_dietary_profile)) },
                 selected = selectedDestination == MenuDadoDestination.PROFILE,
                 onClick = { onDestinationSelected(MenuDadoDestination.PROFILE) }
             )
             NavigationDrawerItem(
-                label = { Text("Acerca de la app") },
+                label = { Text(stringResource(id = R.string.nav_about)) },
                 selected = selectedDestination == MenuDadoDestination.ABOUT,
                 onClick = { onDestinationSelected(MenuDadoDestination.ABOUT) }
             )
@@ -424,26 +557,26 @@ internal fun resultDialogHeroHeightDp(): Int = 184
 internal fun resultDialogTitleMaxLines(): Int = 4
 
 internal data class OnboardingStep(
-    val title: String,
-    val body: String
+    @StringRes val titleRes: Int,
+    @StringRes val bodyRes: Int
 )
 
 internal fun onboardingSteps(): List<OnboardingStep> = listOf(
     OnboardingStep(
-        title = "Completa tu perfil",
-        body = "Activa si cocinas para adulto, nino o bebe. En el perfil alimentario puedes indicar embarazo, alergias y condiciones de salud para adaptar mejor las ideas."
+        titleRes = R.string.onboarding_profile_title,
+        bodyRes = R.string.onboarding_profile_body
     ),
     OnboardingStep(
-        title = "Guarda tus menus",
-        body = "Agrega desayunos, almuerzos y cenas con ingredientes, notas y calorias si quieres."
+        titleRes = R.string.onboarding_menus_title,
+        bodyRes = R.string.onboarding_menus_body
     ),
     OnboardingStep(
-        title = "Personaliza con IA",
-        body = "Genera ideas segun el tipo de comida y el perfil elegido, y revisa si son saludables. Tienes hasta 20 ayudas de IA al dia y se renuevan cada manana a las 9 am."
+        titleRes = R.string.onboarding_ai_title,
+        bodyRes = R.string.onboarding_ai_body
     ),
     OnboardingStep(
-        title = "Lanza el dado",
-        body = "Escoge desayuno, almuerzo o cena, selecciona para quien es y deja que MenuDado elija por ti."
+        titleRes = R.string.onboarding_dice_title,
+        bodyRes = R.string.onboarding_dice_body
     )
 )
 
@@ -462,25 +595,17 @@ internal fun onboardingStepAfterSwipe(
 private const val ONBOARDING_SWIPE_THRESHOLD = 56f
 
 internal data class AboutAppInfo(
-    val title: String,
-    val reason: String,
     val creator: String,
-    val contact: String,
-    val version: String
+    val contact: String
 )
 
 internal fun aboutAppInfo(): AboutAppInfo = AboutAppInfo(
-    title = "Acerca de la app",
-    reason = "MenuDado se hizo para ayudar en esos momentos en los que no sabes que comer. La app te permite guardar tus menus, elegir una opcion con el dado y apoyarte con IA para encontrar ideas mas saludables sin complicarte.",
     creator = "Rhonal A. Delgado Padilla",
-    contact = "rhonal.delgado@gmail.com",
-    version = "Version ${BuildConfig.VERSION_NAME}"
+    contact = "rhonal.delgado@gmail.com"
 )
 
 @Composable
 private fun AboutAppSection() {
-    val info = remember { aboutAppInfo() }
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -494,44 +619,44 @@ private fun AboutAppSection() {
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
-                text = info.title,
+                text = stringResource(id = R.string.about_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Black,
                 color = MenuDadoColors.Ink
             )
             Text(
-                text = info.reason,
+                text = stringResource(id = R.string.about_reason),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MenuDadoColors.MutedInk
             )
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Creada por",
+                    text = stringResource(id = R.string.about_created_by),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Black,
                     color = MenuDadoColors.DeepGreen
                 )
                 Text(
-                    text = info.creator,
+                    text = aboutAppInfo().creator,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MenuDadoColors.Ink
                 )
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Contacto",
+                    text = stringResource(id = R.string.about_contact),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Black,
                     color = MenuDadoColors.DeepGreen
                 )
                 Text(
-                    text = info.contact,
+                    text = aboutAppInfo().contact,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MenuDadoColors.MutedInk
                 )
             }
             Text(
-                text = info.version,
+                text = stringResource(id = R.string.about_version, BuildConfig.VERSION_NAME),
                 modifier = Modifier.align(Alignment.End),
                 style = MaterialTheme.typography.labelSmall,
                 color = MenuDadoColors.MutedInk
@@ -567,13 +692,13 @@ private fun DietaryProfileSection(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
-                text = "Perfil alimentario",
+                text = stringResource(id = R.string.dietary_profile_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Black,
                 color = MenuDadoColors.Ink
             )
             Text(
-                text = "Configura restricciones distintas para adulto, niño o bebé.",
+                text = stringResource(id = R.string.dietary_profile_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MenuDadoColors.MutedInk
             )
@@ -586,33 +711,33 @@ private fun DietaryProfileSection(
             )
             if (audience == MenuAudience.BABY) {
                 Text(
-                    text = "Bebé se usa para alimentación complementaria desde aprox. 6 meses.",
+                    text = stringResource(id = R.string.dietary_profile_baby_note),
                     style = MaterialTheme.typography.bodySmall,
                     color = MenuDadoColors.MutedInk
                 )
             }
             DietarySwitchRow(
-                title = "Activo",
+                title = stringResource(id = R.string.dietary_active),
                 checked = profile.isEnabled,
                 enabled = !profile.isEnabled || enabledAudienceCount > 1,
                 onCheckedChange = onAudienceEnabledChanged
             )
             if (audience == MenuAudience.ADULT) {
                 DietarySwitchRow(
-                    title = "Embarazada",
+                    title = stringResource(id = R.string.dietary_pregnant),
                     checked = profile.isPregnant,
                     enabled = profile.isEnabled,
                     onCheckedChange = onPregnantChanged
                 )
             }
             DietarySwitchRow(
-                title = "Vegano",
+                title = stringResource(id = R.string.dietary_vegan),
                 checked = profile.isVegan,
                 enabled = profile.isEnabled,
                 onCheckedChange = onVeganChanged
             )
             DietarySwitchRow(
-                title = "Alergias",
+                title = stringResource(id = R.string.dietary_allergies),
                 checked = profile.hasAllergies,
                 enabled = profile.isEnabled,
                 onCheckedChange = onHasAllergiesChanged
@@ -632,8 +757,8 @@ private fun DietaryProfileSection(
                 value = profile.otherAvoidances,
                 onValueChange = onOtherAvoidancesChanged,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Alimentos a evitar o condiciones de salud") },
-                placeholder = { Text("Ej: diabético, hipertenso, sin picante") },
+                label = { Text(stringResource(id = R.string.dietary_other_label)) },
+                placeholder = { Text(stringResource(id = R.string.dietary_other_placeholder)) },
                 enabled = profile.isEnabled,
                 minLines = 2
             )
@@ -685,7 +810,7 @@ private fun DietaryAllergenRow(
             onCheckedChange = onCheckedChange
         )
         Text(
-            text = allergen.label,
+            text = stringResource(id = dietaryAllergenLabelRes(allergen)),
             color = MenuDadoColors.Ink,
             style = MaterialTheme.typography.bodyMedium
         )
@@ -717,12 +842,22 @@ private fun AiQuotaDialog(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(containerColor = MenuDadoColors.BrandGreen)
             ) {
-                Text(if (canRetry) "Entendido" else "Cerrar")
+                Text(
+                    if (canRetry) {
+                        stringResource(id = R.string.common_understood)
+                    } else {
+                        stringResource(id = R.string.common_close)
+                    }
+                )
             }
         },
         title = {
             Text(
-                text = if (canRetry) "Ya puedes reintentar con IA" else "IA descansando un momento",
+                text = if (canRetry) {
+                    stringResource(id = R.string.ai_retry_ready_title)
+                } else {
+                    stringResource(id = R.string.ai_retry_wait_title)
+                },
                 color = MenuDadoColors.Ink,
                 fontWeight = FontWeight.Black
             )
@@ -748,7 +883,11 @@ private fun AiQuotaDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (canRetry) "La pausa termino" else "Reintento protegido",
+                        text = if (canRetry) {
+                            stringResource(id = R.string.ai_retry_ready_badge)
+                        } else {
+                            stringResource(id = R.string.ai_retry_wait_badge)
+                        },
                         color = MenuDadoColors.Ink,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black
@@ -756,9 +895,9 @@ private fun AiQuotaDialog(
                 }
                 Text(
                     text = if (canRetry) {
-                        "Cierra este aviso y vuelve a tocar la opcion de IA que querias usar."
+                        stringResource(id = R.string.ai_retry_ready_body)
                     } else {
-                        "Evitamos hacer llamadas repetidas para no alargar la espera. Cuando la pausa termine, este aviso cambiara para decirte que puedes reintentar."
+                        stringResource(id = R.string.ai_retry_wait_body)
                     },
                     color = MenuDadoColors.MutedInk,
                     style = MaterialTheme.typography.bodyMedium
@@ -784,13 +923,13 @@ private fun Header(onMenuClick: () -> Unit) {
         ) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_menu),
-                contentDescription = "Abrir menu",
+                contentDescription = stringResource(id = R.string.nav_home),
                 tint = Color.White
             )
         }
         Image(
             painter = painterResource(id = R.drawable.menu_dado_symbol),
-            contentDescription = "Logo MenuDado",
+            contentDescription = stringResource(id = R.string.app_name),
             modifier = Modifier.size(menuDadoHeaderSymbolSizeDp().dp),
             contentScale = ContentScale.Fit
         )
@@ -800,7 +939,7 @@ private fun Header(onMenuClick: () -> Unit) {
         ) {
             Image(
                 painter = painterResource(id = R.drawable.menu_dado_wordmark),
-                contentDescription = "MenuDado",
+                contentDescription = stringResource(id = R.string.app_name),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(menuDadoHeaderWordmarkHeightDp().dp)
@@ -809,7 +948,7 @@ private fun Header(onMenuClick: () -> Unit) {
                 contentScale = ContentScale.Fit
             )
             Text(
-                text = "Que comemos hoy?",
+                text = stringResource(id = R.string.header_subtitle),
                 modifier = Modifier.offset(y = menuDadoHeaderSubtitleTopOffsetDp().dp),
                 color = MenuDadoColors.Cream.copy(alpha = 0.9f),
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -854,13 +993,13 @@ private fun DiceSection(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = "Que comer hoy",
+                    text = stringResource(id = R.string.dice_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
                     color = MenuDadoColors.Ink
                 )
                 Text(
-                    text = "Escoge tipo y para quien es el menu; luego deja que el dado elija.",
+                    text = stringResource(id = R.string.dice_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MenuDadoColors.MutedInk
                 )
@@ -874,7 +1013,7 @@ private fun DiceSection(
             )
             if (enabledAudiences.isEmpty()) {
                 Text(
-                    text = "Activa adulto, niño o bebé en el perfil alimentario.",
+                    text = stringResource(id = R.string.dice_profile_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MenuDadoColors.MutedInk
                 )
@@ -906,12 +1045,20 @@ private fun DiceSection(
                     verticalArrangement = Arrangement.spacedBy(1.dp)
                 ) {
                     Text(
-                        text = if (isRolling) "Lanzando..." else "Lanzar dado",
+                        text = if (isRolling) {
+                            stringResource(id = R.string.dice_rolling)
+                        } else {
+                            stringResource(id = R.string.dice_roll)
+                        },
                         fontWeight = FontWeight.Black,
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        text = if (isRolling) "Mezclando tus menus" else "Elegir que comer hoy",
+                        text = if (isRolling) {
+                            stringResource(id = R.string.dice_mixing)
+                        } else {
+                            stringResource(id = R.string.dice_action)
+                        },
                         color = Color.White.copy(alpha = 0.86f),
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -1263,7 +1410,7 @@ private fun MenuForm(
 ) {
     var selectedModeName by rememberSaveable { mutableStateOf(MenuFormMode.Manual.name) }
     val selectedMode = MenuFormMode.valueOf(selectedModeName)
-    val hasAiDraft = selectedMode == MenuFormMode.Ai && state.calories != null
+    val hasAiDraft = selectedMode == MenuFormMode.Ai && (state.calories != null || state.isGeneratingMenu)
     val canUseFormActions = state.formMealType != null &&
         state.formAudience != null &&
         !state.isAnalyzing &&
@@ -1283,12 +1430,12 @@ private fun MenuForm(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = "Agregar menu",
+                    text = stringResource(id = R.string.form_add_menu),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    text = "Elige si quieres escribirlo tu o generar una idea saludable.",
+                    text = stringResource(id = R.string.form_add_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MenuDadoColors.MutedInk
                 )
@@ -1306,7 +1453,7 @@ private fun MenuForm(
             )
             if (state.formMealType == null) {
                 Text(
-                    text = "Selecciona desayuno, almuerzo o cena.",
+                    text = stringResource(id = R.string.form_select_meal),
                     style = MaterialTheme.typography.bodySmall,
                     color = MenuDadoColors.MutedInk
                 )
@@ -1314,9 +1461,9 @@ private fun MenuForm(
             if (state.formAudience == null) {
                 Text(
                     text = if (enabledAudiences.isEmpty()) {
-                        "Activa adulto, niño o bebé en el perfil alimentario."
+                        stringResource(id = R.string.dice_profile_hint)
                     } else {
-                        "Selecciona si es para adulto, niño o bebe."
+                        stringResource(id = R.string.form_select_audience)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MenuDadoColors.MutedInk
@@ -1332,7 +1479,7 @@ private fun MenuForm(
                     )
                     SaveMenuButton(
                         enabled = canUseFormActions,
-                        text = "Guardar menu",
+                        text = stringResource(id = R.string.common_save_menu),
                         onSave = onSave
                     )
                 }
@@ -1341,8 +1488,8 @@ private fun MenuForm(
                         value = state.aiBaseIngredients,
                         onValueChange = onAiBaseIngredientsChanged,
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Ingredientes base opcionales") },
-                        placeholder = { Text("Ej. berenjena, tomate") },
+                        label = { Text(stringResource(id = R.string.form_base_ingredients)) },
+                        placeholder = { Text(stringResource(id = R.string.form_base_ingredients_placeholder)) },
                         minLines = 1
                     )
                     OutlinedButton(
@@ -1355,7 +1502,13 @@ private fun MenuForm(
                             text = generateAiButtonText(
                                 isGenerating = state.isGeneratingMenu,
                                 isAiPaused = state.aiRetryAtMillis != null,
-                                usesRemaining = state.aiUsesRemainingToday
+                                usesRemaining = state.aiUsesRemainingToday,
+                                generatingText = stringResource(id = R.string.ai_generating),
+                                restingText = stringResource(id = R.string.ai_resting),
+                                availableText = stringResource(
+                                    id = R.string.ai_generate_with_count,
+                                    state.aiUsesRemainingToday
+                                )
                             ),
                             modifier = Modifier.padding(vertical = 6.dp),
                             fontWeight = FontWeight.Bold,
@@ -1374,7 +1527,7 @@ private fun MenuForm(
                             )
                             SaveMenuButton(
                                 enabled = canUseFormActions,
-                                text = "Guardar menu",
+                                text = stringResource(id = R.string.common_save_menu),
                                 onSave = onSave
                             )
                         }
@@ -1393,6 +1546,7 @@ private fun EditMenuDialog(
     onNameChanged: (String) -> Unit,
     onDescriptionChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
+    onPickImage: () -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1411,13 +1565,13 @@ private fun EditMenuDialog(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = "Editar menu",
+                        text = stringResource(id = R.string.edit_menu_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         color = MenuDadoColors.Ink
                     )
                     Text(
-                        text = "Ajusta este menu y vuelve a analizarlo si cambiaste la receta.",
+                        text = stringResource(id = R.string.edit_menu_subtitle),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MenuDadoColors.MutedInk
                     )
@@ -1433,25 +1587,31 @@ private fun EditMenuDialog(
                     includeAll = false,
                     onSelected = { audience -> if (audience != null) onAudienceChanged(audience) }
                 )
+                MenuPhotoSelector(
+                    imageUri = state.editImageUri,
+                    mealType = state.editMealType ?: MealType.BREAKFAST,
+                    audience = state.editAudience ?: MenuAudience.ADULT,
+                    onPickImage = onPickImage
+                )
                 OutlinedTextField(
                     value = state.editName,
                     onValueChange = onNameChanged,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Nombre del plato o menu") },
+                    label = { Text(stringResource(id = R.string.field_menu_name)) },
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = state.editDescription,
                     onValueChange = onDescriptionChanged,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Ingredientes o descripcion") },
+                    label = { Text(stringResource(id = R.string.field_menu_description)) },
                     minLines = 2
                 )
                 OutlinedTextField(
                     value = state.editNotes,
                     onValueChange = onNotesChanged,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Notas opcionales") },
+                    label = { Text(stringResource(id = R.string.field_menu_notes)) },
                     minLines = 1
                 )
                 Row(
@@ -1465,7 +1625,7 @@ private fun EditMenuDialog(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            text = "Cancelar",
+                            text = stringResource(id = R.string.common_cancel),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -1480,7 +1640,7 @@ private fun EditMenuDialog(
                         )
                     ) {
                         Text(
-                            text = "Guardar cambios",
+                            text = stringResource(id = R.string.common_save_changes),
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -1492,9 +1652,9 @@ private fun EditMenuDialog(
     }
 }
 
-private enum class MenuFormMode(val label: String) {
-    Manual("Escribir menu"),
-    Ai("Generar con IA")
+private enum class MenuFormMode {
+    Manual,
+    Ai
 }
 
 @Composable
@@ -1504,7 +1664,13 @@ private fun MenuFormModeSelector(
 ) {
     MenuDadoSegmentedSwitch(
         options = MenuFormMode.entries.map { mode ->
-            MenuDadoSegmentOption(value = mode, label = mode.label)
+            MenuDadoSegmentOption(
+                value = mode,
+                label = when (mode) {
+                    MenuFormMode.Manual -> stringResource(id = R.string.form_mode_manual)
+                    MenuFormMode.Ai -> stringResource(id = R.string.form_mode_ai)
+                }
+            )
         },
         selected = selected,
         onSelected = onSelected
@@ -1522,21 +1688,21 @@ private fun MenuTextFields(
         value = state.name,
         onValueChange = onNameChanged,
         modifier = Modifier.fillMaxWidth(),
-        label = { Text("Nombre del plato o menu") },
+        label = { Text(stringResource(id = R.string.field_menu_name)) },
         singleLine = true
     )
     OutlinedTextField(
         value = state.description,
         onValueChange = onDescriptionChanged,
         modifier = Modifier.fillMaxWidth(),
-        label = { Text("Ingredientes o descripcion") },
+        label = { Text(stringResource(id = R.string.field_menu_description)) },
         minLines = 2
     )
     OutlinedTextField(
         value = state.notes,
         onValueChange = onNotesChanged,
         modifier = Modifier.fillMaxWidth(),
-        label = { Text("Notas opcionales") },
+        label = { Text(stringResource(id = R.string.field_menu_notes)) },
         minLines = 1
     )
 }
@@ -1702,10 +1868,10 @@ private fun MealTypeFilter(
 ) {
     val options = buildList<MenuDadoSegmentOption<MealType?>> {
         if (includeAll) {
-            add(MenuDadoSegmentOption(value = null, label = "Todos"))
+            add(MenuDadoSegmentOption(value = null, label = stringResource(id = R.string.common_all)))
         }
         addAll(MealType.entries.map { mealType ->
-            MenuDadoSegmentOption(value = mealType, label = mealType.label)
+            MenuDadoSegmentOption(value = mealType, label = stringResource(id = mealTypeLabelRes(mealType)))
         })
     }
 
@@ -1729,18 +1895,20 @@ private fun CompactMenuSelectors(
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         CompactDropdownSelector(
-            label = "Comida",
-            value = mealType?.label ?: "Elegir",
+            label = stringResource(id = R.string.selector_meal),
+            value = mealType?.let { stringResource(id = mealTypeLabelRes(it)) }
+                ?: stringResource(id = R.string.common_choose),
             options = MealType.entries,
-            optionLabel = { it.label },
+            optionLabel = { stringResource(id = mealTypeLabelRes(it)) },
             onSelected = onMealTypeSelected,
             modifier = Modifier.weight(1f)
         )
         CompactDropdownSelector(
-            label = "Para",
-            value = audience?.label ?: "Elegir",
+            label = stringResource(id = R.string.selector_audience),
+            value = audience?.let { stringResource(id = menuAudienceLabelRes(it)) }
+                ?: stringResource(id = R.string.common_choose),
             options = audiences,
-            optionLabel = { it.label },
+            optionLabel = { stringResource(id = menuAudienceLabelRes(it)) },
             onSelected = onAudienceSelected,
             modifier = Modifier.weight(1f)
         )
@@ -1752,7 +1920,7 @@ private fun <T> CompactDropdownSelector(
     label: String,
     value: String,
     options: List<T>,
-    optionLabel: (T) -> String,
+    optionLabel: @Composable (T) -> String,
     onSelected: (T) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1787,7 +1955,7 @@ private fun <T> CompactDropdownSelector(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = if (enabled) value else "Sin opciones",
+                    text = if (enabled) value else stringResource(id = R.string.common_no_options),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Black,
                     color = if (enabled) MenuDadoColors.DeepGreen else MenuDadoColors.MutedInk.copy(alpha = 0.62f),
@@ -1830,10 +1998,10 @@ private fun AudienceFilter(
 ) {
     val options = buildList<MenuDadoSegmentOption<MenuAudience?>> {
         if (includeAll) {
-            add(MenuDadoSegmentOption(value = null, label = "Todos"))
+            add(MenuDadoSegmentOption(value = null, label = stringResource(id = R.string.common_all)))
         }
         addAll(audiences.map { audience ->
-            MenuDadoSegmentOption(value = audience, label = audience.label)
+            MenuDadoSegmentOption(value = audience, label = stringResource(id = menuAudienceLabelRes(audience)))
         })
     }
 
@@ -1853,7 +2021,7 @@ private fun ProfileAudienceFilter(
     val options = MenuAudience.entries.map { audience ->
         MenuDadoSegmentOption(
             value = audience,
-            label = audience.label
+            label = stringResource(id = menuAudienceLabelRes(audience))
         )
     }
     val selectedRange = ageRanges[selected].orEmpty().ifBlank { selected.defaultAgeRange }
@@ -1899,7 +2067,7 @@ private fun CaloriesPill(calories: Int) {
             .padding(horizontal = 12.dp, vertical = 7.dp)
     ) {
         Text(
-            text = "$calories kcal aprox.",
+            text = stringResource(id = R.string.calories_approx, calories),
             color = MenuDadoColors.DeepGreen,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Black
@@ -1918,7 +2086,7 @@ private fun EmptyState() {
         shape = RoundedCornerShape(8.dp)
     ) {
         Text(
-            text = "Aun no tienes menus. Agrega uno y luego lanza el dado.",
+            text = stringResource(id = R.string.empty_menus),
             modifier = Modifier.padding(18.dp),
             style = MaterialTheme.typography.bodyLarge,
             color = MenuDadoColors.MutedInk
@@ -1945,12 +2113,726 @@ private fun PendingAnalysisButton(
             text = pendingAnalysisButtonText(
                 isAnalyzing = isAnalyzing,
                 isAiPaused = isAiPaused,
-                usesRemaining = usesRemaining
+                usesRemaining = usesRemaining,
+                analyzingText = stringResource(id = R.string.ai_analyzing_pending),
+                restingText = stringResource(id = R.string.ai_resting),
+                availableText = stringResource(id = R.string.ai_analyze_pending_with_count, usesRemaining)
             ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             softWrap = false
         )
+    }
+}
+
+@Composable
+private fun MenuCarouselSections(
+    menus: List<FoodMenu>,
+    onViewMore: (MenuAudience) -> Unit,
+    onOpenMenu: (FoodMenu) -> Unit,
+    onPickImage: (FoodMenu) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        menuCarouselAudiencesWithMenus(menus).forEach { audience ->
+            MenuCarouselSection(
+                audience = audience,
+                menus = menuCarouselVisibleMenus(
+                    menus = menus,
+                    audience = audience,
+                    isExpanded = false
+                ),
+                showToggle = menuCarouselShowsToggle(menus, audience),
+                onViewMore = { onViewMore(audience) },
+                onOpenMenu = onOpenMenu,
+                onPickImage = onPickImage
+            )
+        }
+    }
+}
+
+@Composable
+private fun MenuCarouselSection(
+    audience: MenuAudience,
+    menus: List<FoodMenu>,
+    showToggle: Boolean,
+    onViewMore: () -> Unit,
+    onOpenMenu: (FoodMenu) -> Unit,
+    onPickImage: (FoodMenu) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(id = menuAudienceLabelRes(audience)),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+                color = MenuDadoColors.Ink
+            )
+            if (showToggle) {
+                TextButton(
+                    onClick = onViewMore,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.view_more),
+                        color = MenuDadoColors.DeepGreen,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(items = menus, key = { it.id }) { menu ->
+                MenuCarouselItem(
+                    menu = menu,
+                    onOpenMenu = { onOpenMenu(menu) },
+                    onPickImage = { onPickImage(menu) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuCarouselItem(
+    menu: FoodMenu,
+    onOpenMenu: () -> Unit,
+    onPickImage: () -> Unit,
+    modifier: Modifier = Modifier.width(150.dp)
+) {
+    Card(
+        modifier = modifier
+            .clickable(onClick = onOpenMenu)
+            .semantics { contentDescription = menu.name },
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            MenuCoverImage(
+                menu = menu,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(112.dp),
+                showMealTypeLabel = true,
+                onPickImage = onPickImage
+            )
+            Text(
+                text = menu.name,
+                modifier = Modifier.height(menuCarouselItemTitleHeightDp().dp),
+                color = MenuDadoColors.Ink,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                lineHeight = 17.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Row(
+                modifier = Modifier.height(menuCarouselItemMetaRowHeightDp().dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CompactHealthChip(status = menu.healthAnalysis?.status ?: HealthStatus.UNKNOWN)
+                menuVisibleCalories(menu)?.let { calories ->
+                    CompactCaloriesText(calories = calories)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuAudienceDetailScreen(
+    audience: MenuAudience,
+    menus: List<FoodMenu>,
+    onBack: () -> Unit,
+    onOpenMenu: (FoodMenu) -> Unit,
+    onPickImage: (FoodMenu) -> Unit
+) {
+    val groups = menuAudienceDetailGroups(menus, audience)
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                TextButton(
+                    onClick = onBack,
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.common_back),
+                        color = MenuDadoColors.DeepGreen,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Text(
+                    text = stringResource(id = menuAudienceLabelRes(audience)),
+                    color = MenuDadoColors.Ink,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black
+                )
+            }
+            Text(
+                text = stringResource(id = R.string.menu_count, groups.sumOf { it.menus.size }),
+                color = MenuDadoColors.MutedInk,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        groups.forEach { group ->
+            MenuAudienceMealGroupSection(
+                group = group,
+                onOpenMenu = onOpenMenu,
+                onPickImage = onPickImage
+            )
+        }
+    }
+}
+
+@Composable
+private fun MenuAudienceMealGroupSection(
+    group: MenuAudienceMealGroup,
+    onOpenMenu: (FoodMenu) -> Unit,
+    onPickImage: (FoodMenu) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = stringResource(id = mealTypeLabelRes(group.mealType)),
+            color = MenuDadoColors.Ink,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Black
+        )
+        group.menus.chunked(2).forEach { rowMenus ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                rowMenus.forEach { menu ->
+                    MenuCarouselItem(
+                        menu = menu,
+                        onOpenMenu = { onOpenMenu(menu) },
+                        onPickImage = { onPickImage(menu) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (rowMenus.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuCoverImage(
+    menu: FoodMenu,
+    modifier: Modifier = Modifier,
+    showMealTypeLabel: Boolean,
+    isLoading: Boolean = false,
+    onPickImage: (() -> Unit)? = null
+) {
+    val context = LocalContext.current
+    val bitmap = remember(menu.imageUri) {
+        menu.imageUri?.let { uri ->
+            runCatching {
+                if (uri.startsWith("content://") || uri.startsWith("file://")) {
+                    context.contentResolver.openInputStream(uri.toUri())?.use { input ->
+                        BitmapFactory.decodeStream(input)
+                    }
+                } else {
+                    BitmapFactory.decodeFile(uri)
+                }
+            }.getOrNull()
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(menu.mealType.carouselCoverColor()),
+        contentAlignment = Alignment.BottomStart
+    ) {
+        val hasBitmap = bitmap != null
+        if (hasBitmap) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.18f))
+            )
+        } else {
+            MenuImageSkeleton(isLoading = isLoading)
+        }
+
+        if (showMealTypeLabel && hasBitmap) {
+            MenuCoverMealTypeLabel(menu = menu)
+        }
+
+        if (onPickImage != null) {
+            MenuPhotoActionButton(
+                hasImage = hasBitmap,
+                onPickImage = onPickImage,
+                modifier = Modifier.align(Alignment.TopEnd)
+            )
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.MenuCoverMealTypeLabel(menu: FoodMenu) {
+    Box(
+        modifier = Modifier
+            .align(Alignment.BottomStart)
+            .fillMaxWidth()
+            .background(
+                Brush.horizontalGradient(
+                    colors = listOf(
+                        menuCoverLabelGradientColor(menu).copy(alpha = 0.86f),
+                        menuCoverLabelGradientColor(menu).copy(alpha = 0.58f),
+                        Color.Transparent
+                    )
+                )
+            )
+            .padding(horizontal = 10.dp, vertical = 7.dp)
+    ) {
+        Text(
+            text = stringResource(id = mealTypeLabelRes(menu.mealType)),
+            color = menuCoverMealTypeLabelTextColor(),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Black,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun MenuPhotoActionButton(
+    hasImage: Boolean,
+    onPickImage: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val actionDescription = stringResource(id = menuPhotoActionContentDescriptionRes(hasImage))
+    IconButton(
+        onClick = onPickImage,
+        modifier = modifier
+            .padding(menuPhotoActionButtonInsetDp().dp)
+            .size(menuPhotoActionButtonSizeDp().dp)
+            .semantics {
+                contentDescription = actionDescription
+            }
+    ) {
+        Icon(
+            painter = painterResource(id = menuPhotoActionIconRes()),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = menuPhotoActionIconTint()
+        )
+    }
+}
+
+@Composable
+private fun MenuPhotoSourceDialog(
+    onTakePhoto: () -> Unit,
+    onChooseFromLibrary: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = menuPhotoSourceSheetHorizontalPaddingDp().dp)
+                .navigationBarsPadding(),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.menu_dado_symbol),
+                            contentDescription = null,
+                            modifier = Modifier.size(42.dp)
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = stringResource(id = R.string.photo_source_title),
+                                color = MenuDadoColors.Ink,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = stringResource(id = R.string.photo_source_subtitle),
+                                color = MenuDadoColors.MutedInk,
+                                style = MaterialTheme.typography.bodyMedium,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+
+                    MenuPhotoSourceOption(
+                        iconRes = R.drawable.ic_photo_camera,
+                        title = stringResource(id = R.string.photo_take),
+                        description = stringResource(id = R.string.photo_take_description),
+                        onClick = onTakePhoto
+                    )
+                    MenuPhotoSourceOption(
+                        iconRes = R.drawable.ic_photo_library,
+                        title = stringResource(id = R.string.photo_library),
+                        description = stringResource(id = R.string.photo_library_description),
+                        onClick = onChooseFromLibrary
+                    )
+
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.common_cancel),
+                            color = MenuDadoColors.DeepGreen,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuPhotoSourceOption(
+    iconRes: Int,
+    title: String,
+    description: String,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(menuPhotoSourceOptionMinHeightDp().dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Cream.copy(alpha = 0.72f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MenuDadoColors.OutlineBrown.copy(alpha = 0.18f)),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MenuDadoColors.Avocado.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MenuDadoColors.DeepGreen
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = title,
+                    color = MenuDadoColors.Ink,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = description,
+                    color = MenuDadoColors.MutedInk,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuImageSkeleton(
+    isLoading: Boolean
+) {
+    val alpha = if (isLoading) {
+        val transition = rememberInfiniteTransition(label = "menuImageSkeleton")
+        val pulse by transition.animateFloat(
+            initialValue = 0.46f,
+            targetValue = 0.82f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 820),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "menuImageSkeletonPulse"
+        )
+        pulse
+    } else {
+        1f
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF1F1F1)),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = menuImagePlaceholderDrawableRes()),
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxSize(menuImagePlaceholderSizePercent() / 100f)
+                .alpha(if (isLoading) alpha else 1f),
+            contentScale = ContentScale.Fit,
+            colorFilter = if (menuImagePlaceholderUsesColorTint()) {
+                ColorFilter.tint(Color(0xFF9E9E9E))
+            } else {
+                null
+            }
+        )
+    }
+}
+
+@Composable
+private fun MenuPhotoSelector(
+    imageUri: String?,
+    mealType: MealType,
+    audience: MenuAudience,
+    onPickImage: () -> Unit
+) {
+    val previewMenu = FoodMenu(
+        name = stringResource(id = R.string.photo_add),
+        mealType = mealType,
+        audience = audience,
+        description = "",
+        imageUri = imageUri
+    )
+
+    MenuCoverImage(
+        menu = previewMenu,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(150.dp),
+        showMealTypeLabel = false,
+        onPickImage = onPickImage
+    )
+}
+
+@Composable
+private fun CompactHealthChip(status: HealthStatus) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(status.accentColor().copy(alpha = 0.24f))
+            .padding(horizontal = 8.dp, vertical = 5.dp)
+    ) {
+        Text(
+            text = stringResource(id = healthStatusLabelRes(status)),
+            color = MenuDadoColors.Ink,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            softWrap = false
+        )
+    }
+}
+
+@Composable
+private fun CompactCaloriesText(calories: Int) {
+    Text(
+        text = stringResource(id = R.string.calories_short, calories),
+        color = MenuDadoColors.MutedInk,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        softWrap = false
+    )
+}
+
+@Composable
+private fun MenuDetailDialog(
+    menu: FoodMenu,
+    isAnalyzing: Boolean,
+    aiUsesRemainingToday: Int,
+    isAiPaused: Boolean,
+    onAnalyze: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.88f)
+                .padding(horizontal = 14.dp),
+            colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)),
+                    contentAlignment = Alignment.BottomStart
+                ) {
+                    MenuCoverImage(
+                        menu = menu,
+                        modifier = Modifier.fillMaxSize(),
+                        showMealTypeLabel = false
+                    )
+                    MenuDetailHeroScrim(menu = menu)
+                    MenuDetailHeroText(menu = menu)
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HealthChip(status = menu.healthAnalysis?.status ?: HealthStatus.UNKNOWN)
+                        menuVisibleCalories(menu)?.let { calories ->
+                            CaloriesPill(calories = calories)
+                        }
+                    }
+                    Text(
+                        text = menu.description,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MenuDadoColors.Ink
+                    )
+                    if (menu.notes.isNotBlank()) {
+                        Text(
+                            text = menu.notes,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MenuDadoColors.MutedInk
+                        )
+                    }
+                    menu.healthAnalysis?.let { analysis ->
+                        HealthAnalysisPanel(analysis = analysis)
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (menu.healthAnalysis == null) {
+                        OutlinedButton(
+                            onClick = onAnalyze,
+                            enabled = !isAnalyzing,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = analyzeAiButtonText(
+                                    isAnalyzing = isAnalyzing,
+                                    isAiPaused = isAiPaused,
+                                    usesRemaining = aiUsesRemainingToday,
+                                    analyzingText = stringResource(id = R.string.ai_analyzing),
+                                    restingText = stringResource(id = R.string.ai_resting),
+                                    availableText = stringResource(
+                                        id = R.string.ai_analyze_with_count,
+                                        aiUsesRemainingToday
+                                    )
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                softWrap = false
+                            )
+                        }
+                        EditMenuButton(onEdit = onEdit, compact = true)
+                        DeleteMenuButton(onDelete = onDelete, compact = true)
+                    } else {
+                        EditMenuButton(
+                            onEdit = onEdit,
+                            compact = false,
+                            modifier = Modifier.weight(1f)
+                        )
+                        DeleteMenuButton(
+                            onDelete = onDelete,
+                            compact = false,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 18.dp, end = 18.dp, bottom = 14.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.common_close),
+                        color = MenuDadoColors.DeepGreen,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -2008,7 +2890,7 @@ private fun MenuCard(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "${menu.mealType.label} · ${menu.audience.label}",
+                        text = "${stringResource(id = mealTypeLabelRes(menu.mealType))} · ${stringResource(id = menuAudienceLabelRes(menu.audience))}",
                         color = MenuDadoColors.Tomato
                     )
                     Row(
@@ -2030,7 +2912,7 @@ private fun MenuCard(
                 ) {
                     Image(
                         painter = painterResource(id = menuExpandToggleIconRes(isExpanded)),
-                        contentDescription = if (isExpanded) "Ocultar menu" else "Ver menu",
+                        contentDescription = null,
                         modifier = Modifier.size(26.dp),
                         colorFilter = ColorFilter.tint(MenuDadoColors.BrandGreen)
                     )
@@ -2069,7 +2951,13 @@ private fun MenuCard(
                                     text = analyzeAiButtonText(
                                         isAnalyzing = isAnalyzing,
                                         isAiPaused = isAiPaused,
-                                        usesRemaining = aiUsesRemainingToday
+                                        usesRemaining = aiUsesRemainingToday,
+                                        analyzingText = stringResource(id = R.string.ai_analyzing),
+                                        restingText = stringResource(id = R.string.ai_resting),
+                                        availableText = stringResource(
+                                            id = R.string.ai_analyze_with_count,
+                                            aiUsesRemainingToday
+                                        )
                                     ),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -2110,6 +2998,186 @@ internal fun nextExpandedMenuIdAfterMenuClick(
     return if (currentExpandedMenuId == clickedMenuId) null else clickedMenuId
 }
 
+internal fun menuCarouselVisibleMenus(
+    menus: List<FoodMenu>,
+    audience: MenuAudience,
+    isExpanded: Boolean
+): List<FoodMenu> {
+    val audienceMenus = menus
+        .filter { it.audience == audience }
+        .sortedByDescending { it.createdAt }
+
+    return if (isExpanded) {
+        audienceMenus
+    } else {
+        audienceMenus.take(MenuCarouselCollapsedLimit)
+    }
+}
+
+internal fun menuCarouselAudiencesWithMenus(menus: List<FoodMenu>): List<MenuAudience> {
+    return MenuAudience.entries.filter { audience ->
+        menus.any { it.audience == audience }
+    }
+}
+
+internal fun menuCarouselShowsToggle(menus: List<FoodMenu>, audience: MenuAudience): Boolean {
+    return menus.any { it.audience == audience }
+}
+
+internal fun nextExpandedCarouselAudience(
+    currentExpandedAudience: MenuAudience?,
+    clickedAudience: MenuAudience
+): MenuAudience? {
+    return if (currentExpandedAudience == clickedAudience) null else clickedAudience
+}
+
+internal data class MenuAudienceMealGroup(
+    val mealType: MealType,
+    val menus: List<FoodMenu>
+)
+
+internal fun menuAudienceDetailRoute(audience: MenuAudience): String = audience.name
+
+internal fun menuAudienceDetailRouteAfterViewMore(audience: MenuAudience): String {
+    return menuAudienceDetailRoute(audience)
+}
+
+internal fun menuAudienceFromDetailRoute(route: String?): MenuAudience? {
+    return route?.let { runCatching { MenuAudience.valueOf(it) }.getOrNull() }
+}
+
+internal fun menuAudienceDetailRouteAfterBack(currentRoute: String?): String? {
+    return if (currentRoute == null) null else null
+}
+
+internal fun menuListStateKeyForAudienceDetail(route: String?): String {
+    return if (route == null) "home" else "audience-detail"
+}
+
+internal fun menuShouldResetAudienceDetailScroll(route: String?): Boolean {
+    return route != null
+}
+
+internal fun menuAudienceDetailGroups(
+    menus: List<FoodMenu>,
+    audience: MenuAudience
+): List<MenuAudienceMealGroup> {
+    return MealType.entries.mapNotNull { mealType ->
+        val mealMenus = menus
+            .filter { it.audience == audience && it.mealType == mealType }
+            .sortedByDescending { it.createdAt }
+        if (mealMenus.isEmpty()) {
+            null
+        } else {
+            MenuAudienceMealGroup(mealType = mealType, menus = mealMenus)
+        }
+    }
+}
+
+@StringRes
+internal fun mealTypeLabelRes(mealType: MealType): Int {
+    return when (mealType) {
+        MealType.BREAKFAST -> R.string.meal_breakfast
+        MealType.LUNCH -> R.string.meal_lunch
+        MealType.DINNER -> R.string.meal_dinner
+    }
+}
+
+@StringRes
+internal fun menuAudienceLabelRes(audience: MenuAudience): Int {
+    return when (audience) {
+        MenuAudience.ADULT -> R.string.audience_adult
+        MenuAudience.CHILD -> R.string.audience_child
+        MenuAudience.BABY -> R.string.audience_baby
+    }
+}
+
+@StringRes
+internal fun healthStatusLabelRes(status: HealthStatus): Int {
+    return when (status) {
+        HealthStatus.HEALTHY -> R.string.health_healthy
+        HealthStatus.IMPROVABLE -> R.string.health_improvable
+        HealthStatus.UNHEALTHY -> R.string.health_unhealthy
+        HealthStatus.UNKNOWN -> R.string.health_unknown
+    }
+}
+
+@StringRes
+internal fun dietaryAllergenLabelRes(allergen: DietaryAllergen): Int {
+    return when (allergen) {
+        DietaryAllergen.GLUTEN -> R.string.allergen_gluten
+        DietaryAllergen.DAIRY -> R.string.allergen_dairy
+        DietaryAllergen.EGG -> R.string.allergen_egg
+        DietaryAllergen.TREE_NUTS -> R.string.allergen_tree_nuts
+        DietaryAllergen.PEANUT -> R.string.allergen_peanut
+        DietaryAllergen.SOY -> R.string.allergen_soy
+        DietaryAllergen.FISH -> R.string.allergen_fish
+        DietaryAllergen.SHELLFISH -> R.string.allergen_shellfish
+        DietaryAllergen.SESAME -> R.string.allergen_sesame
+    }
+}
+
+internal fun menuImagePlaceholderDrawableRes(): Int = R.drawable.menu_placeholder_logo
+
+internal fun menuImagePlaceholderSizePercent(): Int = 72
+
+internal fun menuImagePlaceholderUsesColorTint(): Boolean = false
+
+internal fun menuCarouselItemTitleHeightDp(): Int = 34
+
+internal fun menuCarouselItemMetaRowHeightDp(): Int = 26
+
+internal fun menuDetailTitleOverlaysImage(): Boolean = true
+
+internal fun menuDetailHeroScrimCoveragePercent(): Int = 100
+
+internal fun menuDetailHeroScrimDirection(): String = "horizontal"
+
+internal fun menuDetailHeroScrimStartAlphaPercent(): Int = 78
+
+internal fun menuDetailHeroScrimEndAlphaPercent(): Int = 18
+
+internal fun menuDetailTitleMaxLines(): Int = 2
+
+internal fun menuPhotoActionIconRes(): Int = R.drawable.ic_photo_camera
+
+internal fun menuPhotoActionButtonSizeDp(): Int = 42
+
+internal fun menuPhotoActionButtonInsetDp(): Int = 8
+
+@StringRes
+internal fun menuPhotoActionContentDescriptionRes(hasImage: Boolean): Int {
+    return if (hasImage) {
+        R.string.photo_change_menu
+    } else {
+        R.string.photo_add_menu
+    }
+}
+
+@StringRes
+internal fun menuPhotoSourceDialogTitleRes(): Int = R.string.photo_source_title
+
+@StringRes
+internal fun menuPhotoSourceDialogSubtitleRes(): Int = R.string.photo_source_subtitle
+
+@StringRes
+internal fun menuPhotoCameraOptionLabelRes(): Int = R.string.photo_take
+
+@StringRes
+internal fun menuPhotoCameraOptionDescriptionRes(): Int = R.string.photo_take_description
+
+@StringRes
+internal fun menuPhotoLibraryOptionLabelRes(): Int = R.string.photo_library
+
+@StringRes
+internal fun menuPhotoLibraryOptionDescriptionRes(): Int = R.string.photo_library_description
+
+internal fun menuPhotoSourceOptionMinHeightDp(): Int = 76
+
+internal fun menuPhotoSourceSheetHorizontalPaddingDp(): Int = 18
+
+internal fun menuPhotoFileProviderAuthoritySuffix(): String = ".fileprovider"
+
 internal fun menuHeaderHealthStatus(menu: FoodMenu, isExpanded: Boolean): HealthStatus? {
     val analysis = menu.healthAnalysis
     return when {
@@ -2127,18 +3195,118 @@ internal fun menuExpandToggleIconRes(isExpanded: Boolean): Int {
     return if (isExpanded) R.drawable.ic_expand_less else R.drawable.ic_expand_more
 }
 
+private const val MenuCarouselCollapsedLimit = 10
+
+private fun MealType.carouselCoverColor(): Color {
+    return when (this) {
+        MealType.BREAKFAST -> MenuDadoColors.EggYellow.copy(alpha = 0.72f)
+        MealType.LUNCH -> MenuDadoColors.Tomato.copy(alpha = 0.72f)
+        MealType.DINNER -> MenuDadoColors.DeepGreen
+    }
+}
+
+private fun MealType.carouselCoverTextColor(): Color {
+    return when (this) {
+        MealType.DINNER -> Color.White
+        else -> MenuDadoColors.Ink
+    }
+}
+
+private fun menuCoverLabelGradientColor(menu: FoodMenu): Color {
+    return (menu.healthAnalysis?.status ?: HealthStatus.UNKNOWN).coverLabelGradientColor()
+}
+
+private fun HealthStatus.coverLabelGradientColor(): Color {
+    return when (this) {
+        HealthStatus.HEALTHY -> MenuDadoColors.Avocado
+        HealthStatus.IMPROVABLE -> MenuDadoColors.EggYellow
+        HealthStatus.UNHEALTHY -> MenuDadoColors.Tomato
+        HealthStatus.UNKNOWN -> MenuDadoColors.DeepGreen
+    }
+}
+
+private fun menuCoverMealTypeLabelTextColor(): Color = Color.White
+
+private fun menuPhotoActionIconTint(): Color = MenuDadoColors.DeepGreen
+
+private fun createMenuCameraImageUri(context: Context): Uri {
+    val photoDirectory = File(
+        context.getExternalFilesDir(Environment.DIRECTORY_PICTURES) ?: context.filesDir,
+        "menu-photos"
+    ).apply { mkdirs() }
+    val photoFile = File.createTempFile("menu-photo-", ".jpg", photoDirectory)
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}${menuPhotoFileProviderAuthoritySuffix()}",
+        photoFile
+    )
+}
+
+@Composable
+private fun BoxScope.MenuDetailHeroScrim(menu: FoodMenu) {
+    Box(
+        modifier = Modifier
+            .align(Alignment.Center)
+            .fillMaxSize(menuDetailHeroScrimCoveragePercent() / 100f)
+            .background(
+                Brush.horizontalGradient(
+                    colors = listOf(
+                        menuCoverLabelGradientColor(menu).copy(
+                            alpha = menuDetailHeroScrimStartAlphaPercent() / 100f
+                        ),
+                        menuCoverLabelGradientColor(menu).copy(alpha = 0.46f),
+                        menuCoverLabelGradientColor(menu).copy(
+                            alpha = menuDetailHeroScrimEndAlphaPercent() / 100f
+                        )
+                    )
+                )
+            )
+    )
+}
+
+@Composable
+private fun BoxScope.MenuDetailHeroText(menu: FoodMenu) {
+    Column(
+        modifier = Modifier
+            .align(Alignment.BottomStart)
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "${stringResource(id = mealTypeLabelRes(menu.mealType))} · ${stringResource(id = menuAudienceLabelRes(menu.audience))}",
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(MenuDadoColors.Surface.copy(alpha = 0.9f))
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+            color = MenuDadoColors.Tomato,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Black
+        )
+        Text(
+            text = menu.name,
+            color = menuCoverMealTypeLabelTextColor(),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Black,
+            maxLines = menuDetailTitleMaxLines(),
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
 @Composable
 private fun EditMenuButton(
     onEdit: () -> Unit,
     compact: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val editDescription = stringResource(id = R.string.common_edit)
     TextButton(
         onClick = onEdit,
         modifier = if (compact) {
             modifier
                 .width(54.dp)
-                .semantics { contentDescription = "Editar menu" }
+                .semantics { contentDescription = editDescription }
         } else {
             modifier.fillMaxWidth()
         },
@@ -2154,7 +3322,7 @@ private fun EditMenuButton(
         if (!compact) {
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Editar",
+                text = stringResource(id = R.string.common_edit),
                 color = MenuDadoColors.BrandGreen,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -2170,12 +3338,13 @@ private fun DeleteMenuButton(
     compact: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val deleteDescription = stringResource(id = R.string.common_delete)
     TextButton(
         onClick = onDelete,
         modifier = if (compact) {
             modifier
                 .width(54.dp)
-                .semantics { contentDescription = "Eliminar menu" }
+                .semantics { contentDescription = deleteDescription }
         } else {
             modifier.fillMaxWidth()
         },
@@ -2191,7 +3360,7 @@ private fun DeleteMenuButton(
         if (!compact) {
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Eliminar",
+                text = stringResource(id = R.string.common_delete),
                 color = MenuDadoColors.Tomato,
                 fontWeight = FontWeight.Bold
             )
@@ -2223,7 +3392,7 @@ private fun HealthAnalysisPanel(analysis: HealthAnalysis) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Analisis IA",
+                text = stringResource(id = R.string.analysis_ai),
                 style = MaterialTheme.typography.labelLarge,
                 color = MenuDadoColors.MutedInk,
                 fontWeight = FontWeight.Bold
@@ -2237,7 +3406,7 @@ private fun HealthAnalysisPanel(analysis: HealthAnalysis) {
         )
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = "Sugerencia",
+                            text = stringResource(id = R.string.analysis_suggestion),
                 style = MaterialTheme.typography.labelLarge,
                 color = accent,
                 fontWeight = FontWeight.Bold
@@ -2261,7 +3430,7 @@ private fun HealthChip(status: HealthStatus) {
             .padding(horizontal = 12.dp, vertical = 7.dp)
     ) {
         Text(
-            text = status.label,
+            text = stringResource(id = healthStatusLabelRes(status)),
             color = MenuDadoColors.Ink,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold
@@ -2281,36 +3450,45 @@ private fun HealthStatus.accentColor(): Color {
 private fun generateAiButtonText(
     isGenerating: Boolean,
     isAiPaused: Boolean,
-    usesRemaining: Int
+    usesRemaining: Int,
+    generatingText: String,
+    restingText: String,
+    availableText: String
 ): String {
     return when {
-        isGenerating -> "Generando idea..."
-        isAiPaused -> "IA descansando"
-        else -> "Generar idea saludable con IA ($usesRemaining)"
+        isGenerating -> generatingText
+        isAiPaused -> restingText
+        else -> availableText
     }
 }
 
 private fun analyzeAiButtonText(
     isAnalyzing: Boolean,
     isAiPaused: Boolean,
-    usesRemaining: Int
+    usesRemaining: Int,
+    analyzingText: String,
+    restingText: String,
+    availableText: String
 ): String {
     return when {
-        isAnalyzing -> "Analizando"
-        isAiPaused -> "IA descansando"
-        else -> "Analizar IA ($usesRemaining)"
+        isAnalyzing -> analyzingText
+        isAiPaused -> restingText
+        else -> availableText
     }
 }
 
 private fun pendingAnalysisButtonText(
     isAnalyzing: Boolean,
     isAiPaused: Boolean,
-    usesRemaining: Int
+    usesRemaining: Int,
+    analyzingText: String,
+    restingText: String,
+    availableText: String
 ): String {
     return when {
-        isAnalyzing -> "Analizando pendientes"
-        isAiPaused -> "IA descansando"
-        else -> "Analizar pendientes con IA ($usesRemaining)"
+        isAnalyzing -> analyzingText
+        isAiPaused -> restingText
+        else -> availableText
     }
 }
 
@@ -2362,7 +3540,7 @@ private fun OnboardingDialog(
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.menu_dado_symbol),
-                    contentDescription = "Logo MenuDado",
+                    contentDescription = null,
                     modifier = Modifier.size(72.dp),
                     contentScale = ContentScale.Fit
                 )
@@ -2371,14 +3549,14 @@ private fun OnboardingDialog(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = selectedStep.title,
+                        text = stringResource(id = selectedStep.titleRes),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Black,
                         color = MenuDadoColors.Ink,
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = selectedStep.body,
+                        text = stringResource(id = selectedStep.bodyRes),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MenuDadoColors.MutedInk,
                         textAlign = TextAlign.Center
@@ -2413,7 +3591,7 @@ private fun OnboardingDialog(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Omitir")
+                        Text(stringResource(id = R.string.common_skip))
                     }
                     Button(
                         onClick = {
@@ -2430,7 +3608,13 @@ private fun OnboardingDialog(
                             contentColor = Color.White
                         )
                     ) {
-                        Text(if (isLastStep) "Empezar" else "Siguiente")
+                        Text(
+                            if (isLastStep) {
+                                stringResource(id = R.string.common_start)
+                            } else {
+                                stringResource(id = R.string.common_next)
+                            }
+                        )
                     }
                 }
             }
@@ -2477,7 +3661,7 @@ private fun ResultDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Hoy toca",
+                                text = stringResource(id = R.string.result_today),
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(MenuDadoColors.DeepGreen)
@@ -2487,7 +3671,7 @@ private fun ResultDialog(
                                 fontWeight = FontWeight.Black
                             )
                             Text(
-                                text = "${menu.mealType.label} · ${menu.audience.label}",
+                                text = "${stringResource(id = mealTypeLabelRes(menu.mealType))} · ${stringResource(id = menuAudienceLabelRes(menu.audience))}",
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(MenuDadoColors.Tomato.copy(alpha = 0.12f))
@@ -2525,7 +3709,7 @@ private fun ResultDialog(
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "Tu opcion para hoy",
+                                    text = stringResource(id = R.string.result_option_today),
                                     color = MenuDadoColors.DeepGreen,
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold
@@ -2554,7 +3738,7 @@ private fun ResultDialog(
                         ResultDialogCaloriesChip(calories = calories)
                     }
 
-                    PremiumDialogSection(title = "Menu elegido") {
+                    PremiumDialogSection(title = stringResource(id = R.string.result_chosen_menu)) {
                         Text(
                             text = menu.description,
                             style = MaterialTheme.typography.bodyLarge,
@@ -2563,7 +3747,7 @@ private fun ResultDialog(
                     }
 
                     if (menu.notes.isNotBlank()) {
-                        PremiumDialogSection(title = "Notas") {
+                        PremiumDialogSection(title = stringResource(id = R.string.result_notes)) {
                             Text(
                                 text = menu.notes,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -2589,7 +3773,7 @@ private fun ResultDialog(
                     )
                 ) {
                     Text(
-                        text = "Cerrar",
+                        text = stringResource(id = R.string.common_close),
                         modifier = Modifier.padding(vertical = 8.dp),
                         fontWeight = FontWeight.Black
                     )
@@ -2635,7 +3819,7 @@ private fun ResultDialogCaloriesChip(calories: Int) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "$calories kcal aprox.",
+            text = stringResource(id = R.string.calories_approx, calories),
             color = MenuDadoColors.DeepGreen,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Black
@@ -2664,7 +3848,7 @@ private fun PremiumHealthAnalysisPanel(analysis: HealthAnalysis) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Analisis IA",
+                text = stringResource(id = R.string.analysis_ai),
                 style = MaterialTheme.typography.labelLarge,
                 color = MenuDadoColors.DeepGreen,
                 fontWeight = FontWeight.Black
@@ -2676,7 +3860,7 @@ private fun PremiumHealthAnalysisPanel(analysis: HealthAnalysis) {
                     .padding(horizontal = 12.dp, vertical = 7.dp)
             ) {
                 Text(
-                    text = analysis.status.label,
+                    text = stringResource(id = healthStatusLabelRes(analysis.status)),
                     color = MenuDadoColors.Ink,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Black

@@ -7,8 +7,8 @@ enum class MealType(val label: String) {
 }
 
 enum class MenuAudience(val label: String, val defaultAgeRange: String) {
-    ADULT("Adulto", "18+ años"),
-    CHILD("Niño", "2-12 años"),
+    ADULT("Persona adulta", "18+ años"),
+    CHILD("Peques", "2-12 años"),
     BABY("Bebé", "6-24 meses")
 }
 
@@ -35,6 +35,7 @@ data class FoodMenu(
     val notes: String = "",
     val healthAnalysis: HealthAnalysis? = null,
     val calories: Int? = null,
+    val imageUri: String? = null,
     val lastPickedDate: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 )

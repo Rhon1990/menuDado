@@ -24,6 +24,7 @@ import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthAnalysis
+import com.menudado.domain.AppLanguage
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import com.menudado.domain.AiQuotaLimitType
@@ -54,6 +55,7 @@ data class MenuDadoUiState(
     val editName: String = "",
     val editDescription: String = "",
     val editNotes: String = "",
+    val editImageUri: String? = null,
     val formMealType: MealType? = null,
     val formAudience: MenuAudience? = null,
     val name: String = "",
@@ -172,7 +174,7 @@ class MenuDadoViewModel(
     fun updateName(value: String) {
         trackMenuFormStartedIfNeeded(FORM_FIELD_NAME, value)
         _uiState.update {
-            val notice = it.generatedHealthAnalysis.manualEditNotice()
+            val notice = it.generatedHealthAnalysis.manualEditNotice(currentLanguage())
             it.copy(
                 name = value,
                 generatedHealthAnalysis = null,
@@ -185,7 +187,7 @@ class MenuDadoViewModel(
     fun updateDescription(value: String) {
         trackMenuFormStartedIfNeeded(FORM_FIELD_DESCRIPTION, value)
         _uiState.update {
-            val notice = it.generatedHealthAnalysis.manualEditNotice()
+            val notice = it.generatedHealthAnalysis.manualEditNotice(currentLanguage())
             it.copy(
                 description = value,
                 generatedHealthAnalysis = null,
@@ -198,7 +200,7 @@ class MenuDadoViewModel(
     fun updateNotes(value: String) {
         trackMenuFormStartedIfNeeded(FORM_FIELD_NOTES, value)
         _uiState.update {
-            val notice = it.generatedHealthAnalysis.manualEditNotice()
+            val notice = it.generatedHealthAnalysis.manualEditNotice(currentLanguage())
             it.copy(
                 notes = value,
                 generatedHealthAnalysis = null,
@@ -210,13 +212,24 @@ class MenuDadoViewModel(
 
     fun updateAiBaseIngredients(value: String) {
         _uiState.update {
-            val notice = it.generatedHealthAnalysis.manualEditNotice()
+            val notice = it.generatedHealthAnalysis.manualEditNotice(currentLanguage())
             it.copy(
                 aiBaseIngredients = value,
                 generatedHealthAnalysis = null,
                 message = notice ?: it.message,
                 isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
+        }
+    }
+
+    fun updateEditImageUri(imageUri: String?) {
+        _uiState.update { it.copy(editImageUri = imageUri) }
+    }
+
+    fun updateMenuImageUri(menuId: Long, imageUri: String) {
+        val menu = _uiState.value.menus.firstOrNull { it.id == menuId } ?: return
+        viewModelScope.launch {
+            repository.save(menu.copy(imageUri = imageUri))
         }
     }
 
@@ -313,6 +326,7 @@ class MenuDadoViewModel(
                 editName = menu.name,
                 editDescription = menu.description,
                 editNotes = menu.notes,
+                editImageUri = menu.imageUri,
                 message = null,
                 isAiRetryNoticeVisible = false
             )
@@ -347,11 +361,11 @@ class MenuDadoViewModel(
         val state = _uiState.value
         if (state.isRolling) return
         if (state.diceFilter == null) {
-            _uiState.update { it.copy(message = DICE_FILTER_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            _uiState.update { it.copy(message = currentLanguage().diceFilterRequiredMessage(), isAiRetryNoticeVisible = false) }
             return
         }
         if (state.diceAudienceFilter == null) {
-            _uiState.update { it.copy(message = AUDIENCE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            _uiState.update { it.copy(message = currentLanguage().audienceRequiredMessage(), isAiRetryNoticeVisible = false) }
             return
         }
 
@@ -414,7 +428,7 @@ class MenuDadoViewModel(
                 it.copy(
                     isRolling = false,
                     result = selected,
-                    message = if (selected == null && !hasCandidates) "No hay menus para ese filtro." else null,
+                    message = if (selected == null && !hasCandidates) currentLanguage().noMenusForFilterMessage() else null,
                     isAiRetryNoticeVisible = false
                 )
             }
@@ -434,12 +448,12 @@ class MenuDadoViewModel(
                 hasName = name.isNotBlank(),
                 hasDescription = description.isNotBlank()
             )
-            _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            _uiState.update { it.copy(message = currentLanguage().mealTypeRequiredMessage(), isAiRetryNoticeVisible = false) }
             return
         }
 
         if (audience == null) {
-            _uiState.update { it.copy(message = AUDIENCE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            _uiState.update { it.copy(message = currentLanguage().audienceRequiredMessage(), isAiRetryNoticeVisible = false) }
             return
         }
 
@@ -451,7 +465,7 @@ class MenuDadoViewModel(
             )
             _uiState.update {
                 it.copy(
-                    message = "Agrega nombre e ingredientes para guardar el menu.",
+                    message = currentLanguage().missingRequiredFieldsMessage(),
                     isAiRetryNoticeVisible = false
                 )
             }
@@ -503,19 +517,19 @@ class MenuDadoViewModel(
         val audience = state.editAudience
 
         if (mealType == null) {
-            _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            _uiState.update { it.copy(message = currentLanguage().mealTypeRequiredMessage(), isAiRetryNoticeVisible = false) }
             return
         }
 
         if (audience == null) {
-            _uiState.update { it.copy(message = AUDIENCE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            _uiState.update { it.copy(message = currentLanguage().audienceRequiredMessage(), isAiRetryNoticeVisible = false) }
             return
         }
 
         if (name.isBlank() || description.isBlank()) {
             _uiState.update {
                 it.copy(
-                    message = "Agrega nombre e ingredientes para guardar el menu.",
+                    message = currentLanguage().missingRequiredFieldsMessage(),
                     isAiRetryNoticeVisible = false
                 )
             }
@@ -536,7 +550,8 @@ class MenuDadoViewModel(
                 description = description,
                 notes = notes,
                 healthAnalysis = if (changedExistingMenu) null else existingMenu.healthAnalysis,
-                calories = if (changedExistingMenu) null else existingMenu.calories
+                calories = if (changedExistingMenu) null else existingMenu.calories,
+                imageUri = state.editImageUri
             )
 
             repository.save(menu)
@@ -561,11 +576,11 @@ class MenuDadoViewModel(
         val mealType = state.formMealType
         val audience = state.formAudience
         if (mealType == null) {
-            _uiState.update { it.copy(message = MEAL_TYPE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            _uiState.update { it.copy(message = currentLanguage().mealTypeRequiredMessage(), isAiRetryNoticeVisible = false) }
             return
         }
         if (audience == null) {
-            _uiState.update { it.copy(message = AUDIENCE_REQUIRED_MESSAGE, isAiRetryNoticeVisible = false) }
+            _uiState.update { it.copy(message = currentLanguage().audienceRequiredMessage(), isAiRetryNoticeVisible = false) }
             return
         }
         val profile = dietaryProfileStore.getProfile(audience)
@@ -573,7 +588,7 @@ class MenuDadoViewModel(
         if (ingredientConflicts.isNotEmpty()) {
             _uiState.update {
                 it.copy(
-                    message = ingredientConflicts.toIngredientConflictMessage(),
+                    message = ingredientConflicts.toIngredientConflictMessage(currentLanguage()),
                     isAiRetryNoticeVisible = false
                 )
             }
@@ -604,7 +619,8 @@ class MenuDadoViewModel(
                 avoidIdeas = avoidIdeas,
                 dietaryProfile = profile,
                 audience = audience,
-                baseIngredients = state.aiBaseIngredients.trim()
+                baseIngredients = state.aiBaseIngredients.trim(),
+                language = AppLanguage.fromLocale()
             )
                 .onSuccess { generated ->
                     aiQuotaRetryStore.clearRetryState()
@@ -627,7 +643,7 @@ class MenuDadoViewModel(
                     )
                 }
                 .onFailure { error ->
-                    val notice = error.toAiFailureNotice(clockMillisProvider())
+                    val notice = error.toAiFailureNotice(clockMillisProvider(), currentLanguage())
                     showAiFailureNotice(notice)
                     analytics.trackAiMenuGenerationFinished(
                         mealType = mealType,
@@ -718,8 +734,8 @@ class MenuDadoViewModel(
         return takeIf { it in enabledAudiences } ?: enabledAudiences.singleOrNull()
     }
 
-    private fun HealthAnalysis?.manualEditNotice(): String? {
-        return if (this == null) null else GENERATED_ANALYSIS_MANUAL_EDIT_MESSAGE
+    private fun HealthAnalysis?.manualEditNotice(language: AppLanguage): String? {
+        return if (this == null) null else language.generatedAnalysisManualEditMessage()
     }
 
     fun analyzeExisting(menu: FoodMenu) {
@@ -742,7 +758,7 @@ class MenuDadoViewModel(
                     isAiRetryNoticeVisible = false
                 )
             }
-            repository.analyze(menu)
+            repository.analyze(menu, AppLanguage.fromLocale())
                 .onSuccess { analysis ->
                     repository.save(
                         menu.copy(
@@ -762,7 +778,7 @@ class MenuDadoViewModel(
                     )
                 }
                 .onFailure { error ->
-                    val notice = error.toAiFailureNotice(clockMillisProvider())
+                    val notice = error.toAiFailureNotice(clockMillisProvider(), currentLanguage())
                     showAiFailureNotice(notice)
                     analytics.trackAiAnalysisFinished(
                         AI_SCOPE_SINGLE,
@@ -785,7 +801,7 @@ class MenuDadoViewModel(
         if (pendingMenus.isEmpty()) {
             _uiState.update {
                 it.copy(
-                    message = "No tienes menus pendientes por analizar.",
+                    message = currentLanguage().noPendingMenusMessage(),
                     isAiRetryNoticeVisible = false
                 )
             }
@@ -811,7 +827,7 @@ class MenuDadoViewModel(
                     isAiRetryNoticeVisible = false
                 )
             }
-            repository.analyzeBatch(pendingMenus)
+            repository.analyzeBatch(pendingMenus, AppLanguage.fromLocale())
                 .onSuccess { analysesByMenuId ->
                     pendingMenus.forEach { menu ->
                         analysesByMenuId[menu.id]?.let { analysis ->
@@ -829,7 +845,7 @@ class MenuDadoViewModel(
                             aiRetryAtMillis = null,
                             isAiRetryNoticeVisible = false,
                             message = if (analysesByMenuId.isEmpty()) {
-                                "La IA no devolvio analisis validos. Puedes intentar de nuevo mas tarde."
+                                currentLanguage().emptyAiBatchAnalysisMessage()
                             } else {
                                 null
                             }
@@ -845,7 +861,7 @@ class MenuDadoViewModel(
                     )
                 }
                 .onFailure { error ->
-                    val notice = error.toAiFailureNotice(clockMillisProvider())
+                    val notice = error.toAiFailureNotice(clockMillisProvider(), currentLanguage())
                     showAiFailureNotice(notice)
                     analytics.trackAiAnalysisFinished(
                         AI_SCOPE_BATCH,
@@ -935,7 +951,8 @@ class MenuDadoViewModel(
                 editAudience = null,
                 editName = "",
                 editDescription = "",
-                editNotes = ""
+                editNotes = "",
+                editImageUri = null
             )
         }
     }
@@ -973,14 +990,14 @@ class MenuDadoViewModel(
             val retryAtMillis = nextPacificMidnightMillis(clockMillisProvider())
             _uiState.update {
                 it.copy(
-                    message = AI_REQUESTS_PER_DAY_MESSAGE,
+                    message = currentLanguage().aiRequestsPerDayMessage(),
                     aiRetryAtMillis = retryAtMillis,
                     isAiRetryNoticeVisible = true,
                     aiUsesRemainingToday = 0
                 )
             }
-            analytics.trackAiDailyLimitReached(source)
             scheduleAiRetryRefresh(retryAtMillis)
+            analytics.trackAiDailyLimitReached(source)
             return false
         }
 
@@ -1047,7 +1064,7 @@ class MenuDadoViewModel(
     private fun showActiveAiRetryNotice(retryAtMillis: Long) {
         _uiState.update {
             it.copy(
-                message = AI_RETRY_MESSAGE,
+                message = currentLanguage().aiRetryMessage(),
                 aiRetryAtMillis = retryAtMillis,
                 isAiRetryNoticeVisible = true
             )
@@ -1101,13 +1118,13 @@ private data class AiFailureNotice(
     val retryAtMillis: Long? = null
 )
 
-private fun Throwable.toAiFailureNotice(nowMillis: Long): AiFailureNotice {
+private fun Throwable.toAiFailureNotice(nowMillis: Long, language: AppLanguage): AiFailureNotice {
     val text = listOfNotNull(message, cause?.message).joinToString(" ").lowercase()
     return when {
         isAiQuotaExceeded() -> {
             val quotaLimitType = classifyAiQuotaLimitType(text)
             AiFailureNotice(
-                message = quotaLimitType.message(),
+                message = quotaLimitType.message(language),
                 retryAtMillis = text.retryAtMillis(nowMillis) ?: nextPacificMidnightMillis(nowMillis)
             )
         }
@@ -1115,17 +1132,17 @@ private fun Throwable.toAiFailureNotice(nowMillis: Long): AiFailureNotice {
             this is APINotConfiguredException ||
             "service_disabled" in text ||
             "api_key_service_blocked" in text -> AiFailureNotice(
-                "La IA no esta habilitada para este proyecto o API key. Activa Firebase AI Logic / Generative Language API en Firebase o Google Cloud."
+                language.aiConfigurationMessage()
             )
         this is InvalidAPIKeyException ||
             "api key not valid" in text -> AiFailureNotice(
-                "La API key de Firebase no es valida para IA. Revisa el archivo google-services.json o las restricciones de la clave."
+                language.aiInvalidApiKeyMessage()
             )
         this is RequestTimeoutException ||
             "timeout" in text -> AiFailureNotice(
-                "La IA tardo demasiado en responder. Revisa la conexion e intentalo de nuevo."
+                language.aiTimeoutMessage()
             )
-        else -> AiFailureNotice("No se pudo conectar con la IA. Revisa internet o la configuracion de Firebase.")
+        else -> AiFailureNotice(language.aiGenericFailureMessage())
     }
 }
 
@@ -1198,10 +1215,146 @@ private fun String.conflictsWith(profile: DietaryProfile): Boolean {
         .any { avoidance -> normalized.containsFoodTerm(avoidance) }
 }
 
-private fun List<String>.toIngredientConflictMessage(): String {
+private fun currentLanguage(): AppLanguage = AppLanguage.fromLocale()
+
+private fun AppLanguage.noMenusForFilterMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "There are no menus for that filter."
+        AppLanguage.FRENCH -> "Aucun menu ne correspond à ce filtre."
+        AppLanguage.SPANISH -> "No hay menus para ese filtro."
+    }
+}
+
+private fun AppLanguage.mealTypeRequiredMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "Choose breakfast, lunch or dinner."
+        AppLanguage.FRENCH -> "Choisissez petit-déjeuner, déjeuner ou dîner."
+        AppLanguage.SPANISH -> "Selecciona si es desayuno, almuerzo o cena."
+    }
+}
+
+private fun AppLanguage.diceFilterRequiredMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "First choose breakfast, lunch or dinner."
+        AppLanguage.FRENCH -> "Choisissez d'abord petit-déjeuner, déjeuner ou dîner."
+        AppLanguage.SPANISH -> "Primero escoge desayuno, almuerzo o cena."
+    }
+}
+
+private fun AppLanguage.audienceRequiredMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "Choose whether this menu is for an adult, kids or a baby."
+        AppLanguage.FRENCH -> "Choisissez si ce menu est pour un adulte, des enfants ou un bébé."
+        AppLanguage.SPANISH -> "Selecciona si el menu es para persona adulta, peques o bebe."
+    }
+}
+
+private fun AppLanguage.missingRequiredFieldsMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "Add a name and ingredients to save the menu."
+        AppLanguage.FRENCH -> "Ajoutez un nom et des ingrédients pour enregistrer le menu."
+        AppLanguage.SPANISH -> "Agrega nombre e ingredientes para guardar el menu."
+    }
+}
+
+private fun AppLanguage.noPendingMenusMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "You do not have pending menus to analyze."
+        AppLanguage.FRENCH -> "Vous n'avez aucun menu en attente d'analyse."
+        AppLanguage.SPANISH -> "No tienes menus pendientes por analizar."
+    }
+}
+
+private fun AppLanguage.emptyAiBatchAnalysisMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "AI did not return valid analyses. You can try again later."
+        AppLanguage.FRENCH -> "L'IA n'a pas renvoyé d'analyses valides. Vous pouvez réessayer plus tard."
+        AppLanguage.SPANISH -> "La IA no devolvio analisis validos. Puedes intentar de nuevo mas tarde."
+    }
+}
+
+private fun AppLanguage.aiRetryMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "AI is taking a break to avoid failed attempts. Your menus are still available."
+        AppLanguage.FRENCH -> "L'IA fait une pause pour éviter les tentatives échouées. Vos menus restent disponibles."
+        AppLanguage.SPANISH -> "La IA esta tomando una pausa para evitar intentos fallidos. Tus menus siguen disponibles."
+    }
+}
+
+private fun AppLanguage.aiRequestsPerMinuteMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "AI received several requests in a row. Wait a moment before trying again."
+        AppLanguage.FRENCH -> "L'IA a reçu plusieurs demandes d'affilée. Attendez un moment avant de réessayer."
+        AppLanguage.SPANISH -> "La IA recibio varias peticiones seguidas. Espera un momento antes de volver a intentarlo."
+    }
+}
+
+private fun AppLanguage.aiTokensPerMinuteMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "This idea needs a short break before being processed again. You can keep using your menus."
+        AppLanguage.FRENCH -> "Cette idée a besoin d'une pause avant d'être traitée de nouveau. Vous pouvez continuer à utiliser vos menus."
+        AppLanguage.SPANISH -> "La idea necesita un descanso antes de procesarse de nuevo. Puedes seguir usando tus menus."
+    }
+}
+
+private fun AppLanguage.aiRequestsPerDayMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "Today's free AI help has run out. Your menus are still available and you can try again later."
+        AppLanguage.FRENCH -> "L'aide IA gratuite du jour est épuisée. Vos menus restent disponibles et vous pourrez réessayer plus tard."
+        AppLanguage.SPANISH -> "La ayuda con IA gratuita de hoy se agoto. Tus menus siguen disponibles y podras volver a probar mas adelante."
+    }
+}
+
+private fun AppLanguage.generatedAnalysisManualEditMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "You changed the generated recipe. To see it as analyzed, save the menu and tap Analyze with AI."
+        AppLanguage.FRENCH -> "Vous avez modifié la recette générée. Pour la voir comme analysée, enregistrez le menu et touchez Analyser avec l'IA."
+        AppLanguage.SPANISH -> "Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA."
+    }
+}
+
+private fun AppLanguage.aiConfigurationMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "AI is not enabled for this project or API key. Enable Firebase AI Logic / Generative Language API in Firebase or Google Cloud."
+        AppLanguage.FRENCH -> "L'IA n'est pas activée pour ce projet ou cette clé API. Activez Firebase AI Logic / Generative Language API dans Firebase ou Google Cloud."
+        AppLanguage.SPANISH -> "La IA no esta habilitada para este proyecto o API key. Activa Firebase AI Logic / Generative Language API en Firebase o Google Cloud."
+    }
+}
+
+private fun AppLanguage.aiInvalidApiKeyMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "The Firebase API key is not valid for AI. Check google-services.json or the key restrictions."
+        AppLanguage.FRENCH -> "La clé API Firebase n'est pas valide pour l'IA. Vérifiez google-services.json ou les restrictions de la clé."
+        AppLanguage.SPANISH -> "La API key de Firebase no es valida para IA. Revisa el archivo google-services.json o las restricciones de la clave."
+    }
+}
+
+private fun AppLanguage.aiTimeoutMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "AI took too long to respond. Check your connection and try again."
+        AppLanguage.FRENCH -> "L'IA a mis trop de temps à répondre. Vérifiez votre connexion et réessayez."
+        AppLanguage.SPANISH -> "La IA tardo demasiado en responder. Revisa la conexion e intentalo de nuevo."
+    }
+}
+
+private fun AppLanguage.aiGenericFailureMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "Could not connect to AI. Check your internet connection or Firebase configuration."
+        AppLanguage.FRENCH -> "Impossible de se connecter à l'IA. Vérifiez internet ou la configuration Firebase."
+        AppLanguage.SPANISH -> "No se pudo conectar con la IA. Revisa internet o la configuracion de Firebase."
+    }
+}
+
+private fun List<String>.toIngredientConflictMessage(language: AppLanguage): String {
     val ingredients = joinToString(", ")
-    val verb = if (size == 1) "no encaja" else "no encajan"
-    return "Revisa los ingredientes: $ingredients $verb con tu perfil alimentario."
+    return when (language) {
+        AppLanguage.ENGLISH -> "Review the ingredients: $ingredients does not fit your food profile."
+        AppLanguage.FRENCH -> "Vérifiez les ingrédients : $ingredients ne correspond pas à votre profil alimentaire."
+        AppLanguage.SPANISH -> {
+            val verb = if (size == 1) "no encaja" else "no encajan"
+            "Revisa los ingredientes: $ingredients $verb con tu perfil alimentario."
+        }
+    }
 }
 
 private fun String.normalizedForFoodMatch(): String {
@@ -1272,21 +1425,12 @@ private const val AI_FAILURE_GENERIC = "generic"
 private const val FIRST_QUOTA_BACKOFF_MILLIS = 0L
 private const val SECOND_QUOTA_BACKOFF_MILLIS = 2 * 60 * 1000L
 private const val MAX_QUOTA_BACKOFF_MILLIS = 30 * 60 * 1000L
-private const val AI_RETRY_MESSAGE = "La IA esta tomando una pausa para evitar intentos fallidos. Tus menus siguen disponibles."
-private const val AI_REQUESTS_PER_MINUTE_MESSAGE = "La IA recibio varias peticiones seguidas. Espera un momento antes de volver a intentarlo."
-private const val AI_TOKENS_PER_MINUTE_MESSAGE = "La idea necesita un descanso antes de procesarse de nuevo. Puedes seguir usando tus menus."
-private const val AI_REQUESTS_PER_DAY_MESSAGE = "La ayuda con IA gratuita de hoy se agoto. Tus menus siguen disponibles y podras volver a probar mas adelante."
-private const val GENERATED_ANALYSIS_MANUAL_EDIT_MESSAGE = "Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA."
-private const val MEAL_TYPE_REQUIRED_MESSAGE = "Selecciona si es desayuno, almuerzo o cena."
-private const val DICE_FILTER_REQUIRED_MESSAGE = "Primero escoge desayuno, almuerzo o cena."
-private const val AUDIENCE_REQUIRED_MESSAGE = "Selecciona si el menu es para adulto, niño o bebe."
-
-private fun AiQuotaLimitType.message(): String {
+private fun AiQuotaLimitType.message(language: AppLanguage): String {
     return when (this) {
-        AiQuotaLimitType.REQUESTS_PER_MINUTE -> AI_REQUESTS_PER_MINUTE_MESSAGE
-        AiQuotaLimitType.TOKENS_PER_MINUTE -> AI_TOKENS_PER_MINUTE_MESSAGE
-        AiQuotaLimitType.REQUESTS_PER_DAY -> AI_REQUESTS_PER_DAY_MESSAGE
-        AiQuotaLimitType.UNKNOWN -> AI_RETRY_MESSAGE
+        AiQuotaLimitType.REQUESTS_PER_MINUTE -> language.aiRequestsPerMinuteMessage()
+        AiQuotaLimitType.TOKENS_PER_MINUTE -> language.aiTokensPerMinuteMessage()
+        AiQuotaLimitType.REQUESTS_PER_DAY -> language.aiRequestsPerDayMessage()
+        AiQuotaLimitType.UNKNOWN -> language.aiRetryMessage()
     }
 }
 
