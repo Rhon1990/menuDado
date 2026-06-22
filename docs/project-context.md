@@ -64,6 +64,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Se guarda con una única acción principal: `Guardar menú`.
    - El análisis IA no forma parte del guardado inicial; se ejecuta después desde la tarjeta del menú guardado.
    - Desde el formulario se puede generar una idea con IA según el tipo seleccionado.
+   - Mientras se genera una idea con IA, la app debe mostrar un loading bloqueante con el dado de carga de MenuDado para evitar dobles acciones.
    - La generación con IA puede usar uno o más ingredientes base escritos por el usuario, por ejemplo `berenjena`; si algún ingrediente contradice el perfil alimentario configurado, la app debe mostrar un aviso y no llamar a la IA.
    - Las ideas generadas por IA deben ser saludables, ricas, simples y con ingredientes comunes de supermercado.
    - Si el tipo seleccionado es cena, la idea generada por IA debe ser ligera, rapida y de baja energia para la noche: maximo 10 minutos, pocos ingredientes y preparacion similar de sencilla a un desayuno; debe evitar horno, guarniciones multiples y recetas con varios pasos.
@@ -77,11 +78,12 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 2. Ver menús guardados.
    - Filtrar por desayuno, almuerzo, cena o todos.
-   - La sección `Tus menus` se organiza por público objetivo: persona adulta, peques y bebé, mostrando solo públicos con menús guardados.
+   - La sección `Tus menus` se organiza por público objetivo: persona adulta, peques y bebé, mostrando solo públicos activos en el perfil alimentario que además tengan menús guardados.
    - Cada público se presenta como carrusel horizontal con tarjetas compactas y visuales, mostrando por defecto los 10 menús más recientes de ese público.
    - Las tarjetas muestran una portada: si el menú tiene `imageUri`, carga esa imagen local; si no, muestra un placeholder/skeleton visual coherente con la marca y el tipo de comida.
    - La acción `Ver mas` aparece en cada sección con menús y abre una pantalla interna manteniendo el header de la app. Esa pantalla muestra todos los menús de ese público en grilla, sin scroll horizontal, separados por desayuno, almuerzo y cena.
    - Al tocar un item de `Tus menus`, se abre un modal de detalle con descripción, notas, análisis IA y acciones.
+   - Al tocar `Eliminar`, la app debe pedir confirmación antes de borrar el menú de la lista.
    - Estado vacío que invita a crear el primer menú.
    - Si un menú tiene calorías estimadas, mostrarlas como `kcal aprox.` en tarjeta y modal solo cuando el menú ya tenga análisis IA.
 
@@ -91,8 +93,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - La animación debe mostrar un dado 3D con seis platos ilustrados en sus caras, bordes redondeados y acabado cálido similar al logo; no debe usar puntos, letras, icono estático ni una cara plana 2D.
    - El dado del botón de lanzamiento debe permitir ajustar su ángulo con el dedo: al mantener presionado sobre el dado y arrastrar, cambia la rotación, y al soltar conserva la posición elegida.
    - Al detenerse después de cada lanzamiento, el dado debe quedar en una orientación de reposo distinta para que se vea una cara diferente.
-   - El dado mostrado en el modal de resultado debe reflejar la misma orientación final del lanzamiento.
-   - El resultado debe mostrarse en un modal diseñado, con cabecera de marca, dado 3D, secciones claras y botón principal de cierre; no debe ser un diálogo de texto plano.
+   - Tras la animación, el resultado debe abrir el mismo modal de detalle que se muestra al tocar cualquier menú guardado.
    - Antes de lanzar el dado, la app sugiere desayuno, almuerzo o cena segun la hora local del movil, y el usuario debe escoger persona adulta, peques o bebé; no hay opción `Todos` y el tipo de comida sugerido se puede cambiar.
    - Cada grupo de filtros del dado debe mantenerse como selector horizontal de lectura rápida.
    - Los filtros de público del dado solo muestran públicos activos en el perfil alimentario.

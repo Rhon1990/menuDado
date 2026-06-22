@@ -11,6 +11,8 @@
     <string name="common_save_changes">Guardar cambios</string>
     <string name="common_edit">Editar</string>
     <string name="common_delete">Eliminar</string>
+    <string name="delete_menu_confirmation_title">Eliminar menú</string>
+    <string name="delete_menu_confirmation_message">¿Seguro que quieres eliminar \"%1$s\" de la lista?</string>
     <string name="common_next">Siguiente</string>
     <string name="common_start">Empezar</string>
     <string name="common_skip">Omitir</string>
@@ -26,7 +28,7 @@
     <string name="meal_breakfast">Desayuno</string>
     <string name="meal_lunch">Almuerzo</string>
     <string name="meal_dinner">Cena</string>
-    <string name="audience_adult">Persona adulta</string>
+    <string name="audience_adult">Adulto</string>
     <string name="audience_child">Peques</string>
     <string name="audience_baby">Bebé</string>
     <string name="health_healthy">Saludable</string>
@@ -92,6 +94,8 @@
     <string name="analysis_ai">Análisis IA</string>
     <string name="analysis_suggestion">Sugerencia</string>
     <string name="ai_generating">Generando idea...</string>
+    <string name="ai_generation_loading_title">Generando idea saludable</string>
+    <string name="ai_generation_loading_message">El dado está preparando una propuesta para tu menú.</string>
     <string name="ai_resting">IA descansando</string>
     <string name="ai_generate_with_count">Generar idea saludable con IA (%1$d)</string>
     <string name="ai_analyzing">Analizando</string>

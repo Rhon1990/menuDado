@@ -11,6 +11,8 @@
     <string name="common_save_changes">Save changes</string>
     <string name="common_edit">Edit</string>
     <string name="common_delete">Delete</string>
+    <string name="delete_menu_confirmation_title">Delete menu</string>
+    <string name="delete_menu_confirmation_message">Are you sure you want to remove \"%1$s\" from the list?</string>
     <string name="common_next">Next</string>
     <string name="common_start">Start</string>
     <string name="common_skip">Skip</string>
@@ -92,6 +94,8 @@
     <string name="analysis_ai">AI analysis</string>
     <string name="analysis_suggestion">Suggestion</string>
     <string name="ai_generating">Generating idea...</string>
+    <string name="ai_generation_loading_title">Generating a healthy idea</string>
+    <string name="ai_generation_loading_message">The dice is preparing a menu suggestion for you.</string>
     <string name="ai_resting">AI resting</string>
     <string name="ai_generate_with_count">Generate healthy idea with AI (%1$d)</string>
     <string name="ai_analyzing">Analyzing</string>

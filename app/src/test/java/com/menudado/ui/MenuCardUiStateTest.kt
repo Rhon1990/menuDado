@@ -8,6 +8,9 @@ import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
+import com.menudado.ui.theme.MenuDadoColors
+import androidx.compose.ui.graphics.Color
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -94,8 +97,10 @@ class MenuCardUiStateTest {
     @Test
     fun `boton de camara se superpone dentro de la foto de cards y editor`() {
         assertEquals(R.drawable.ic_photo_camera, menuPhotoActionIconRes())
-        assertEquals(42, menuPhotoActionButtonSizeDp())
-        assertEquals(8, menuPhotoActionButtonInsetDp())
+        assertEquals(34, menuPhotoActionButtonSizeDp())
+        assertEquals(2, menuPhotoActionButtonInsetDp())
+        assertEquals(Color(0xFFA4ADA9), menuPhotoActionIconTint())
+        assertEquals(Color.Transparent, menuPhotoActionButtonBackgroundColor())
         assertEquals(R.string.photo_add_menu, menuPhotoActionContentDescriptionRes(hasImage = false))
         assertEquals(R.string.photo_change_menu, menuPhotoActionContentDescriptionRes(hasImage = true))
         assertEquals(R.string.photo_source_title, menuPhotoSourceDialogTitleRes())
@@ -173,15 +178,19 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `solo crea secciones de carrusel para publicos con menus`() {
+    fun `solo crea secciones de carrusel para publicos activos con menus`() {
         val menus = listOf(
             FoodMenu(id = 1L, name = "Adulto", mealType = MealType.BREAKFAST, audience = MenuAudience.ADULT, description = "A"),
-            FoodMenu(id = 2L, name = "Bebe", mealType = MealType.LUNCH, audience = MenuAudience.BABY, description = "B")
+            FoodMenu(id = 2L, name = "Peques", mealType = MealType.LUNCH, audience = MenuAudience.CHILD, description = "P"),
+            FoodMenu(id = 3L, name = "Bebe", mealType = MealType.LUNCH, audience = MenuAudience.BABY, description = "B")
         )
 
         assertEquals(
             listOf(MenuAudience.ADULT, MenuAudience.BABY),
-            menuCarouselAudiencesWithMenus(menus)
+            menuCarouselAudiencesWithMenus(
+                menus = menus,
+                enabledAudiences = listOf(MenuAudience.ADULT, MenuAudience.BABY)
+            )
         )
     }
 
@@ -232,6 +241,25 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `drawer usa colores y formas de MenuDado`() {
+        assertEquals(MenuDadoColors.Surface, menuDadoDrawerContainerColor())
+        assertEquals(MenuDadoColors.BrandGreen, menuDadoDrawerSelectedContainerColor())
+        assertEquals(Color.White, menuDadoDrawerSelectedTextColor())
+        assertEquals(MenuDadoColors.Ink, menuDadoDrawerUnselectedTextColor())
+        assertEquals(8, menuDadoDrawerItemCornerRadiusDp())
+    }
+
+    @Test
+    fun `generacion IA muestra overlay bloqueante con dado de carga`() {
+        assertEquals(R.drawable.dado_loading, aiGenerationLoadingImageRes())
+        assertEquals(R.string.ai_generation_loading_title, aiGenerationLoadingTitleRes())
+        assertEquals(R.string.ai_generation_loading_message, aiGenerationLoadingMessageRes())
+        assertEquals(MenuDadoColors.DeepGreen.copy(alpha = 0.72f), aiGenerationLoadingOverlayColor())
+        assertEquals(MenuDadoColors.Surface, aiGenerationLoadingCardColor())
+        assertEquals(true, aiGenerationLoadingBlocksTouches())
+    }
+
+    @Test
     fun `cabecera pone la marca al lado del menu sin espacio superior extra`() {
         assertEquals(0, menuDadoHeaderBrandTopPaddingDp())
         assertEquals(6, menuDadoHeaderBrandStartGapDp())
@@ -255,11 +283,33 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `modal de resultado usa proporciones premium para movil`() {
-        assertEquals(92, resultDialogMaxHeightPercent())
-        assertEquals(14, resultDialogHorizontalPaddingDp())
-        assertEquals(184, resultDialogHeroHeightDp())
-        assertEquals(4, resultDialogTitleMaxLines())
+    fun `resultado del dado abre el detalle normal del menu`() {
+        val result = FoodMenu(
+            id = 8L,
+            name = "Ravioli",
+            mealType = MealType.LUNCH,
+            description = "Ravioli con salsa"
+        )
+
+        assertTrue(menuShouldOpenDetailFromDiceResult(result))
+        assertFalse(menuShouldOpenDetailFromDiceResult(null))
+        assertEquals(8L, menuDetailMenuIdAfterDiceResult(currentDetailMenuId = null, result = result))
+        assertEquals(4L, menuDetailMenuIdAfterDiceResult(currentDetailMenuId = 4L, result = null))
+    }
+
+    @Test
+    fun `eliminar menu requiere confirmacion antes de borrar`() {
+        val menu = FoodMenu(
+            id = 12L,
+            name = "Tostada",
+            mealType = MealType.BREAKFAST,
+            description = "Pan con tomate"
+        )
+
+        assertEquals(12L, menuDeleteConfirmationMenuIdAfterDeleteClick(menu))
+        assertNull(menuDeleteConfirmationMenuIdAfterDismiss())
+        assertEquals(R.string.delete_menu_confirmation_title, menuDeleteConfirmationTitleRes())
+        assertEquals(R.string.delete_menu_confirmation_message, menuDeleteConfirmationMessageRes())
     }
 
     @Test

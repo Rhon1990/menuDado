@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
+import android.graphics.drawable.Animatable
 import android.graphics.Paint as AndroidPaint
 import android.net.Uri
 import android.os.Environment
@@ -25,6 +26,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -51,6 +53,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -67,6 +70,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -119,6 +123,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
@@ -134,6 +139,7 @@ import com.menudado.domain.MealType
 import com.menudado.ui.theme.MenuDadoColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.widget.ImageView
 import java.io.File
 import kotlin.math.PI
 import kotlin.math.cos
@@ -156,6 +162,7 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
     var diceFaceIndex by remember { mutableIntStateOf(0) }
     var audienceDetailRoute by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedDetailMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingDeleteMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var photoPickerMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var isPhotoSourceDialogVisible by rememberSaveable { mutableStateOf(false) }
     var pendingCameraUriString by rememberSaveable { mutableStateOf<String?>(null) }
@@ -172,6 +179,9 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
     }
     val selectedDetailMenu = selectedDetailMenuId?.let { selectedId ->
         state.menus.firstOrNull { it.id == selectedId }
+    }
+    val pendingDeleteMenu = pendingDeleteMenuId?.let { pendingId ->
+        state.menus.firstOrNull { it.id == pendingId }
     }
     fun saveSelectedPhoto(uriString: String) {
         val menuId = photoPickerMenuId
@@ -227,14 +237,19 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
         if (selectedDetailMenuId != null && state.menus.none { it.id == selectedDetailMenuId }) {
             selectedDetailMenuId = null
         }
+        if (pendingDeleteMenuId != null && state.menus.none { it.id == pendingDeleteMenuId }) {
+            pendingDeleteMenuId = null
+        }
     }
 
-    if (result != null) {
-        ResultDialog(
-            menu = result,
-            diceFaceIndex = diceFaceIndex,
-            onDismiss = viewModel::clearResult
-        )
+    LaunchedEffect(result?.id) {
+        if (menuShouldOpenDetailFromDiceResult(result)) {
+            selectedDetailMenuId = menuDetailMenuIdAfterDiceResult(
+                currentDetailMenuId = selectedDetailMenuId,
+                result = result
+            )
+            viewModel.clearResult()
+        }
     }
 
     if (message != null && aiRetryAtMillis != null && state.isAiRetryNoticeVisible) {
@@ -298,6 +313,22 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
         )
     }
 
+    pendingDeleteMenu?.let { menu ->
+        DeleteMenuConfirmationDialog(
+            menu = menu,
+            onConfirm = {
+                pendingDeleteMenuId = null
+                if (selectedDetailMenuId == menu.id) {
+                    selectedDetailMenuId = null
+                }
+                viewModel.deleteMenu(menu)
+            },
+            onDismiss = {
+                pendingDeleteMenuId = menuDeleteConfirmationMenuIdAfterDismiss()
+            }
+        )
+    }
+
     selectedDetailMenu?.let { menu ->
         MenuDetailDialog(
             menu = menu,
@@ -310,8 +341,7 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                 viewModel.startEditingMenu(menu)
             },
             onDelete = {
-                selectedDetailMenuId = null
-                viewModel.deleteMenu(menu)
+                pendingDeleteMenuId = menuDeleteConfirmationMenuIdAfterDeleteClick(menu)
             },
             onDismiss = { selectedDetailMenuId = null }
         )
@@ -444,6 +474,7 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                                 item {
                                     MenuCarouselSections(
                                         menus = state.menus,
+                                        enabledAudiences = state.enabledAudiences,
                                         onViewMore = { audience ->
                                             audienceDetailRoute = menuAudienceDetailRouteAfterViewMore(audience)
                                         },
@@ -464,6 +495,9 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                     Spacer(modifier = Modifier.height(18.dp))
                 }
             }
+        }
+        if (state.isGeneratingMenu) {
+            AiGenerationLoadingOverlay()
         }
     }
 }
@@ -492,7 +526,18 @@ private fun MenuDadoDrawer(
     drawerWidthDp: Int,
     onDestinationSelected: (MenuDadoDestination) -> Unit
 ) {
-    ModalDrawerSheet(modifier = Modifier.width(drawerWidthDp.dp)) {
+    ModalDrawerSheet(
+        modifier = Modifier.width(drawerWidthDp.dp),
+        drawerContainerColor = menuDadoDrawerContainerColor(),
+        drawerContentColor = menuDadoDrawerUnselectedTextColor()
+    ) {
+        val drawerItemColors = NavigationDrawerItemDefaults.colors(
+            selectedContainerColor = menuDadoDrawerSelectedContainerColor(),
+            unselectedContainerColor = Color.Transparent,
+            selectedTextColor = menuDadoDrawerSelectedTextColor(),
+            unselectedTextColor = menuDadoDrawerUnselectedTextColor()
+        )
+        val drawerItemShape = RoundedCornerShape(menuDadoDrawerItemCornerRadiusDp().dp)
         Column(
             modifier = Modifier
                 .fillMaxHeight()
@@ -509,18 +554,84 @@ private fun MenuDadoDrawer(
             NavigationDrawerItem(
                 label = { Text(stringResource(id = R.string.nav_home)) },
                 selected = selectedDestination == MenuDadoDestination.HOME,
-                onClick = { onDestinationSelected(MenuDadoDestination.HOME) }
+                onClick = { onDestinationSelected(MenuDadoDestination.HOME) },
+                shape = drawerItemShape,
+                colors = drawerItemColors
             )
             NavigationDrawerItem(
                 label = { Text(stringResource(id = R.string.nav_dietary_profile)) },
                 selected = selectedDestination == MenuDadoDestination.PROFILE,
-                onClick = { onDestinationSelected(MenuDadoDestination.PROFILE) }
+                onClick = { onDestinationSelected(MenuDadoDestination.PROFILE) },
+                shape = drawerItemShape,
+                colors = drawerItemColors
             )
             NavigationDrawerItem(
                 label = { Text(stringResource(id = R.string.nav_about)) },
                 selected = selectedDestination == MenuDadoDestination.ABOUT,
-                onClick = { onDestinationSelected(MenuDadoDestination.ABOUT) }
+                onClick = { onDestinationSelected(MenuDadoDestination.ABOUT) },
+                shape = drawerItemShape,
+                colors = drawerItemColors
             )
+        }
+    }
+}
+
+@Composable
+private fun AiGenerationLoadingOverlay() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(aiGenerationLoadingOverlayColor())
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = aiGenerationLoadingBlocksTouches(),
+                onClick = {}
+            )
+            .padding(28.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = aiGenerationLoadingCardColor()),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 26.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                AndroidView(
+                    factory = { context ->
+                        ImageView(context).apply {
+                            adjustViewBounds = true
+                            scaleType = ImageView.ScaleType.FIT_CENTER
+                            setImageResource(aiGenerationLoadingImageRes())
+                            (drawable as? Animatable)?.start()
+                        }
+                    },
+                    update = { imageView ->
+                        (imageView.drawable as? Animatable)?.start()
+                    },
+                    modifier = Modifier.size(138.dp)
+                )
+                Text(
+                    text = stringResource(id = aiGenerationLoadingTitleRes()),
+                    color = MenuDadoColors.DeepGreen,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = stringResource(id = aiGenerationLoadingMessageRes()),
+                    color = MenuDadoColors.MutedInk,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -533,6 +644,30 @@ private enum class MenuDadoDestination {
 
 internal fun menuDadoDrawerWidthDp(screenWidthDp: Int): Int =
     maxOf(256, minOf(304, screenWidthDp - 72))
+
+internal fun menuDadoDrawerContainerColor(): Color = MenuDadoColors.Surface
+
+internal fun menuDadoDrawerSelectedContainerColor(): Color = MenuDadoColors.BrandGreen
+
+internal fun menuDadoDrawerSelectedTextColor(): Color = Color.White
+
+internal fun menuDadoDrawerUnselectedTextColor(): Color = MenuDadoColors.Ink
+
+internal fun menuDadoDrawerItemCornerRadiusDp(): Int = 8
+
+internal fun aiGenerationLoadingImageRes(): Int = R.drawable.dado_loading
+
+@StringRes
+internal fun aiGenerationLoadingTitleRes(): Int = R.string.ai_generation_loading_title
+
+@StringRes
+internal fun aiGenerationLoadingMessageRes(): Int = R.string.ai_generation_loading_message
+
+internal fun aiGenerationLoadingOverlayColor(): Color = MenuDadoColors.DeepGreen.copy(alpha = 0.72f)
+
+internal fun aiGenerationLoadingCardColor(): Color = MenuDadoColors.Surface
+
+internal fun aiGenerationLoadingBlocksTouches(): Boolean = true
 
 internal fun menuDadoHeaderBrandTopPaddingDp(): Int = 0
 
@@ -547,14 +682,6 @@ internal fun menuDadoHeaderWordmarkHeightDp(): Int = 34
 internal fun menuDadoHeaderSubtitleFontSizeSp(): Int = 14
 
 internal fun menuDadoHeaderSubtitleTopOffsetDp(): Int = -5
-
-internal fun resultDialogMaxHeightPercent(): Int = 92
-
-internal fun resultDialogHorizontalPaddingDp(): Int = 14
-
-internal fun resultDialogHeroHeightDp(): Int = 184
-
-internal fun resultDialogTitleMaxLines(): Int = 4
 
 internal data class OnboardingStep(
     @StringRes val titleRes: Int,
@@ -2128,12 +2255,13 @@ private fun PendingAnalysisButton(
 @Composable
 private fun MenuCarouselSections(
     menus: List<FoodMenu>,
+    enabledAudiences: List<MenuAudience>,
     onViewMore: (MenuAudience) -> Unit,
     onOpenMenu: (FoodMenu) -> Unit,
     onPickImage: (FoodMenu) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        menuCarouselAudiencesWithMenus(menus).forEach { audience ->
+        menuCarouselAudiencesWithMenus(menus, enabledAudiences).forEach { audience ->
             MenuCarouselSection(
                 audience = audience,
                 menus = menuCarouselVisibleMenus(
@@ -2438,6 +2566,7 @@ private fun MenuPhotoActionButton(
         modifier = modifier
             .padding(menuPhotoActionButtonInsetDp().dp)
             .size(menuPhotoActionButtonSizeDp().dp)
+            .background(menuPhotoActionButtonBackgroundColor(), CircleShape)
             .semantics {
                 contentDescription = actionDescription
             }
@@ -2837,6 +2966,49 @@ private fun MenuDetailDialog(
 }
 
 @Composable
+private fun DeleteMenuConfirmationDialog(
+    menu: FoodMenu,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(
+                    text = stringResource(id = R.string.common_delete),
+                    color = MenuDadoColors.Tomato,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    text = stringResource(id = R.string.common_cancel),
+                    color = MenuDadoColors.DeepGreen,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        title = {
+            Text(
+                text = stringResource(id = menuDeleteConfirmationTitleRes()),
+                color = MenuDadoColors.Ink,
+                fontWeight = FontWeight.Black
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(id = menuDeleteConfirmationMessageRes(), menu.name),
+                color = MenuDadoColors.Ink
+            )
+        },
+        containerColor = MenuDadoColors.Surface
+    )
+}
+
+@Composable
 private fun MenuCard(
     menu: FoodMenu,
     isExpanded: Boolean,
@@ -2998,6 +3170,29 @@ internal fun nextExpandedMenuIdAfterMenuClick(
     return if (currentExpandedMenuId == clickedMenuId) null else clickedMenuId
 }
 
+internal fun menuShouldOpenDetailFromDiceResult(result: FoodMenu?): Boolean {
+    return result != null
+}
+
+internal fun menuDetailMenuIdAfterDiceResult(
+    currentDetailMenuId: Long?,
+    result: FoodMenu?
+): Long? {
+    return result?.id ?: currentDetailMenuId
+}
+
+internal fun menuDeleteConfirmationMenuIdAfterDeleteClick(menu: FoodMenu): Long {
+    return menu.id
+}
+
+internal fun menuDeleteConfirmationMenuIdAfterDismiss(): Long? = null
+
+@StringRes
+internal fun menuDeleteConfirmationTitleRes(): Int = R.string.delete_menu_confirmation_title
+
+@StringRes
+internal fun menuDeleteConfirmationMessageRes(): Int = R.string.delete_menu_confirmation_message
+
 internal fun menuCarouselVisibleMenus(
     menus: List<FoodMenu>,
     audience: MenuAudience,
@@ -3014,8 +3209,12 @@ internal fun menuCarouselVisibleMenus(
     }
 }
 
-internal fun menuCarouselAudiencesWithMenus(menus: List<FoodMenu>): List<MenuAudience> {
+internal fun menuCarouselAudiencesWithMenus(
+    menus: List<FoodMenu>,
+    enabledAudiences: List<MenuAudience>
+): List<MenuAudience> {
     return MenuAudience.entries.filter { audience ->
+        audience in enabledAudiences &&
         menus.any { it.audience == audience }
     }
 }
@@ -3141,9 +3340,11 @@ internal fun menuDetailTitleMaxLines(): Int = 2
 
 internal fun menuPhotoActionIconRes(): Int = R.drawable.ic_photo_camera
 
-internal fun menuPhotoActionButtonSizeDp(): Int = 42
+internal fun menuPhotoActionButtonSizeDp(): Int = 34
 
-internal fun menuPhotoActionButtonInsetDp(): Int = 8
+internal fun menuPhotoActionButtonInsetDp(): Int = 2
+
+internal fun menuPhotoActionButtonBackgroundColor(): Color = Color.Transparent
 
 @StringRes
 internal fun menuPhotoActionContentDescriptionRes(hasImage: Boolean): Int {
@@ -3227,7 +3428,7 @@ private fun HealthStatus.coverLabelGradientColor(): Color {
 
 private fun menuCoverMealTypeLabelTextColor(): Color = Color.White
 
-private fun menuPhotoActionIconTint(): Color = MenuDadoColors.DeepGreen
+internal fun menuPhotoActionIconTint(): Color = Color(0xFFA4ADA9)
 
 private fun createMenuCameraImageUri(context: Context): Uri {
     val photoDirectory = File(
@@ -3618,266 +3819,6 @@ private fun OnboardingDialog(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ResultDialog(
-    menu: FoodMenu,
-    diceFaceIndex: Int,
-    onDismiss: () -> Unit
-) {
-    val dicePose = DiceRestPoses[diceFaceIndex % DiceRestPoses.size]
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(resultDialogMaxHeightPercent() / 100f)
-                .padding(horizontal = resultDialogHorizontalPaddingDp().dp),
-            colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Column {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(resultDialogHeroHeightDp().dp)
-                        .background(MenuDadoColors.Cream)
-                        .padding(18.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(id = R.string.result_today),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MenuDadoColors.DeepGreen)
-                                    .padding(horizontal = 12.dp, vertical = 7.dp),
-                                color = Color.White,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Black
-                            )
-                            Text(
-                                text = "${stringResource(id = mealTypeLabelRes(menu.mealType))} · ${stringResource(id = menuAudienceLabelRes(menu.audience))}",
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MenuDadoColors.Tomato.copy(alpha = 0.12f))
-                                    .padding(horizontal = 12.dp, vertical = 7.dp),
-                                color = MenuDadoColors.Tomato,
-                                fontWeight = FontWeight.Black,
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(92.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MenuDadoColors.Surface)
-                                    .border(
-                                        BorderStroke(1.dp, MenuDadoColors.OutlineBrown.copy(alpha = 0.16f)),
-                                        RoundedCornerShape(8.dp)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                DiceCube3D(
-                                    modifier = Modifier.size(70.dp),
-                                    rotationX = dicePose.rotationX,
-                                    rotationY = dicePose.rotationY,
-                                    rotationZ = dicePose.rotationZ - 4f
-                                )
-                            }
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(id = R.string.result_option_today),
-                                    color = MenuDadoColors.DeepGreen,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = menu.name,
-                                    color = MenuDadoColors.Ink,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Black,
-                                    maxLines = resultDialogTitleMaxLines(),
-                                    overflow = TextOverflow.Clip
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
-                ) {
-                    menuVisibleCalories(menu)?.let { calories ->
-                        ResultDialogCaloriesChip(calories = calories)
-                    }
-
-                    PremiumDialogSection(title = stringResource(id = R.string.result_chosen_menu)) {
-                        Text(
-                            text = menu.description,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MenuDadoColors.Ink
-                        )
-                    }
-
-                    if (menu.notes.isNotBlank()) {
-                        PremiumDialogSection(title = stringResource(id = R.string.result_notes)) {
-                            Text(
-                                text = menu.notes,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MenuDadoColors.MutedInk
-                            )
-                        }
-                    }
-
-                    menu.healthAnalysis?.let { analysis ->
-                        PremiumHealthAnalysisPanel(analysis = analysis)
-                    }
-                }
-
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 18.dp, end = 18.dp, bottom = 18.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MenuDadoColors.BrandGreen,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.common_close),
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        fontWeight = FontWeight.Black
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PremiumDialogSection(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(
-                BorderStroke(1.dp, MenuDadoColors.OutlineBrown.copy(alpha = 0.14f)),
-                RoundedCornerShape(8.dp)
-            )
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MenuDadoColors.DeepGreen,
-            fontWeight = FontWeight.Black
-        )
-        content()
-    }
-}
-
-@Composable
-private fun ResultDialogCaloriesChip(calories: Int) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(MenuDadoColors.EggYellow.copy(alpha = 0.24f))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = stringResource(id = R.string.calories_approx, calories),
-            color = MenuDadoColors.DeepGreen,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Black
-        )
-    }
-}
-
-@Composable
-private fun PremiumHealthAnalysisPanel(analysis: HealthAnalysis) {
-    val accent = analysis.status.accentColor()
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(accent.copy(alpha = 0.16f))
-            .border(
-                BorderStroke(1.dp, accent.copy(alpha = 0.26f)),
-                RoundedCornerShape(8.dp)
-            )
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(id = R.string.analysis_ai),
-                style = MaterialTheme.typography.labelLarge,
-                color = MenuDadoColors.DeepGreen,
-                fontWeight = FontWeight.Black
-            )
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White.copy(alpha = 0.56f))
-                    .padding(horizontal = 12.dp, vertical = 7.dp)
-            ) {
-                Text(
-                    text = stringResource(id = healthStatusLabelRes(analysis.status)),
-                    color = MenuDadoColors.Ink,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Black
-                )
-            }
-        }
-        Text(
-            text = analysis.reason,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MenuDadoColors.Ink
-        )
-        if (analysis.suggestion.isNotBlank()) {
-            Text(
-                text = analysis.suggestion,
-                style = MaterialTheme.typography.bodySmall,
-                color = MenuDadoColors.MutedInk
-            )
         }
     }
 }

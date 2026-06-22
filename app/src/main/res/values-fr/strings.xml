@@ -11,6 +11,8 @@
     <string name="common_save_changes">Enregistrer les changements</string>
     <string name="common_edit">Modifier</string>
     <string name="common_delete">Supprimer</string>
+    <string name="delete_menu_confirmation_title">Supprimer le menu</string>
+    <string name="delete_menu_confirmation_message">Voulez-vous vraiment retirer \"%1$s\" de la liste ?</string>
     <string name="common_next">Suivant</string>
     <string name="common_start">Commencer</string>
     <string name="common_skip">Ignorer</string>
@@ -92,6 +94,8 @@
     <string name="analysis_ai">Analyse IA</string>
     <string name="analysis_suggestion">Suggestion</string>
     <string name="ai_generating">Génération de l’idée...</string>
+    <string name="ai_generation_loading_title">Génération d’une idée saine</string>
+    <string name="ai_generation_loading_message">Le dé prépare une suggestion de menu pour vous.</string>
     <string name="ai_resting">IA en pause</string>
     <string name="ai_generate_with_count">Générer une idée saine avec l’IA (%1$d)</string>
     <string name="ai_analyzing">Analyse...</string>
