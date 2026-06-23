@@ -2,7 +2,7 @@
 
 ## Visión
 
-MenuDado es una app Android nativa para planificar menús de comida de forma local y elegir qué comer hoy cuando el usuario no sabe qué cocinar. La app guarda los menús en el móvil y usa IA online para evaluar si un menú es saludable.
+MenuDado es una app Android nativa para planificar menús de comida y elegir qué comer hoy cuando el usuario no sabe qué cocinar. La app mantiene comportamiento local-first con Room para funcionar sin conexión, sincroniza los datos guardados en Firebase Firestore mediante autenticación anónima sin pantalla de login y usa IA online para evaluar si un menú es saludable.
 
 ## Nombre del Producto
 
@@ -52,7 +52,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Las etiquetas visibles de público en español son `Persona adulta`, `Peques` y `Bebé`.
 - La generación y el análisis con IA deben pedir nombre, descripción, notas, razón y sugerencia en el mismo idioma visible de la app para evitar mezclar idiomas en menús creados por IA.
 
-1. Crear menús localmente.
+1. Crear menús.
    - El formulario `Agregar menu` separa dos modos iniciales: `Escribir menu` y `Generar con IA`.
    - El tipo de comida es obligatorio y viene sugerido automaticamente segun la hora local del movil: desayuno por la mañana, almuerzo al mediodia/tarde y cena por la noche; el usuario puede cambiarlo antes de guardar o generar.
    - El público objetivo también es obligatorio y no viene seleccionado por defecto; el usuario debe elegir persona adulta, peques o bebé entre los públicos activos del perfil alimentario.
@@ -127,8 +127,10 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Mientras haya una espera de cuota activa, la app no debe hacer nuevas llamadas a Gemini; debe reutilizar el aviso local hasta que venza la espera interna, incluso si la pantalla o la app se recrea. Cuando la espera llegue a cero, el aviso debe decir que ya se puede reintentar con IA.
    - Si Gemini vuelve a responder `RESOURCE_EXHAUSTED` tras vencer la espera recomendada, la app debe aplicar retroceso exponencial local persistente para reducir reintentos fallidos: primera cuota respeta el proveedor, segunda cuota consecutiva espera al menos 2 minutos, luego 4, 8, 16 y hasta un máximo de 30 minutos. Un éxito de IA reinicia ese control.
 
-5. Comportamiento local primero.
+5. Comportamiento local primero con backend.
    - Los menús siguen disponibles sin conexión.
+   - Los menús, perfil alimentario, uso diario de IA y onboarding se guardan localmente primero y se sincronizan en Firestore bajo el usuario anónimo del dispositivo.
+   - Si una operación remota falla, la app mantiene estado pendiente local para reintentar la sincronización de menús, perfil alimentario, uso diario de IA y onboarding en un siguiente arranque.
    - El análisis con IA requiere internet y muestra un error claro si no hay conexión.
 
 6. Onboarding de primera apertura.
@@ -141,7 +143,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 7. Perfil alimentario.
    - La app ofrece un menú hamburguesa con acceso a `Perfil alimentario`.
-   - El perfil se guarda localmente en el móvil.
+   - El perfil se guarda localmente en el móvil y se sincroniza en Firestore para el usuario anónimo.
    - El perfil alimentario se configura por público objetivo: persona adulta, peques y bebé.
    - Cada público tiene un interruptor `Activo`; por defecto solo `Persona adulta` viene activo, y `Peques` y `Bebé` empiezan desactivados. Si un público está desactivado, no aparece como botón seleccionable al agregar menús ni al lanzar el dado. La app impide desactivar el último público activo para que siempre quede al menos uno disponible.
    - Si el público seleccionado no está activo, el resto de switches y campos del perfil alimentario quedan deshabilitados.
@@ -165,12 +167,15 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Lenguaje: Kotlin.
 - UI: Jetpack Compose.
 - Almacenamiento local: Room.
+- Backend: Firebase Auth anónimo y Firebase Firestore por usuario bajo `users/{uid}`; no hay login visible.
 - Arquitectura: MVVM con repositorios.
 - Estado y asincronía: Kotlin coroutines y Flow.
 - Integración IA: Firebase AI Logic con Gemini 2.5 Flash-Lite para análisis saludable y lote de pendientes.
 - Generación de ideas IA: Firebase AI Logic con Gemini 2.5 Flash-Lite para texto, análisis saludable y calorías. No se usan modelos de imagen IA; las fotos de menú son opcionales, tomadas con cámara o seleccionadas por el usuario desde biblioteca, y gestionadas después de crear el menú guardado.
-- Perfil alimentario: configuración local por público objetivo en SharedPreferences usada como restricciones del prompt de generación IA.
-- Onboarding: estado local en SharedPreferences para mostrar la guía solo en primera apertura.
+- Perfil alimentario: configuración local por público objetivo en SharedPreferences usada como restricciones del prompt de generación IA y sincronizada en Firestore.
+- Onboarding: estado local en SharedPreferences para mostrar la guía solo en primera apertura y sincronizado en Firestore.
+- Metadatos backend: al abrir la app se sincronizan país de la configuración regional, zona horaria, fabricante/modelo de dispositivo, versión Android, `versionName` y `versionCode`; no se solicita GPS, contactos ni identificador publicitario.
+- Reglas Firestore: `firestore.rules` restringe lectura/escritura a `users/{request.auth.uid}/**`.
 - Analítica:
   - Firebase Analytics anónimo para métricas automáticas de dispositivos/usuarios, modelo de móvil, ubicación agregada de Firebase y eventos de producto sin contenido personal del menú.
   - Implementación central: contrato `MenuDadoAnalytics`, implementación real `FirebaseMenuDadoAnalytics` y `NoOpMenuDadoAnalytics` para contextos sin Firebase.
@@ -216,3 +221,6 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Validar que el marcado de analytics no envíe nombres, ingredientes, notas, recetas, correo de contacto ni nombre del creador; solo estados, tipos de comida, filtros, acciones cerradas y contadores agregables.
 - Validar que el onboarding emita `onboarding_shown` solo cuando corresponde y `onboarding_completed` diferenciando `start`/`skip`.
 - Validar que abrir `Acerca de la app` emita `about_app_opened` sin parámetros personales.
+- Validar que las reglas Firestore impiden leer o escribir datos de otro `uid`.
+- Validar que el manifest final no declare permisos de ubicación, contactos ni identificador publicitario.
+- Validar que crear, editar y eliminar menús sincroniza Firestore cuando hay conexión y mantiene pendientes locales cuando falla la red.

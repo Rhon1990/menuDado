@@ -39,7 +39,7 @@ fun MealType.localizedLabel(language: AppLanguage): String {
 fun MenuAudience.localizedLabel(language: AppLanguage): String {
     return when (language) {
         AppLanguage.SPANISH -> when (this) {
-            MenuAudience.ADULT -> "Adulto"
+            MenuAudience.ADULT -> "Persona adulta"
             MenuAudience.CHILD -> "Peques"
             MenuAudience.BABY -> "Bebé"
         }

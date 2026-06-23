@@ -68,6 +68,8 @@ dependencies {
     implementation("androidx.room:room-runtime:2.8.3")
     implementation("com.google.firebase:firebase-ai:17.12.1")
     implementation("com.google.firebase:firebase-analytics:22.1.2")
+    implementation("com.google.firebase:firebase-auth:23.1.0")
+    implementation("com.google.firebase:firebase-firestore:25.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     kapt("androidx.room:room-compiler:2.8.3")

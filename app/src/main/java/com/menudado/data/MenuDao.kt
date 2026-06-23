@@ -10,8 +10,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MenuDao {
-    @Query("SELECT * FROM menus ORDER BY createdAt DESC")
+    @Query("SELECT * FROM menus WHERE deletedAt IS NULL ORDER BY createdAt DESC")
     fun observeMenus(): Flow<List<MenuEntity>>
+
+    @Query("SELECT * FROM menus WHERE remoteSyncState != 'SYNCED'")
+    suspend fun getPendingSyncMenus(): List<MenuEntity>
+
+    @Query("UPDATE menus SET remoteSyncState = 'SYNCED', remoteSyncToken = NULL WHERE id = :id AND remoteSyncToken = :remoteSyncToken AND remoteSyncState = 'PENDING_UPSERT'")
+    suspend fun markUpsertSynced(id: Long, remoteSyncToken: String): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(menu: MenuEntity): Long
@@ -22,4 +28,3 @@ interface MenuDao {
     @Delete
     suspend fun delete(menu: MenuEntity)
 }
-

@@ -12,6 +12,7 @@ import com.menudado.data.MenuDao
 import com.menudado.data.MenuEntity
 import com.menudado.data.MenuRepository
 import com.menudado.data.OnboardingStore
+import com.menudado.data.RemoteSyncState
 import com.menudado.data.toEntity
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.GeneratedMenu
@@ -1594,6 +1595,30 @@ private class FakeMenuDao : MenuDao {
     }
 
     override fun observeMenus(): Flow<List<MenuEntity>> = menus
+
+    override suspend fun getPendingSyncMenus(): List<MenuEntity> {
+        return menus.value.filter { it.remoteSyncState != RemoteSyncState.SYNCED.name }
+    }
+
+    override suspend fun markUpsertSynced(id: Long, remoteSyncToken: String): Int {
+        var updatedCount = 0
+        menus.value = menus.value.map { existing ->
+            if (
+                existing.id == id &&
+                existing.remoteSyncToken == remoteSyncToken &&
+                existing.remoteSyncState == RemoteSyncState.PENDING_UPSERT.name
+            ) {
+                updatedCount += 1
+                existing.copy(
+                    remoteSyncState = RemoteSyncState.SYNCED.name,
+                    remoteSyncToken = null
+                )
+            } else {
+                existing
+            }
+        }
+        return updatedCount
+    }
 
     override suspend fun insert(menu: MenuEntity): Long {
         val nextId = (menus.value.maxOfOrNull { it.id } ?: 0L) + 1L
