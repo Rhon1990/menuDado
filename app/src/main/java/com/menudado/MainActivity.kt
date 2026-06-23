@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.menudado.analytics.AndroidDeviceInfoProvider
+import com.menudado.ads.MenuDadoAdsController
 import com.menudado.ui.MenuDadoScreen
 import com.menudado.ui.MenuDadoViewModel
 import com.menudado.ui.theme.MenuDadoColors
@@ -69,7 +70,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             MenuDadoTheme {
                 var showSplash by remember { mutableStateOf(true) }
+                var areAdsReady by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) {
+                    MenuDadoAdsController(this@MainActivity) {
+                        areAdsReady = true
+                    }.requestConsentAndInitialize()
                     delay(SPLASH_DURATION_MILLIS)
                     showSplash = false
                 }
@@ -77,7 +82,10 @@ class MainActivity : ComponentActivity() {
                 if (showSplash) {
                     MenuDadoSplashScreen()
                 } else {
-                    MenuDadoScreen(viewModel = viewModel)
+                    MenuDadoScreen(
+                        viewModel = viewModel,
+                        areAdsReady = areAdsReady
+                    )
                 }
             }
         }

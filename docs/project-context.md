@@ -194,13 +194,19 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - Eventos propios de IA: inicio/fin de generación y análisis, estado saludable (`health_status`), tipo de fallo (`failure_type`) y límite diario local (`ai_daily_limit_reached`).
   - Eventos propios de backend: `backend_sync_retried`, `backend_sync_finished`, usando solo fuente, estado y conteos pendientes.
   - Los eventos no deben enviar nombres de menú, ingredientes, notas, recetas, correo de contacto, nombre del creador, IDs de documentos, UID de Firebase, URI de imagen, alérgenos específicos, embarazo, condiciones de salud ni texto libre del perfil.
+- Publicidad:
+  - Integración inicial con Google Mobile Ads SDK y User Messaging Platform para consentimiento antes de solicitar anuncios.
+  - El primer formato monetizable es un banner adaptativo no invasivo en Home, insertado en el contenido después del formulario `Agregar menu` y antes de `Tus menus`.
+  - Durante desarrollo usa el App ID y ad unit ID demo de Google para evitar tráfico inválido en AdMob.
+  - No se usan anuncios de apertura, interstitials ni rewarded interstitials en esta fase para no interrumpir el dado, el guardado ni la generación con IA.
+  - El manifest mantiene removido `com.google.android.gms.permission.AD_ID` hasta actualizar política de privacidad, ficha de Google Play y decisión explícita sobre anuncios personalizados.
 - Configuración Firebase: `app/google-services.json` para el proyecto Firebase asociado a `com.menudado`.
 - Nombre de proyecto Gradle: `MenuDado`.
 - Package/namespace Android: `com.menudado`.
 - Application ID: `com.menudado`.
 - Nombre visible de la app: `MenuDado`.
 - Version visible: sincronizada con `versionName` del build Android.
-- Recursos públicos para tienda: GitHub Pages desde `docs/`, con política de privacidad en `https://rhon1990.github.io/menuDado/privacy-policy/`.
+- Recursos públicos para tienda: GitHub Pages desde `docs/`, con política de privacidad en `https://rhon1990.github.io/menuDado/privacy-policy/` y solicitud de eliminacion de datos en `https://rhon1990.github.io/menuDado/data-deletion/`.
 
 ## Principios de UX
 

@@ -129,6 +129,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import com.menudado.R
+import com.menudado.ads.MenuDadoBannerAd
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import com.menudado.domain.FoodMenu
@@ -148,7 +149,10 @@ import kotlin.math.sqrt
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
+fun MenuDadoScreen(
+    viewModel: MenuDadoViewModel,
+    areAdsReady: Boolean = false
+) {
     val state by viewModel.uiState.collectAsState()
     val result = state.result
     val message = state.message
@@ -510,6 +514,9 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                                         viewModel.saveMenu()
                                     }
                                 )
+                            }
+                            item {
+                                MenuDadoBannerAd(isReady = areAdsReady)
                             }
                             item {
                                 Text(
