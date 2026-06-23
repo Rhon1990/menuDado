@@ -63,6 +63,10 @@ Los menus y preferencias guardados localmente permanecen en el dispositivo hasta
 
 Los datos de analitica gestionados por Firebase se conservan segun la configuracion y politicas de Google/Firebase.
 
+Tambien puedes consultar la pagina de solicitud de eliminacion de datos:
+
+https://rhon1990.github.io/menuDado/data-deletion/
+
 ## Menores
 
 MenuDado no esta dirigida especificamente a menores de 13 anos. Si un padre, madre o tutor considera que un menor ha proporcionado informacion personal a traves de la app, puede contactar para solicitar revision.
