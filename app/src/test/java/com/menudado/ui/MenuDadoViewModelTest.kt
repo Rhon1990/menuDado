@@ -283,6 +283,8 @@ class MenuDadoViewModelTest {
         assertEquals("", viewModel.uiState.value.name)
         assertEquals(
             listOf(
+                "menu_edit_started:BREAKFAST:ADULT:true:false:1",
+                "menu_edit_saved:BREAKFAST:ADULT:true:false:false:1",
                 "menu_saved:BREAKFAST:false:false:1",
                 "menu_inventory_changed:1:0:1"
             ),
@@ -1432,6 +1434,95 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `missing audience while saving menu is tracked without menu content`() = runTest(dispatcher) {
+        dietaryProfileStore.saveProfile(
+            DietaryProfile(isEnabled = true, ageRange = MenuAudience.CHILD.defaultAgeRange),
+            MenuAudience.CHILD
+        )
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.updateName("Tostada secreta")
+        viewModel.updateDescription("Ingredientes privados")
+        analytics.events.clear()
+
+        viewModel.saveMenu()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("menu_save_blocked:missing_audience:true:true"),
+            analytics.events
+        )
+    }
+
+    @Test
+    fun `dice audience filter selection is tracked`() = runTest(dispatcher) {
+        dao.seed(listOf(FoodMenu(id = 1, name = "Tostada", mealType = MealType.BREAKFAST, description = "Pan")))
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
+
+        assertEquals(listOf("audience_filter_selected:dice:ADULT:1"), analytics.events)
+    }
+
+    @Test
+    fun `dietary profile updates are tracked by audience and field group only`() = runTest(dispatcher) {
+        analytics.events.clear()
+
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+        viewModel.setDietaryProfileVegan(true)
+        viewModel.updateDietaryProfileOtherAvoidances("texto privado")
+
+        assertEquals(
+            listOf(
+                "dietary_profile_audience_selected:CHILD",
+                "dietary_profile_updated:CHILD:enabled:2",
+                "dietary_profile_updated:CHILD:vegan:2",
+                "dietary_profile_updated:CHILD:other_avoidances:2"
+            ),
+            analytics.events
+        )
+    }
+
+    @Test
+    fun `menu edit and photo updates are tracked without menu ids or names`() = runTest(dispatcher) {
+        val menu = FoodMenu(
+            id = 1,
+            name = "Nombre privado",
+            mealType = MealType.LUNCH,
+            audience = MenuAudience.ADULT,
+            description = "Receta privada"
+        )
+        dao.seed(listOf(menu))
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        viewModel.startEditingMenu(menu)
+        viewModel.updateEditName("Nombre nuevo privado")
+        viewModel.saveEditedMenu()
+        advanceUntilIdle()
+        viewModel.updateMenuImageUri(menu.id, "content://private")
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                "menu_edit_started:LUNCH:ADULT:false:false:1",
+                "menu_edit_saved:LUNCH:ADULT:true:false:false:1",
+                "menu_saved:LUNCH:false:false:1",
+                "menu_inventory_changed:1:0:1",
+                "menu_photo_updated:LUNCH:ADULT:true:1"
+            ),
+            analytics.events
+        )
+    }
+
+    @Test
     fun `roll dice tracks filter result and menu count`() = runTest(dispatcher) {
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
@@ -1598,6 +1689,10 @@ private class FakeMenuDao : MenuDao {
 
     override suspend fun getPendingSyncMenus(): List<MenuEntity> {
         return menus.value.filter { it.remoteSyncState != RemoteSyncState.SYNCED.name }
+    }
+
+    override suspend fun countPendingSyncMenus(): Int {
+        return getPendingSyncMenus().size
     }
 
     override suspend fun markUpsertSynced(id: Long, remoteSyncToken: String): Int {
@@ -1816,8 +1911,37 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
         events += "meal_type_selected:${mealType.name}:$formHasContent"
     }
 
+    override fun trackAudienceFilterSelected(source: String, audience: MenuAudience?, menuCount: Int) {
+        events += "audience_filter_selected:$source:${audience?.name ?: "ALL"}:$menuCount"
+    }
+
     override fun trackMenuSaveBlocked(reason: String, hasName: Boolean, hasDescription: Boolean) {
         events += "menu_save_blocked:$reason:$hasName:$hasDescription"
+    }
+
+    override fun trackMenuEditStarted(
+        mealType: MealType,
+        audience: MenuAudience,
+        hasAiAnalysis: Boolean,
+        hasPhoto: Boolean,
+        menuCount: Int
+    ) {
+        events += "menu_edit_started:${mealType.name}:${audience.name}:$hasAiAnalysis:$hasPhoto:$menuCount"
+    }
+
+    override fun trackMenuEditSaved(
+        mealType: MealType,
+        audience: MenuAudience,
+        changedRecipe: Boolean,
+        hasAiAnalysis: Boolean,
+        hasPhoto: Boolean,
+        menuCount: Int
+    ) {
+        events += "menu_edit_saved:${mealType.name}:${audience.name}:$changedRecipe:$hasAiAnalysis:$hasPhoto:$menuCount"
+    }
+
+    override fun trackMenuPhotoUpdated(mealType: MealType, audience: MenuAudience, hasPhoto: Boolean, menuCount: Int) {
+        events += "menu_photo_updated:${mealType.name}:${audience.name}:$hasPhoto:$menuCount"
     }
 
     override fun trackDiceRolled(
@@ -1851,6 +1975,30 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
 
     override fun trackAboutAppOpened() {
         events += "about_app_opened"
+    }
+
+    override fun trackDietaryProfileOpened(activeAudienceCount: Int) {
+        events += "dietary_profile_opened:$activeAudienceCount"
+    }
+
+    override fun trackDietaryProfileAudienceSelected(audience: MenuAudience) {
+        events += "dietary_profile_audience_selected:${audience.name}"
+    }
+
+    override fun trackDietaryProfileUpdated(audience: MenuAudience, fieldGroup: String, activeAudienceCount: Int) {
+        events += "dietary_profile_updated:${audience.name}:$fieldGroup:$activeAudienceCount"
+    }
+
+    override fun trackMenuListViewMoreOpened(audience: MenuAudience, menuCount: Int) {
+        events += "menu_list_view_more_opened:${audience.name}:$menuCount"
+    }
+
+    override fun trackBackendSyncRetried(source: String, pendingMenuCount: Int) {
+        events += "backend_sync_retried:$source:$pendingMenuCount"
+    }
+
+    override fun trackBackendSyncFinished(source: String, status: String, pendingMenuCount: Int) {
+        events += "backend_sync_finished:$source:$status:$pendingMenuCount"
     }
 
     override fun trackAiMenuGenerationStarted(mealType: MealType, avoidIdeaCount: Int) {

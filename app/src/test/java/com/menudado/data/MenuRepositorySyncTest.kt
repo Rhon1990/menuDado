@@ -148,6 +148,10 @@ private class FakeSyncMenuDao : MenuDao {
         return menus.value.filter { it.remoteSyncState != RemoteSyncState.SYNCED.name }
     }
 
+    override suspend fun countPendingSyncMenus(): Int {
+        return getPendingSyncMenus().size
+    }
+
     override suspend fun markUpsertSynced(id: Long, remoteSyncToken: String): Int {
         var updatedCount = 0
         menus.value = menus.value.map { existing ->

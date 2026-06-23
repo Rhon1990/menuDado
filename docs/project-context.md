@@ -182,11 +182,15 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - MenuDado añade al evento de apertura fabricante/modelo, versión Android, país de la configuración regional y zona horaria; no solicita GPS ni permisos de ubicación.
   - Eventos propios de activación e inventario: `first_menu_created`, `menu_inventory_changed`.
   - Eventos propios de formulario: `menu_form_started`, `menu_save_blocked`, `meal_type_selected`.
+  - Eventos propios de filtros y navegación: `audience_filter_selected`, `menu_list_view_more_opened`.
+  - Eventos propios de edición multimedia: `menu_edit_started`, `menu_edit_saved`, `menu_photo_updated`.
   - Eventos propios del dado: `dice_filter_selected`, `dice_rolled`, `dice_empty_result`.
   - Eventos propios de consulta de contenido: `menu_card_opened`, `about_app_opened`.
+  - Eventos propios de perfil alimentario: `dietary_profile_opened`, `dietary_profile_audience_selected`, `dietary_profile_updated`, sin enviar alérgenos, embarazo, condiciones ni texto libre.
   - Eventos propios de onboarding: `onboarding_shown`, `onboarding_completed` con parámetro `action` limitado a `start` o `skip`.
   - Eventos propios de IA: inicio/fin de generación y análisis, estado saludable (`health_status`), tipo de fallo (`failure_type`) y límite diario local (`ai_daily_limit_reached`).
-  - Los eventos no deben enviar nombres de menú, ingredientes, notas, recetas, correo de contacto ni nombre del creador.
+  - Eventos propios de backend: `backend_sync_retried`, `backend_sync_finished`, usando solo fuente, estado y conteos pendientes.
+  - Los eventos no deben enviar nombres de menú, ingredientes, notas, recetas, correo de contacto, nombre del creador, IDs de documentos, UID de Firebase, URI de imagen, alérgenos específicos, embarazo, condiciones de salud ni texto libre del perfil.
 - Configuración Firebase: `app/google-services.json` para el proyecto Firebase asociado a `com.menudado`.
 - Nombre de proyecto Gradle: `MenuDado`.
 - Package/namespace Android: `com.menudado`.
@@ -218,7 +222,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Validar que la animación del dado no bloquee la UI ni repita resultados por dobles taps accidentales.
 - Manejar en el análisis IA: éxito, sin internet, respuesta mal formada y errores del proveedor.
 - Mantener la interfaz usable en pantallas Android pequeñas.
-- Validar que el marcado de analytics no envíe nombres, ingredientes, notas, recetas, correo de contacto ni nombre del creador; solo estados, tipos de comida, filtros, acciones cerradas y contadores agregables.
+- Validar que el marcado de analytics no envíe nombres, ingredientes, notas, recetas, correo de contacto, nombre del creador, IDs, URI de imagen ni datos sensibles del perfil alimentario; solo estados, tipos de comida, públicos objetivo, filtros, acciones cerradas y contadores agregables.
 - Validar que el onboarding emita `onboarding_shown` solo cuando corresponde y `onboarding_completed` diferenciando `start`/`skip`.
 - Validar que abrir `Acerca de la app` emita `about_app_opened` sin parámetros personales.
 - Validar que las reglas Firestore impiden leer o escribir datos de otro `uid`.

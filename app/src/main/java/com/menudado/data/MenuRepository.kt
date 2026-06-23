@@ -101,6 +101,10 @@ class MenuRepository(
         }
     }
 
+    suspend fun pendingSyncMenuCount(): Int {
+        return menuDao.countPendingSyncMenus()
+    }
+
     suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<HealthAnalysis> {
         return healthAnalyzer.analyze(menu, language)
     }

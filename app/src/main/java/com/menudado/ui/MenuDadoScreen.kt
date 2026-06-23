@@ -360,6 +360,9 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                         if (selected == MenuDadoDestination.ABOUT) {
                             viewModel.trackAboutAppOpened()
                         }
+                        if (selected == MenuDadoDestination.PROFILE) {
+                            viewModel.trackDietaryProfileOpened()
+                        }
                         selectedDestination = selected.name
                         audienceDetailRoute = null
                         coroutineScope.launch { drawerState.close() }
@@ -476,6 +479,7 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                                         menus = state.menus,
                                         enabledAudiences = state.enabledAudiences,
                                         onViewMore = { audience ->
+                                            viewModel.trackMenuListViewMoreOpened(audience)
                                             audienceDetailRoute = menuAudienceDetailRouteAfterViewMore(audience)
                                         },
                                         onOpenMenu = { menu ->

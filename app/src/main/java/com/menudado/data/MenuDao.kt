@@ -16,6 +16,9 @@ interface MenuDao {
     @Query("SELECT * FROM menus WHERE remoteSyncState != 'SYNCED'")
     suspend fun getPendingSyncMenus(): List<MenuEntity>
 
+    @Query("SELECT COUNT(*) FROM menus WHERE remoteSyncState != 'SYNCED'")
+    suspend fun countPendingSyncMenus(): Int
+
     @Query("UPDATE menus SET remoteSyncState = 'SYNCED', remoteSyncToken = NULL WHERE id = :id AND remoteSyncToken = :remoteSyncToken AND remoteSyncState = 'PENDING_UPSERT'")
     suspend fun markUpsertSynced(id: Long, remoteSyncToken: String): Int
 

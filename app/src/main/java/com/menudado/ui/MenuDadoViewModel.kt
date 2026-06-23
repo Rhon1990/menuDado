@@ -118,12 +118,16 @@ class MenuDadoViewModel(
     }
 
     fun setDiceAudienceFilter(filter: MenuAudience?) {
+        val state = _uiState.value
         _uiState.update {
             if (filter != null && filter !in it.enabledAudiences) {
                 it
             } else {
                 it.copy(diceAudienceFilter = filter)
             }
+        }
+        if (filter == null || filter in state.enabledAudiences) {
+            analytics.trackAudienceFilterSelected(ANALYTICS_SOURCE_DICE, filter, state.menus.size)
         }
     }
 
@@ -137,6 +141,15 @@ class MenuDadoViewModel(
 
     fun trackAboutAppOpened() {
         analytics.trackAboutAppOpened()
+    }
+
+    fun trackDietaryProfileOpened() {
+        analytics.trackDietaryProfileOpened(_uiState.value.enabledAudiences.size)
+    }
+
+    fun trackMenuListViewMoreOpened(audience: MenuAudience) {
+        val menuCount = _uiState.value.menus.count { it.audience == audience }
+        analytics.trackMenuListViewMoreOpened(audience, menuCount)
     }
 
     private fun completeOnboarding(action: String) {
@@ -158,6 +171,7 @@ class MenuDadoViewModel(
     }
 
     fun setFormAudience(audience: MenuAudience) {
+        val state = _uiState.value
         _uiState.update {
             if (audience !in it.enabledAudiences) {
                 return@update it
@@ -168,6 +182,9 @@ class MenuDadoViewModel(
             it.copy(
                 formAudience = audience,
             ).withoutMenuFormDraft()
+        }
+        if (audience in state.enabledAudiences) {
+            analytics.trackAudienceFilterSelected(ANALYTICS_SOURCE_FORM, audience, state.menus.size)
         }
     }
 
@@ -230,11 +247,17 @@ class MenuDadoViewModel(
         val menu = _uiState.value.menus.firstOrNull { it.id == menuId } ?: return
         viewModelScope.launch {
             repository.save(menu.copy(imageUri = imageUri))
+            analytics.trackMenuPhotoUpdated(
+                mealType = menu.mealType,
+                audience = menu.audience,
+                hasPhoto = true,
+                menuCount = _uiState.value.menus.size
+            )
         }
     }
 
     fun setDietaryProfileVegan(isVegan: Boolean) {
-        updateActiveDietaryProfile { it.copy(isVegan = isVegan) }
+        updateActiveDietaryProfile(ANALYTICS_PROFILE_FIELD_VEGAN) { it.copy(isVegan = isVegan) }
     }
 
     fun setDietaryProfileAudience(audience: MenuAudience) {
@@ -246,6 +269,7 @@ class MenuDadoViewModel(
                 audienceAgeRanges = loadAudienceAgeRanges()
             )
         }
+        analytics.trackDietaryProfileAudienceSelected(audience)
     }
 
     fun setDietaryProfileAudienceEnabled(isEnabled: Boolean) {
@@ -266,18 +290,23 @@ class MenuDadoViewModel(
                 diceAudienceFilter = defaultAudience
             )
         }
+        analytics.trackDietaryProfileUpdated(
+            audience = state.dietaryProfileAudience,
+            fieldGroup = ANALYTICS_PROFILE_FIELD_ENABLED,
+            activeAudienceCount = enabledAudiences.size
+        )
     }
 
     fun updateDietaryProfileAgeRange(ageRange: String) {
-        updateDietaryProfile { it.copy(ageRange = ageRange) }
+        updateDietaryProfile(ANALYTICS_PROFILE_FIELD_AGE_RANGE) { it.copy(ageRange = ageRange) }
     }
 
     fun setDietaryProfilePregnant(isPregnant: Boolean) {
-        updateActiveDietaryProfile { it.copy(isPregnant = isPregnant) }
+        updateActiveDietaryProfile(ANALYTICS_PROFILE_FIELD_PREGNANT) { it.copy(isPregnant = isPregnant) }
     }
 
     fun setDietaryProfileHasAllergies(hasAllergies: Boolean) {
-        updateActiveDietaryProfile {
+        updateActiveDietaryProfile(ANALYTICS_PROFILE_FIELD_ALLERGIES) {
             it.copy(
                 hasAllergies = hasAllergies,
                 allergens = if (hasAllergies) it.allergens else emptySet()
@@ -286,7 +315,7 @@ class MenuDadoViewModel(
     }
 
     fun toggleDietaryAllergen(allergen: DietaryAllergen) {
-        updateActiveDietaryProfile { profile ->
+        updateActiveDietaryProfile(ANALYTICS_PROFILE_FIELD_ALLERGENS) { profile ->
             val allergens = if (allergen in profile.allergens) {
                 profile.allergens - allergen
             } else {
@@ -297,7 +326,7 @@ class MenuDadoViewModel(
     }
 
     fun updateDietaryProfileOtherAvoidances(value: String) {
-        updateActiveDietaryProfile { it.copy(otherAvoidances = value) }
+        updateActiveDietaryProfile(ANALYTICS_PROFILE_FIELD_OTHER_AVOIDANCES) { it.copy(otherAvoidances = value) }
     }
 
     fun clearMessage() {
@@ -318,6 +347,13 @@ class MenuDadoViewModel(
     }
 
     fun startEditingMenu(menu: FoodMenu) {
+        analytics.trackMenuEditStarted(
+            mealType = menu.mealType,
+            audience = menu.audience,
+            hasAiAnalysis = menu.healthAnalysis != null,
+            hasPhoto = menu.imageUri != null,
+            menuCount = _uiState.value.menus.size
+        )
         _uiState.update {
             it.copy(
                 editingMenuId = menu.id,
@@ -453,6 +489,11 @@ class MenuDadoViewModel(
         }
 
         if (audience == null) {
+            analytics.trackMenuSaveBlocked(
+                reason = MENU_SAVE_BLOCKED_MISSING_AUDIENCE,
+                hasName = name.isNotBlank(),
+                hasDescription = description.isNotBlank()
+            )
             _uiState.update { it.copy(message = currentLanguage().audienceRequiredMessage(), isAiRetryNoticeVisible = false) }
             return
         }
@@ -555,6 +596,14 @@ class MenuDadoViewModel(
             )
 
             repository.save(menu)
+            analytics.trackMenuEditSaved(
+                mealType = menu.mealType,
+                audience = menu.audience,
+                changedRecipe = changedExistingMenu,
+                hasAiAnalysis = menu.healthAnalysis != null,
+                hasPhoto = menu.imageUri != null,
+                menuCount = state.menus.size
+            )
             analytics.trackMenuSaved(
                 mealType = menu.mealType,
                 hasAiAnalysis = menu.healthAnalysis != null,
@@ -695,7 +744,7 @@ class MenuDadoViewModel(
         }
     }
 
-    private fun updateDietaryProfile(transform: (DietaryProfile) -> DietaryProfile) {
+    private fun updateDietaryProfile(fieldGroup: String, transform: (DietaryProfile) -> DietaryProfile) {
         val state = _uiState.value
         val updated = transform(state.dietaryProfile)
         dietaryProfileStore.saveProfile(updated, state.dietaryProfileAudience)
@@ -709,13 +758,18 @@ class MenuDadoViewModel(
                 diceAudienceFilter = it.diceAudienceFilter.selectedOrSingleDefault(enabledAudiences)
             )
         }
+        analytics.trackDietaryProfileUpdated(
+            audience = state.dietaryProfileAudience,
+            fieldGroup = fieldGroup,
+            activeAudienceCount = enabledAudiences.size
+        )
     }
 
-    private fun updateActiveDietaryProfile(transform: (DietaryProfile) -> DietaryProfile) {
+    private fun updateActiveDietaryProfile(fieldGroup: String, transform: (DietaryProfile) -> DietaryProfile) {
         if (!_uiState.value.dietaryProfile.isEnabled) {
             return
         }
-        updateDietaryProfile(transform)
+        updateDietaryProfile(fieldGroup, transform)
     }
 
     private fun loadEnabledAudiences(): List<MenuAudience> {
@@ -1413,7 +1467,17 @@ private const val FORM_FIELD_NOTES = "notes"
 private const val ONBOARDING_ACTION_START = "start"
 private const val ONBOARDING_ACTION_SKIP = "skip"
 private const val CURRENT_ONBOARDING_VERSION = 2
+private const val ANALYTICS_SOURCE_DICE = "dice"
+private const val ANALYTICS_SOURCE_FORM = "form"
+private const val ANALYTICS_PROFILE_FIELD_ENABLED = "enabled"
+private const val ANALYTICS_PROFILE_FIELD_AGE_RANGE = "age_range"
+private const val ANALYTICS_PROFILE_FIELD_PREGNANT = "pregnant"
+private const val ANALYTICS_PROFILE_FIELD_VEGAN = "vegan"
+private const val ANALYTICS_PROFILE_FIELD_ALLERGIES = "allergies"
+private const val ANALYTICS_PROFILE_FIELD_ALLERGENS = "allergens"
+private const val ANALYTICS_PROFILE_FIELD_OTHER_AVOIDANCES = "other_avoidances"
 private const val MENU_SAVE_BLOCKED_MISSING_MEAL_TYPE = "missing_meal_type"
+private const val MENU_SAVE_BLOCKED_MISSING_AUDIENCE = "missing_audience"
 private const val MENU_SAVE_BLOCKED_MISSING_REQUIRED_FIELDS = "missing_required_fields"
 private const val AI_FAILURE_QUOTA_REQUESTS = "quota_requests"
 private const val AI_FAILURE_QUOTA_TOKENS = "quota_tokens"

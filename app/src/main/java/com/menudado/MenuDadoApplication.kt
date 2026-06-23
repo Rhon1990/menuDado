@@ -157,9 +157,24 @@ class MenuDadoApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         applicationScope.launch {
-            runCatching { remoteDataSource.upsertMetadata(BackendAppMetadata.current()) }
-            runCatching { repository.syncPendingMenus() }
-            runCatching { backendStoredDataSyncer.syncPending() }
+            val pendingMenuCount = runCatching { repository.pendingSyncMenuCount() }.getOrDefault(0)
+            analytics.trackBackendSyncRetried(BACKEND_SYNC_SOURCE_APP_START, pendingMenuCount)
+            val syncResult = runCatching {
+                remoteDataSource.upsertMetadata(BackendAppMetadata.current())
+                repository.syncPendingMenus()
+                backendStoredDataSyncer.syncPending()
+            }
+            analytics.trackBackendSyncFinished(
+                source = BACKEND_SYNC_SOURCE_APP_START,
+                status = if (syncResult.isSuccess) BACKEND_SYNC_STATUS_SUCCESS else BACKEND_SYNC_STATUS_FAILURE,
+                pendingMenuCount = runCatching { repository.pendingSyncMenuCount() }.getOrDefault(pendingMenuCount)
+            )
         }
+    }
+
+    private companion object {
+        const val BACKEND_SYNC_SOURCE_APP_START = "app_start"
+        const val BACKEND_SYNC_STATUS_SUCCESS = "success"
+        const val BACKEND_SYNC_STATUS_FAILURE = "failure"
     }
 }
