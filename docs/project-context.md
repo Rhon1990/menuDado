@@ -73,6 +73,8 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Si el usuario modifica manualmente nombre, descripción, notas o tipo después de generar la idea, la evaluación precalculada debe descartarse para evitar guardar un análisis desactualizado y debe mostrarse el aviso: `Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA.`
    - Si el usuario edita solo la foto de un menú guardado, el análisis IA y las calorías existentes deben conservarse porque la receta no cambió.
    - Cada generación debe intentar diferenciarse de menús guardados del mismo tipo y del mismo público objetivo, además de la idea actual del formulario, evitando repetir plato, base principal, proteína o preparación.
+   - Durante el mismo día, la app recuerda las últimas ideas generadas con IA por tipo de comida y público objetivo para enviarlas como ideas a evitar en siguientes generaciones, incluso si el usuario no las guarda.
+   - El prompt de generación debe promover variedad saludable con opciones como cremas o sopas ligeras, ensaladas completas, ensalada César saludable, bowls, salteados simples, tortillas, legumbres, wraps, tostas, pasta integral y arroz integral.
    - Los menús ya guardados se pueden editar desde un diálogo `Editar menu` abierto desde la propia tarjeta para evitar que el usuario pierda el contexto.
    - Si al editar un menú se cambia nombre, tipo, público objetivo, descripción o notas, el análisis IA y las calorías asociadas se descartan para evitar mostrar una evaluación desactualizada; el usuario puede volver a tocar `Analizar IA`.
 
@@ -179,6 +181,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Analítica:
   - Firebase Analytics anónimo para métricas automáticas de dispositivos/usuarios, modelo de móvil, ubicación agregada de Firebase y eventos de producto sin contenido personal del menú.
   - Implementación central: contrato `MenuDadoAnalytics`, implementación real `FirebaseMenuDadoAnalytics` y `NoOpMenuDadoAnalytics` para contextos sin Firebase.
+  - Evento genérico de interacción `cta_tapped` con parámetros cerrados `screen` y `cta` para marcar botones y llamadas a la acción visibles sin enviar contenido del usuario.
   - MenuDado añade al evento de apertura fabricante/modelo, versión Android, país de la configuración regional y zona horaria; no solicita GPS ni permisos de ubicación.
   - Eventos propios de activación e inventario: `first_menu_created`, `menu_inventory_changed`.
   - Eventos propios de formulario: `menu_form_started`, `menu_save_blocked`, `meal_type_selected`.

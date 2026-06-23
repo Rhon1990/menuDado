@@ -256,13 +256,21 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
         AiQuotaDialog(
             message = message,
             retryAtMillis = aiRetryAtMillis,
-            onDismiss = viewModel::clearMessage
+            onDismiss = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_CLOSE_AI_QUOTA)
+                viewModel.clearMessage()
+            }
         )
     } else if (message != null) {
         AlertDialog(
             onDismissRequest = viewModel::clearMessage,
             confirmButton = {
-                TextButton(onClick = viewModel::clearMessage) {
+                TextButton(
+                    onClick = {
+                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_UNDERSTOOD)
+                        viewModel.clearMessage()
+                    }
+                ) {
                     Text(stringResource(id = R.string.common_understood))
                 }
             },
@@ -273,24 +281,36 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
 
     if (state.showOnboarding) {
         OnboardingDialog(
-            onSkip = viewModel::skipOnboarding,
-            onFinish = viewModel::completeOnboarding
+            onSkip = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_ONBOARDING, ANALYTICS_CTA_SKIP_ONBOARDING)
+                viewModel.skipOnboarding()
+            },
+            onNext = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_ONBOARDING, ANALYTICS_CTA_NEXT_ONBOARDING)
+            },
+            onFinish = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_ONBOARDING, ANALYTICS_CTA_START_ONBOARDING)
+                viewModel.completeOnboarding()
+            }
         )
     }
 
     if (isPhotoSourceDialogVisible) {
         MenuPhotoSourceDialog(
             onTakePhoto = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_TAKE_PHOTO)
                 val uri = createMenuCameraImageUri(context)
                 pendingCameraUriString = uri.toString()
                 isPhotoSourceDialogVisible = false
                 cameraLauncher.launch(uri)
             },
             onChooseFromLibrary = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_CHOOSE_PHOTO)
                 isPhotoSourceDialogVisible = false
                 photoPickerLauncher.launch(arrayOf("image/*"))
             },
             onDismiss = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_CANCEL_PHOTO_SOURCE)
                 isPhotoSourceDialogVisible = false
                 photoPickerMenuId = null
             }
@@ -306,10 +326,17 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
             onDescriptionChanged = viewModel::updateEditDescription,
             onNotesChanged = viewModel::updateEditNotes,
             onPickImage = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_EDIT_MENU, ANALYTICS_CTA_CHANGE_PHOTO)
                 showPhotoSourceFor(menuId = null)
             },
-            onSave = viewModel::saveEditedMenu,
-            onDismiss = viewModel::cancelEditingMenu
+            onSave = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_EDIT_MENU, ANALYTICS_CTA_SAVE_EDITED_MENU)
+                viewModel.saveEditedMenu()
+            },
+            onDismiss = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_EDIT_MENU, ANALYTICS_CTA_CANCEL_EDIT_MENU)
+                viewModel.cancelEditingMenu()
+            }
         )
     }
 
@@ -317,6 +344,7 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
         DeleteMenuConfirmationDialog(
             menu = menu,
             onConfirm = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DELETE_CONFIRMATION, ANALYTICS_CTA_CONFIRM_DELETE_MENU)
                 pendingDeleteMenuId = null
                 if (selectedDetailMenuId == menu.id) {
                     selectedDetailMenuId = null
@@ -324,6 +352,7 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                 viewModel.deleteMenu(menu)
             },
             onDismiss = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DELETE_CONFIRMATION, ANALYTICS_CTA_CANCEL_DELETE_MENU)
                 pendingDeleteMenuId = menuDeleteConfirmationMenuIdAfterDismiss()
             }
         )
@@ -335,15 +364,23 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
             isAnalyzing = state.isAnalyzing,
             aiUsesRemainingToday = state.aiUsesRemainingToday,
             isAiPaused = state.aiRetryAtMillis != null,
-            onAnalyze = { viewModel.analyzeExisting(menu) },
+            onAnalyze = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_ANALYZE_MENU)
+                viewModel.analyzeExisting(menu)
+            },
             onEdit = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_EDIT_MENU)
                 selectedDetailMenuId = null
                 viewModel.startEditingMenu(menu)
             },
             onDelete = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_DELETE_MENU)
                 pendingDeleteMenuId = menuDeleteConfirmationMenuIdAfterDeleteClick(menu)
             },
-            onDismiss = { selectedDetailMenuId = null }
+            onDismiss = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_CLOSE_MENU_DETAIL)
+                selectedDetailMenuId = null
+            }
         )
     }
 
@@ -363,6 +400,14 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                         if (selected == MenuDadoDestination.PROFILE) {
                             viewModel.trackDietaryProfileOpened()
                         }
+                        viewModel.trackCtaTapped(
+                            screen = ANALYTICS_SCREEN_DRAWER,
+                            cta = when (selected) {
+                                MenuDadoDestination.HOME -> ANALYTICS_CTA_NAV_HOME
+                                MenuDadoDestination.PROFILE -> ANALYTICS_CTA_NAV_DIETARY_PROFILE
+                                MenuDadoDestination.ABOUT -> ANALYTICS_CTA_NAV_ABOUT
+                            }
+                        )
                         selectedDestination = selected.name
                         audienceDetailRoute = null
                         coroutineScope.launch { drawerState.close() }
@@ -380,6 +425,7 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                 item {
                     Header(
                         onMenuClick = {
+                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_OPEN_DRAWER)
                             coroutineScope.launch { drawerState.open() }
                         }
                     )
@@ -414,12 +460,17 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                                 MenuAudienceDetailScreen(
                                     audience = audienceDetail,
                                     menus = state.menus,
-                                    onBack = { audienceDetailRoute = null },
+                                    onBack = {
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_BACK)
+                                        audienceDetailRoute = null
+                                    },
                                     onOpenMenu = { menu ->
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_OPEN_MENU)
                                         viewModel.trackMenuCardOpened(menu)
                                         selectedDetailMenuId = menu.id
                                     },
                                     onPickImage = { menu ->
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_CHANGE_PHOTO)
                                         showPhotoSourceFor(menuId = menu.id)
                                     }
                                 )
@@ -434,7 +485,10 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                                     diceFaceIndex = diceFaceIndex,
                                     onFilterChanged = viewModel::setDiceFilter,
                                     onAudienceFilterChanged = viewModel::setDiceAudienceFilter,
-                                    onRoll = viewModel::rollDice
+                                    onRoll = {
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_ROLL_DICE)
+                                        viewModel.rollDice()
+                                    }
                                 )
                             }
                             item {
@@ -447,8 +501,14 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                                     onDescriptionChanged = viewModel::updateDescription,
                                     onNotesChanged = viewModel::updateNotes,
                                     onAiBaseIngredientsChanged = viewModel::updateAiBaseIngredients,
-                                    onGenerate = viewModel::generateMenuIdea,
-                                    onSave = viewModel::saveMenu
+                                    onGenerate = {
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_GENERATE_AI_MENU)
+                                        viewModel.generateMenuIdea()
+                                    },
+                                    onSave = {
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_SAVE_MENU)
+                                        viewModel.saveMenu()
+                                    }
                                 )
                             }
                             item {
@@ -465,7 +525,10 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                                         isAnalyzing = state.isAnalyzing,
                                         isAiPaused = state.aiRetryAtMillis != null,
                                         usesRemaining = state.aiUsesRemainingToday,
-                                        onAnalyzePending = viewModel::analyzePendingMenus
+                                        onAnalyzePending = {
+                                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_ANALYZE_PENDING)
+                                            viewModel.analyzePendingMenus()
+                                        }
                                     )
                                 }
                             }
@@ -479,14 +542,17 @@ fun MenuDadoScreen(viewModel: MenuDadoViewModel) {
                                         menus = state.menus,
                                         enabledAudiences = state.enabledAudiences,
                                         onViewMore = { audience ->
+                                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_VIEW_MORE)
                                             viewModel.trackMenuListViewMoreOpened(audience)
                                             audienceDetailRoute = menuAudienceDetailRouteAfterViewMore(audience)
                                         },
                                         onOpenMenu = { menu ->
+                                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_OPEN_MENU)
                                             viewModel.trackMenuCardOpened(menu)
                                             selectedDetailMenuId = menu.id
                                         },
                                         onPickImage = { menu ->
+                                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_CHANGE_PHOTO)
                                             showPhotoSourceFor(menuId = menu.id)
                                         }
                                     )
@@ -3700,6 +3766,7 @@ private fun pendingAnalysisButtonText(
 @Composable
 private fun OnboardingDialog(
     onSkip: () -> Unit,
+    onNext: () -> Unit,
     onFinish: () -> Unit
 ) {
     val steps = remember { onboardingSteps() }
@@ -3803,6 +3870,7 @@ private fun OnboardingDialog(
                             if (isLastStep) {
                                 onFinish()
                             } else {
+                                onNext()
                                 selectedStepIndex += 1
                             }
                         },
@@ -3826,3 +3894,41 @@ private fun OnboardingDialog(
         }
     }
 }
+
+private const val ANALYTICS_SCREEN_HOME = "home"
+private const val ANALYTICS_SCREEN_DRAWER = "drawer"
+private const val ANALYTICS_SCREEN_DIALOG = "dialog"
+private const val ANALYTICS_SCREEN_ONBOARDING = "onboarding"
+private const val ANALYTICS_SCREEN_EDIT_MENU = "edit_menu"
+private const val ANALYTICS_SCREEN_MENU_DETAIL = "menu_detail"
+private const val ANALYTICS_SCREEN_DELETE_CONFIRMATION = "delete_confirmation"
+private const val ANALYTICS_SCREEN_AUDIENCE_DETAIL = "audience_detail"
+
+private const val ANALYTICS_CTA_OPEN_DRAWER = "open_drawer"
+private const val ANALYTICS_CTA_NAV_HOME = "nav_home"
+private const val ANALYTICS_CTA_NAV_DIETARY_PROFILE = "nav_dietary_profile"
+private const val ANALYTICS_CTA_NAV_ABOUT = "nav_about"
+private const val ANALYTICS_CTA_BACK = "back"
+private const val ANALYTICS_CTA_ROLL_DICE = "roll_dice"
+private const val ANALYTICS_CTA_GENERATE_AI_MENU = "generate_ai_menu"
+private const val ANALYTICS_CTA_SAVE_MENU = "save_menu"
+private const val ANALYTICS_CTA_ANALYZE_PENDING = "analyze_pending"
+private const val ANALYTICS_CTA_VIEW_MORE = "view_more"
+private const val ANALYTICS_CTA_OPEN_MENU = "open_menu"
+private const val ANALYTICS_CTA_CHANGE_PHOTO = "change_photo"
+private const val ANALYTICS_CTA_TAKE_PHOTO = "take_photo"
+private const val ANALYTICS_CTA_CHOOSE_PHOTO = "choose_photo"
+private const val ANALYTICS_CTA_CANCEL_PHOTO_SOURCE = "cancel_photo_source"
+private const val ANALYTICS_CTA_SAVE_EDITED_MENU = "save_edited_menu"
+private const val ANALYTICS_CTA_CANCEL_EDIT_MENU = "cancel_edit_menu"
+private const val ANALYTICS_CTA_ANALYZE_MENU = "analyze_menu"
+private const val ANALYTICS_CTA_EDIT_MENU = "edit_menu"
+private const val ANALYTICS_CTA_DELETE_MENU = "delete_menu"
+private const val ANALYTICS_CTA_CLOSE_MENU_DETAIL = "close_menu_detail"
+private const val ANALYTICS_CTA_CONFIRM_DELETE_MENU = "confirm_delete_menu"
+private const val ANALYTICS_CTA_CANCEL_DELETE_MENU = "cancel_delete_menu"
+private const val ANALYTICS_CTA_CLOSE_AI_QUOTA = "close_ai_quota"
+private const val ANALYTICS_CTA_UNDERSTOOD = "understood"
+private const val ANALYTICS_CTA_SKIP_ONBOARDING = "skip_onboarding"
+private const val ANALYTICS_CTA_NEXT_ONBOARDING = "next_onboarding"
+private const val ANALYTICS_CTA_START_ONBOARDING = "start_onboarding"

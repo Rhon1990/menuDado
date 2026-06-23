@@ -37,6 +37,7 @@ internal object MenuGenerationPrompt {
             $baseIngredientsBlock
             Debe ser saludable, rica, simple y con ingredientes comunes de supermercado.
             Evita productos raros, caros o dificiles de conseguir.
+            Variedad sugerida: puedes proponer cremas o sopas ligeras, ensaladas completas como ensalada Cesar saludable, bowls equilibrados, salteados simples, tortillas, legumbres, wraps, tostas, pasta integral o arroz integral.
             Debe ser claramente distinta de los platos previos listados abajo:
             $avoidBlock
             No repitas el mismo plato, ni una variante demasiado parecida.

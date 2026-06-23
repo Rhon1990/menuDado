@@ -25,6 +25,7 @@ import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -167,6 +168,13 @@ class MenuDadoViewModelTest {
         } finally {
             Locale.setDefault(originalLocale)
         }
+    }
+
+    @Test
+    fun `track cta tapped delegates safe screen and cta names to analytics`() {
+        viewModel.trackCtaTapped(screen = "home", cta = "generate_ai_menu")
+
+        assertEquals(listOf("cta_tapped:home:generate_ai_menu"), analytics.events)
     }
 
     @Test
@@ -698,6 +706,57 @@ class MenuDadoViewModelTest {
             listOf(
                 "Tostada de aguacate: Pan integral con aguacate y huevo",
                 "Yogur con fruta: Yogur griego, fresas y avena"
+            ),
+            analyzer.avoidIdeas
+        )
+    }
+
+    @Test
+    fun `generate menu idea ignores repeated taps while previous generation is running`() = runTest(dispatcher) {
+        analyzer.generateDelayMillis = 1_000L
+
+        viewModel.generateMenuIdea()
+        runCurrent()
+        viewModel.generateMenuIdea()
+        runCurrent()
+
+        assertEquals(1, analyzer.generateCalls)
+        advanceTimeBy(1_000L)
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `generate menu idea avoids other generated ideas from the same day`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Crema de calabacin",
+            description = "Calabacin, yogur natural y semillas.",
+            notes = "Lista en pocos minutos.",
+            calories = 310
+        )
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Ensalada Cesar saludable",
+            description = "Lechuga, pollo a la plancha, yogur y pan integral tostado.",
+            notes = "Usa salsa ligera.",
+            calories = 430
+        )
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Bowl de garbanzos",
+            description = "Garbanzos, tomate, pepino y aguacate.",
+            notes = "Servir fresco.",
+            calories = 480
+        )
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                "Crema de calabacin: Calabacin, yogur natural y semillas.",
+                "Ensalada Cesar saludable: Lechuga, pollo a la plancha, yogur y pan integral tostado."
             ),
             analyzer.avoidIdeas
         )
@@ -1748,6 +1807,7 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
     var generateFailure: Throwable? = null
     var requestedAudience: MenuAudience? = null
     var requestedLanguage: AppLanguage? = null
+    var generateDelayMillis: Long = 0L
     var generatedMenu = GeneratedMenu(
         name = "Tostada",
         description = "Pan integral y huevo.",
@@ -1792,6 +1852,9 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
         requestedBaseIngredients = baseIngredients
         requestedLanguage = language
         this.avoidIdeas = avoidIdeas
+        if (generateDelayMillis > 0L) {
+            delay(generateDelayMillis)
+        }
         generateFailure?.let { return Result.failure(it) }
         return Result.success(generatedMenu)
     }
@@ -1889,6 +1952,10 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
         menuCount: Int
     ) {
         events += "menu_saved:${mealType.name}:$hasAiAnalysis:$hasCalories:$menuCount"
+    }
+
+    override fun trackCtaTapped(screen: String, cta: String) {
+        events += "cta_tapped:$screen:$cta"
     }
 
     override fun trackMenuDeleted(mealType: MealType, hadAiAnalysis: Boolean) {

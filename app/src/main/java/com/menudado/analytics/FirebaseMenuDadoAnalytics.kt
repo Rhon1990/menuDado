@@ -30,6 +30,13 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
+    override fun trackCtaTapped(screen: String, cta: String) {
+        logEvent(EVENT_CTA_TAPPED) {
+            putString(PARAM_SCREEN, screen.sanitized())
+            putString(PARAM_CTA, cta.sanitized())
+        }
+    }
+
     override fun trackMenuDeleted(mealType: MealType, hadAiAnalysis: Boolean) {
         logEvent(EVENT_MENU_DELETED) {
             putString(PARAM_MEAL_TYPE, mealType.analyticsName())
@@ -313,6 +320,7 @@ class FirebaseMenuDadoAnalytics(
 
         const val EVENT_APP_OPENED = "app_opened"
         const val EVENT_MENU_SAVED = "menu_saved"
+        const val EVENT_CTA_TAPPED = "cta_tapped"
         const val EVENT_MENU_DELETED = "menu_deleted"
         const val EVENT_FIRST_MENU_CREATED = "first_menu_created"
         const val EVENT_MENU_INVENTORY_CHANGED = "menu_inventory_changed"
@@ -347,6 +355,8 @@ class FirebaseMenuDadoAnalytics(
         const val PARAM_ANDROID_VERSION = "android_version"
         const val PARAM_LOCALE_COUNTRY = "locale_country"
         const val PARAM_TIME_ZONE = "time_zone"
+        const val PARAM_SCREEN = "screen"
+        const val PARAM_CTA = "cta"
         const val PARAM_MEAL_TYPE = "meal_type"
         const val PARAM_AUDIENCE = "audience"
         const val PARAM_HAS_AI_ANALYSIS = "has_ai_analysis"

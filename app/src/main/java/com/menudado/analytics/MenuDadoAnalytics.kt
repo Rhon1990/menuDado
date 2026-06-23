@@ -22,6 +22,8 @@ interface MenuDadoAnalytics {
         menuCount: Int
     )
 
+    fun trackCtaTapped(screen: String, cta: String)
+
     fun trackMenuDeleted(mealType: MealType, hadAiAnalysis: Boolean)
 
     fun trackFirstMenuCreated(mealType: MealType)
@@ -118,6 +120,8 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
         hasCalories: Boolean,
         menuCount: Int
     ) = Unit
+
+    override fun trackCtaTapped(screen: String, cta: String) = Unit
 
     override fun trackMenuDeleted(mealType: MealType, hadAiAnalysis: Boolean) = Unit
 

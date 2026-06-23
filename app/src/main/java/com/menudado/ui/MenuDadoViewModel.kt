@@ -99,6 +99,8 @@ class MenuDadoViewModel(
     val uiState: StateFlow<MenuDadoUiState> = _uiState.asStateFlow()
     private var aiRetryRefreshJob: Job? = null
     private var hasTrackedMenuFormStarted = false
+    private var generatedIdeaDateKey: String? = null
+    private val generatedIdeasToday = mutableListOf<GeneratedIdeaMemory>()
 
     init {
         refreshOnboarding()
@@ -115,6 +117,10 @@ class MenuDadoViewModel(
     fun setDiceFilter(filter: MealType?) {
         analytics.trackDiceFilterSelected(filter, _uiState.value.menus.size)
         _uiState.update { it.copy(diceFilter = filter) }
+    }
+
+    fun trackCtaTapped(screen: String, cta: String) {
+        analytics.trackCtaTapped(screen, cta)
     }
 
     fun setDiceAudienceFilter(filter: MenuAudience?) {
@@ -622,6 +628,9 @@ class MenuDadoViewModel(
 
     fun generateMenuIdea() {
         val state = _uiState.value
+        if (state.isGeneratingMenu) {
+            return
+        }
         val mealType = state.formMealType
         val audience = state.formAudience
         if (mealType == null) {
@@ -673,6 +682,7 @@ class MenuDadoViewModel(
             )
                 .onSuccess { generated ->
                     aiQuotaRetryStore.clearRetryState()
+                    rememberGeneratedIdea(mealType, audience, generated.name, generated.description)
                     _uiState.update {
                         it.copy(
                             name = generated.name,
@@ -710,6 +720,7 @@ class MenuDadoViewModel(
             .filter { it.mealType == mealType && it.audience == audience }
             .map { "${it.name}: ${it.description}" }
 
+        val generatedIdeas = generatedIdeasForToday(mealType, audience)
         val currentName = name.trim()
         val currentDescription = description.trim()
         val currentIdea = if (currentName.isNotBlank() || currentDescription.isNotBlank()) {
@@ -718,9 +729,32 @@ class MenuDadoViewModel(
             emptyList()
         }
 
-        return (savedIdeas + currentIdea)
+        return (savedIdeas + generatedIdeas + currentIdea)
             .distinct()
             .takeLast(8)
+    }
+
+    private fun generatedIdeasForToday(mealType: MealType, audience: MenuAudience): List<String> {
+        resetGeneratedIdeaMemoryIfNeeded()
+        return generatedIdeasToday
+            .filter { it.mealType == mealType && it.audience == audience }
+            .map { "${it.name}: ${it.description}" }
+    }
+
+    private fun rememberGeneratedIdea(mealType: MealType, audience: MenuAudience, name: String, description: String) {
+        resetGeneratedIdeaMemoryIfNeeded()
+        generatedIdeasToday += GeneratedIdeaMemory(mealType, audience, name.trim(), description.trim())
+        val uniqueIdeas = generatedIdeasToday.distinctBy { listOf(it.mealType.name, it.audience.name, it.name, it.description) }
+        generatedIdeasToday.clear()
+        generatedIdeasToday.addAll(uniqueIdeas.takeLast(8))
+    }
+
+    private fun resetGeneratedIdeaMemoryIfNeeded() {
+        val today = todayProvider()
+        if (generatedIdeaDateKey != today) {
+            generatedIdeaDateKey = today
+            generatedIdeasToday.clear()
+        }
     }
 
     private fun refreshDietaryProfile() {
@@ -1431,6 +1465,13 @@ private fun String.containsFoodTerm(term: String): Boolean {
     }
     return contains(normalizedTerm)
 }
+
+private data class GeneratedIdeaMemory(
+    val mealType: MealType,
+    val audience: MenuAudience,
+    val name: String,
+    val description: String
+)
 
 private fun DietaryAllergen.excludedTerms(): Set<String> {
     return when (this) {

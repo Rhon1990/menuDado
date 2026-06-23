@@ -116,6 +116,17 @@ class MenuGenerationPromptTest {
     }
 
     @Test
+    fun `prompt asks for broader healthy variety`() {
+        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+
+        assertTrue(prompt.contains("cremas"))
+        assertTrue(prompt.contains("sopas"))
+        assertTrue(prompt.contains("ensaladas completas"))
+        assertTrue(prompt.contains("ensalada cesar saludable"))
+        assertTrue(prompt.contains("bowls"))
+    }
+
+    @Test
     fun `prompt asks AI to generate content in selected app language`() {
         val englishPrompt = MenuGenerationPrompt.build(
             mealType = MealType.LUNCH,
