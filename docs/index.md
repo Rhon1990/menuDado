@@ -8,5 +8,5 @@ MenuDado es una app Android para guardar menus, elegir que comer con un dado y a
 
 ## Recursos
 
-- [Politica de Privacidad](privacy-policy/)
-- [Solicitud de Eliminacion de Datos](data-deletion/)
+- [Politica de Privacidad](/menuDado/privacy-policy/)
+- [Solicitud de Eliminacion de Datos](/menuDado/data-deletion/)
