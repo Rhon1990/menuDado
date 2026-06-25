@@ -71,12 +71,28 @@ class MainActivity : ComponentActivity() {
             MenuDadoTheme {
                 var showSplash by remember { mutableStateOf(true) }
                 var areAdsReady by remember { mutableStateOf(false) }
+                var areAdsPrivacyOptionsRequired by remember { mutableStateOf(false) }
+                var adsPrivacyOptionsMessage by remember { mutableStateOf<String?>(null) }
+                val adsController = remember {
+                    MenuDadoAdsController(
+                        activity = this@MainActivity,
+                        onAdsReady = {
+                            areAdsReady = true
+                        },
+                        onPrivacyOptionsRequirementChanged = { isRequired ->
+                            areAdsPrivacyOptionsRequired = isRequired
+                        },
+                        onPrivacyOptionsUnavailable = {
+                            adsPrivacyOptionsMessage = getString(R.string.ads_privacy_options_unavailable)
+                        }
+                    )
+                }
                 LaunchedEffect(Unit) {
-                    MenuDadoAdsController(this@MainActivity) {
-                        areAdsReady = true
-                    }.requestConsentAndInitialize()
                     delay(SPLASH_DURATION_MILLIS)
                     showSplash = false
+                }
+                LaunchedEffect(adsController) {
+                    adsController.requestConsentAndInitialize()
                 }
 
                 if (showSplash) {
@@ -84,7 +100,13 @@ class MainActivity : ComponentActivity() {
                 } else {
                     MenuDadoScreen(
                         viewModel = viewModel,
-                        areAdsReady = areAdsReady
+                        areAdsReady = areAdsReady,
+                        areAdsPrivacyOptionsRequired = areAdsPrivacyOptionsRequired,
+                        adsPrivacyOptionsMessage = adsPrivacyOptionsMessage,
+                        onAdsPrivacyOptionsMessageDismiss = {
+                            adsPrivacyOptionsMessage = null
+                        },
+                        onAdsPrivacyOptionsClick = adsController::showPrivacyOptionsForm
                     )
                 }
             }

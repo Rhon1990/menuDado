@@ -151,7 +151,11 @@ import kotlin.math.sqrt
 @Composable
 fun MenuDadoScreen(
     viewModel: MenuDadoViewModel,
-    areAdsReady: Boolean = false
+    areAdsReady: Boolean = false,
+    areAdsPrivacyOptionsRequired: Boolean = false,
+    adsPrivacyOptionsMessage: String? = null,
+    onAdsPrivacyOptionsMessageDismiss: () -> Unit = {},
+    onAdsPrivacyOptionsClick: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val result = state.result
@@ -283,6 +287,19 @@ fun MenuDadoScreen(
         )
     }
 
+    if (adsPrivacyOptionsMessage != null) {
+        AlertDialog(
+            onDismissRequest = onAdsPrivacyOptionsMessageDismiss,
+            confirmButton = {
+                TextButton(onClick = onAdsPrivacyOptionsMessageDismiss) {
+                    Text(stringResource(id = R.string.common_understood))
+                }
+            },
+            title = { Text(stringResource(id = R.string.nav_ads_privacy_options)) },
+            text = { Text(adsPrivacyOptionsMessage) }
+        )
+    }
+
     if (state.showOnboarding) {
         OnboardingDialog(
             onSkip = {
@@ -397,6 +414,7 @@ fun MenuDadoScreen(
                 MenuDadoDrawer(
                     selectedDestination = destination,
                     drawerWidthDp = menuDadoDrawerWidthDp(maxWidth.value.toInt()),
+                    areAdsPrivacyOptionsRequired = areAdsPrivacyOptionsRequired,
                     onDestinationSelected = { selected ->
                         if (selected == MenuDadoDestination.ABOUT) {
                             viewModel.trackAboutAppOpened()
@@ -415,6 +433,16 @@ fun MenuDadoScreen(
                         selectedDestination = selected.name
                         audienceDetailRoute = null
                         coroutineScope.launch { drawerState.close() }
+                    },
+                    onAdsPrivacyOptionsSelected = {
+                        viewModel.trackCtaTapped(
+                            screen = ANALYTICS_SCREEN_DRAWER,
+                            cta = ANALYTICS_CTA_ADS_PRIVACY_OPTIONS
+                        )
+                        coroutineScope.launch {
+                            drawerState.close()
+                            onAdsPrivacyOptionsClick()
+                        }
                     }
                 )
             }
@@ -601,7 +629,9 @@ private fun Modifier.hideKeyboardOnTouch(
 private fun MenuDadoDrawer(
     selectedDestination: MenuDadoDestination,
     drawerWidthDp: Int,
-    onDestinationSelected: (MenuDadoDestination) -> Unit
+    areAdsPrivacyOptionsRequired: Boolean,
+    onDestinationSelected: (MenuDadoDestination) -> Unit,
+    onAdsPrivacyOptionsSelected: () -> Unit
 ) {
     ModalDrawerSheet(
         modifier = Modifier.width(drawerWidthDp.dp),
@@ -649,6 +679,15 @@ private fun MenuDadoDrawer(
                 shape = drawerItemShape,
                 colors = drawerItemColors
             )
+            if (areAdsPrivacyOptionsRequired) {
+                NavigationDrawerItem(
+                    label = { Text(stringResource(id = R.string.nav_ads_privacy_options)) },
+                    selected = false,
+                    onClick = onAdsPrivacyOptionsSelected,
+                    shape = drawerItemShape,
+                    colors = drawerItemColors
+                )
+            }
         }
     }
 }
@@ -3915,6 +3954,7 @@ private const val ANALYTICS_CTA_OPEN_DRAWER = "open_drawer"
 private const val ANALYTICS_CTA_NAV_HOME = "nav_home"
 private const val ANALYTICS_CTA_NAV_DIETARY_PROFILE = "nav_dietary_profile"
 private const val ANALYTICS_CTA_NAV_ABOUT = "nav_about"
+private const val ANALYTICS_CTA_ADS_PRIVACY_OPTIONS = "ads_privacy_options"
 private const val ANALYTICS_CTA_BACK = "back"
 private const val ANALYTICS_CTA_ROLL_DICE = "roll_dice"
 private const val ANALYTICS_CTA_GENERATE_AI_MENU = "generate_ai_menu"

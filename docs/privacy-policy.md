@@ -5,7 +5,7 @@ permalink: /privacy-policy/
 
 # Politica de Privacidad de MenuDado
 
-Ultima actualizacion: 10 de junio de 2026
+Ultima actualizacion: 25 de junio de 2026
 
 MenuDado es una app Android creada por Rhonal A. Delgado Padilla para ayudar a guardar menus, elegir que comer y obtener apoyo opcional de IA para generar ideas o analizar si un menu puede ser saludable.
 
@@ -37,6 +37,14 @@ La analitica puede incluir datos tecnicos y agregados como modelo del dispositiv
 
 MenuDado no envia a Firebase Analytics nombres de menus, ingredientes, recetas, notas, correo de contacto ni textos escritos por el usuario.
 
+## Publicidad
+
+MenuDado puede mostrar anuncios mediante Google AdMob para ayudar a financiar el mantenimiento de la app.
+
+Antes de solicitar anuncios cuando corresponda, la app usa la plataforma de consentimiento de Google (User Messaging Platform) para mostrar las opciones de privacidad aplicables segun la region del usuario. Si Google indica que estas opciones deben estar disponibles, MenuDado muestra un acceso a `Opciones de privacidad` dentro del menu lateral.
+
+En esta fase, MenuDado solicita anuncios no personalizados y mantiene removido el permiso de identificador publicitario de Android (`com.google.android.gms.permission.AD_ID`). Aun asi, Google AdMob puede tratar datos tecnicos necesarios para entregar anuncios, medir rendimiento, prevenir fraude y cumplir obligaciones legales, de acuerdo con sus propias politicas.
+
 ## Datos que MenuDado no solicita
 
 MenuDado no solicita acceso a:
@@ -55,13 +63,13 @@ La app solo declara permiso de internet para las funciones online.
 
 MenuDado no vende datos personales.
 
-Al usar funciones online, algunos datos pueden ser tratados por servicios de Google/Firebase, incluyendo Firebase Analytics y Firebase AI Logic/Gemini, de acuerdo con sus propias condiciones y politicas aplicables.
+Al usar funciones online o publicidad, algunos datos pueden ser tratados por servicios de Google/Firebase, incluyendo Firebase Analytics, Firebase AI Logic/Gemini y Google AdMob, de acuerdo con sus propias condiciones y politicas aplicables.
 
 ## Conservacion y eliminacion
 
 Los menus y preferencias guardados localmente permanecen en el dispositivo hasta que el usuario los elimina, borra los datos de la app o desinstala MenuDado.
 
-Los datos de analitica gestionados por Firebase se conservan segun la configuracion y politicas de Google/Firebase.
+Los datos de analitica y publicidad gestionados por Google/Firebase se conservan segun la configuracion y politicas de esos servicios.
 
 Tambien puedes consultar la pagina de solicitud de eliminacion de datos:
 

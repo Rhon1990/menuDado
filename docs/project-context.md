@@ -64,7 +64,8 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Se guarda con una única acción principal: `Guardar menú`.
    - El análisis IA no forma parte del guardado inicial; se ejecuta después desde la tarjeta del menú guardado.
    - Desde el formulario se puede generar una idea con IA según el tipo seleccionado.
-   - Mientras se genera una idea con IA, la app debe mostrar un loading bloqueante con el dado de carga de MenuDado para evitar dobles acciones.
+  - Mientras se genera una idea con IA, la app debe mostrar un loading bloqueante con el dado de carga de MenuDado para evitar dobles acciones.
+  - Las acciones visibles de IA deben bloquearse de forma inmediata antes de lanzar la corrutina para evitar taps repetidos, doble consumo local y multiples llamadas a Gemini.
    - La generación con IA puede usar uno o más ingredientes base escritos por el usuario, por ejemplo `berenjena`; si algún ingrediente contradice el perfil alimentario configurado, la app debe mostrar un aviso y no llamar a la IA.
    - Las ideas generadas por IA deben ser saludables, ricas, simples y con ingredientes comunes de supermercado.
    - Si el tipo seleccionado es cena, la idea generada por IA debe ser ligera, rapida y de baja energia para la noche: maximo 10 minutos, pocos ingredientes y preparacion similar de sencilla a un desayuno; debe evitar horno, guarniciones multiples y recetas con varios pasos.
@@ -198,14 +199,20 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - Integración inicial con Google Mobile Ads SDK y User Messaging Platform para consentimiento antes de solicitar anuncios.
   - El primer formato monetizable es un banner adaptativo no invasivo en Home, insertado en el contenido después del formulario `Agregar menu` y antes de `Tus menus`.
   - Durante desarrollo usa el App ID y ad unit ID demo de Google para evitar tráfico inválido en AdMob.
+  - La app solicita anuncios no personalizados por defecto mientras el permiso de identificador publicitario se mantiene removido.
+  - Si UMP indica que las opciones de privacidad son requeridas, el menú lateral muestra `Opciones de privacidad` para abrir el formulario de Google.
   - No se usan anuncios de apertura, interstitials ni rewarded interstitials en esta fase para no interrumpir el dado, el guardado ni la generación con IA.
-  - El manifest mantiene removido `com.google.android.gms.permission.AD_ID` hasta actualizar política de privacidad, ficha de Google Play y decisión explícita sobre anuncios personalizados.
+  - El manifest mantiene removido `com.google.android.gms.permission.AD_ID` hasta completar la decisión explícita sobre anuncios personalizados y actualizar la ficha de Google Play si cambia esa estrategia.
 - Configuración Firebase: `app/google-services.json` para el proyecto Firebase asociado a `com.menudado`.
 - Nombre de proyecto Gradle: `MenuDado`.
 - Package/namespace Android: `com.menudado`.
 - Application ID: `com.menudado`.
 - Nombre visible de la app: `MenuDado`.
 - Version visible: sincronizada con `versionName` del build Android.
+- Variantes Android:
+  - `develop`: build depurable para desarrollo local, usa App ID real de AdMob/UMP y ad unit demo de banner para evitar tráfico inválido.
+  - `release`: build productiva no depurable, usa App ID y ad unit reales de AdMob; queda firmada con debug para poder instalarla desde Android Studio en desarrollo local, no como firma final de tienda.
+  - `releaseDebuggable`: build depurable con configuración de release y ad unit demo, pensada para diagnosticar comportamiento casi productivo sin generar tráfico inválido con anuncios reales.
 - Recursos públicos para tienda: GitHub Pages desde `docs/`, con política de privacidad en `https://rhon1990.github.io/menuDado/privacy-policy/` y solicitud de eliminacion de datos en `https://rhon1990.github.io/menuDado/data-deletion/`.
 
 ## Principios de UX

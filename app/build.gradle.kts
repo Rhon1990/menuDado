@@ -17,19 +17,59 @@ android {
         applicationId = "com.menudado"
         minSdk = 23
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "GEMINI_MODEL", "\"gemini-2.5-flash-lite\"")
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-2347852335093406~6979235643"
+            buildConfigField(
+                "String",
+                "HOME_INLINE_BANNER_AD_UNIT_ID",
+                "\"ca-app-pub-3940256099942544/9214589741\""
+            )
+        }
+
+        create("develop") {
+            initWith(getByName("debug"))
+            matchingFallbacks += listOf("debug")
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-2347852335093406~6979235643"
+            buildConfigField(
+                "String",
+                "HOME_INLINE_BANNER_AD_UNIT_ID",
+                "\"ca-app-pub-3940256099942544/9214589741\""
+            )
+        }
+
         release {
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-2347852335093406~6979235643"
+            buildConfigField(
+                "String",
+                "HOME_INLINE_BANNER_AD_UNIT_ID",
+                "\"ca-app-pub-2347852335093406/4295829613\""
+            )
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
+            )
+        }
+
+        create("releaseDebuggable") {
+            initWith(getByName("release"))
+            isDebuggable = true
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release", "debug")
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-2347852335093406~6979235643"
+            buildConfigField(
+                "String",
+                "HOME_INLINE_BANNER_AD_UNIT_ID",
+                "\"ca-app-pub-3940256099942544/9214589741\""
             )
         }
     }
@@ -81,4 +121,8 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+    "developImplementation"("androidx.compose.ui:ui-tooling")
+    "developImplementation"("androidx.compose.ui:ui-test-manifest")
+    "releaseDebuggableImplementation"("androidx.compose.ui:ui-tooling")
+    "releaseDebuggableImplementation"("androidx.compose.ui:ui-test-manifest")
 }

@@ -20,6 +20,8 @@
     <string name="nav_home">Accueil</string>
     <string name="nav_dietary_profile">Profil alimentaire</string>
     <string name="nav_about">À propos</string>
+    <string name="nav_ads_privacy_options">Options de confidentialité</string>
+    <string name="ads_privacy_options_unavailable">Les options de confidentialité ne peuvent pas être ouvertes pour le moment. Réessayez dans quelques minutes.</string>
     <string name="header_subtitle">Qu’est-ce qu’on mange ?</string>
     <string name="your_menus">Vos menus</string>
     <string name="view_more">Voir plus &gt;</string>
@@ -103,11 +105,11 @@
     <string name="ai_analyzing_pending">Analyse des menus en attente</string>
     <string name="ai_analyze_pending_with_count">Analyser les menus en attente avec l’IA (%1$d)</string>
     <string name="ai_retry_ready_title">Vous pouvez réessayer avec l’IA</string>
-    <string name="ai_retry_wait_title">L’IA se repose un moment</string>
+    <string name="ai_retry_wait_title">L’IA est en pause un moment</string>
     <string name="ai_retry_ready_badge">La pause est terminée</string>
     <string name="ai_retry_wait_badge">Nouvel essai protégé</string>
     <string name="ai_retry_ready_body">Fermez cet avis et touchez de nouveau l’option IA que vous vouliez utiliser.</string>
-    <string name="ai_retry_wait_body">Nous évitons les appels répétés pour ne pas prolonger l’attente. Quand la pause se termine, cet avis indiquera que vous pouvez réessayer.</string>
+    <string name="ai_retry_wait_body">MenuDado ne fera qu’une seule tentative et bloquera les appuis répétés pendant l’attente. Quand la pause se termine, cet avis indiquera que vous pouvez réessayer.</string>
     <string name="onboarding_profile_title">Complétez votre profil</string>
     <string name="onboarding_profile_body">Activez si vous cuisinez pour adultes, enfants ou bébés. Dans le profil alimentaire, vous pouvez indiquer grossesse, allergies et conditions de santé pour mieux adapter les idées.</string>
     <string name="onboarding_menus_title">Enregistrez vos menus</string>

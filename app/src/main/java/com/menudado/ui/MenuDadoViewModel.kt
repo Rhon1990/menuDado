@@ -662,16 +662,16 @@ class MenuDadoViewModel(
         }
         val avoidIdeas = state.buildAvoidIdeas(mealType, audience)
         analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
+        _uiState.update {
+            it.copy(
+                isGeneratingMenu = true,
+                message = null,
+                aiRetryAtMillis = null,
+                isAiRetryNoticeVisible = false
+            )
+        }
 
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isGeneratingMenu = true,
-                    message = null,
-                    aiRetryAtMillis = null,
-                    isAiRetryNoticeVisible = false
-                )
-            }
             repository.generateMenu(
                 mealType = mealType,
                 avoidIdeas = avoidIdeas,
@@ -827,6 +827,10 @@ class MenuDadoViewModel(
     }
 
     fun analyzeExisting(menu: FoodMenu) {
+        val state = _uiState.value
+        if (state.isAnalyzing) {
+            return
+        }
         val activeRetryAtMillis = activeAiRetryAtMillis()
         if (activeRetryAtMillis != null) {
             showActiveAiRetryNotice(activeRetryAtMillis)
@@ -836,16 +840,16 @@ class MenuDadoViewModel(
             return
         }
         analytics.trackAiAnalysisStarted(AI_SCOPE_SINGLE, menu.mealType, menuCount = 1)
+        _uiState.update {
+            it.copy(
+                isAnalyzing = true,
+                message = null,
+                aiRetryAtMillis = null,
+                isAiRetryNoticeVisible = false
+            )
+        }
 
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isAnalyzing = true,
-                    message = null,
-                    aiRetryAtMillis = null,
-                    isAiRetryNoticeVisible = false
-                )
-            }
             repository.analyze(menu, AppLanguage.fromLocale())
                 .onSuccess { analysis ->
                     repository.save(
@@ -882,6 +886,10 @@ class MenuDadoViewModel(
     }
 
     fun analyzePendingMenus() {
+        val state = _uiState.value
+        if (state.isAnalyzing) {
+            return
+        }
         val pendingMenus = _uiState.value.menus
             .filter { it.healthAnalysis == null }
             .take(AI_BATCH_ANALYSIS_LIMIT)
@@ -905,16 +913,16 @@ class MenuDadoViewModel(
             return
         }
         analytics.trackAiAnalysisStarted(AI_SCOPE_BATCH, mealType = null, menuCount = pendingMenus.size)
+        _uiState.update {
+            it.copy(
+                isAnalyzing = true,
+                message = null,
+                aiRetryAtMillis = null,
+                isAiRetryNoticeVisible = false
+            )
+        }
 
         viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isAnalyzing = true,
-                    message = null,
-                    aiRetryAtMillis = null,
-                    isAiRetryNoticeVisible = false
-                )
-            }
             repository.analyzeBatch(pendingMenus, AppLanguage.fromLocale())
                 .onSuccess { analysesByMenuId ->
                     pendingMenus.forEach { menu ->
@@ -1309,7 +1317,7 @@ private fun AppLanguage.noMenusForFilterMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "There are no menus for that filter."
         AppLanguage.FRENCH -> "Aucun menu ne correspond à ce filtre."
-        AppLanguage.SPANISH -> "No hay menus para ese filtro."
+        AppLanguage.SPANISH -> "No hay menús para ese filtro."
     }
 }
 
@@ -1333,7 +1341,7 @@ private fun AppLanguage.audienceRequiredMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "Choose whether this menu is for an adult, kids or a baby."
         AppLanguage.FRENCH -> "Choisissez si ce menu est pour un adulte, des enfants ou un bébé."
-        AppLanguage.SPANISH -> "Selecciona si el menu es para persona adulta, peques o bebe."
+        AppLanguage.SPANISH -> "Selecciona si el menú es para persona adulta, peques o bebé."
     }
 }
 
@@ -1341,7 +1349,7 @@ private fun AppLanguage.missingRequiredFieldsMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "Add a name and ingredients to save the menu."
         AppLanguage.FRENCH -> "Ajoutez un nom et des ingrédients pour enregistrer le menu."
-        AppLanguage.SPANISH -> "Agrega nombre e ingredientes para guardar el menu."
+        AppLanguage.SPANISH -> "Agrega nombre e ingredientes para guardar el menú."
     }
 }
 
@@ -1349,7 +1357,7 @@ private fun AppLanguage.noPendingMenusMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "You do not have pending menus to analyze."
         AppLanguage.FRENCH -> "Vous n'avez aucun menu en attente d'analyse."
-        AppLanguage.SPANISH -> "No tienes menus pendientes por analizar."
+        AppLanguage.SPANISH -> "No tienes menús pendientes por analizar."
     }
 }
 
@@ -1357,23 +1365,23 @@ private fun AppLanguage.emptyAiBatchAnalysisMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "AI did not return valid analyses. You can try again later."
         AppLanguage.FRENCH -> "L'IA n'a pas renvoyé d'analyses valides. Vous pouvez réessayer plus tard."
-        AppLanguage.SPANISH -> "La IA no devolvio analisis validos. Puedes intentar de nuevo mas tarde."
+        AppLanguage.SPANISH -> "La IA no devolvió análisis válidos. Puedes intentar de nuevo más tarde."
     }
 }
 
 private fun AppLanguage.aiRetryMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI is taking a break to avoid failed attempts. Your menus are still available."
-        AppLanguage.FRENCH -> "L'IA fait une pause pour éviter les tentatives échouées. Vos menus restent disponibles."
-        AppLanguage.SPANISH -> "La IA esta tomando una pausa para evitar intentos fallidos. Tus menus siguen disponibles."
+        AppLanguage.ENGLISH -> "AI is paused to avoid repeated attempts. Your menus are still available."
+        AppLanguage.FRENCH -> "L'IA est en pause pour éviter les tentatives répétées. Vos menus restent disponibles."
+        AppLanguage.SPANISH -> "La IA está en pausa para evitar intentos repetidos. Tus menús siguen disponibles."
     }
 }
 
 private fun AppLanguage.aiRequestsPerMinuteMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI received several requests in a row. Wait a moment before trying again."
-        AppLanguage.FRENCH -> "L'IA a reçu plusieurs demandes d'affilée. Attendez un moment avant de réessayer."
-        AppLanguage.SPANISH -> "La IA recibio varias peticiones seguidas. Espera un momento antes de volver a intentarlo."
+        AppLanguage.ENGLISH -> "AI received several requests close together. Wait a moment before trying again."
+        AppLanguage.FRENCH -> "L'IA a reçu plusieurs demandes très rapprochées. Attendez un moment avant de réessayer."
+        AppLanguage.SPANISH -> "La IA recibió varias peticiones muy seguidas. Espera un momento antes de volver a intentarlo."
     }
 }
 
@@ -1381,7 +1389,7 @@ private fun AppLanguage.aiTokensPerMinuteMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "This idea needs a short break before being processed again. You can keep using your menus."
         AppLanguage.FRENCH -> "Cette idée a besoin d'une pause avant d'être traitée de nouveau. Vous pouvez continuer à utiliser vos menus."
-        AppLanguage.SPANISH -> "La idea necesita un descanso antes de procesarse de nuevo. Puedes seguir usando tus menus."
+        AppLanguage.SPANISH -> "La idea necesita una pausa antes de procesarse de nuevo. Puedes seguir usando tus menús."
     }
 }
 
@@ -1389,7 +1397,7 @@ private fun AppLanguage.aiRequestsPerDayMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "Today's free AI help has run out. Your menus are still available and you can try again later."
         AppLanguage.FRENCH -> "L'aide IA gratuite du jour est épuisée. Vos menus restent disponibles et vous pourrez réessayer plus tard."
-        AppLanguage.SPANISH -> "La ayuda con IA gratuita de hoy se agoto. Tus menus siguen disponibles y podras volver a probar mas adelante."
+        AppLanguage.SPANISH -> "La ayuda gratuita con IA de hoy se agotó. Tus menús siguen disponibles y podrás volver a probar más adelante."
     }
 }
 
@@ -1397,7 +1405,7 @@ private fun AppLanguage.generatedAnalysisManualEditMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "You changed the generated recipe. To see it as analyzed, save the menu and tap Analyze with AI."
         AppLanguage.FRENCH -> "Vous avez modifié la recette générée. Pour la voir comme analysée, enregistrez le menu et touchez Analyser avec l'IA."
-        AppLanguage.SPANISH -> "Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA."
+        AppLanguage.SPANISH -> "Modificaste la receta generada. Para verla como analizada, guarda el menú y toca Analizar IA."
     }
 }
 
@@ -1405,7 +1413,7 @@ private fun AppLanguage.aiConfigurationMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "AI is not enabled for this project or API key. Enable Firebase AI Logic / Generative Language API in Firebase or Google Cloud."
         AppLanguage.FRENCH -> "L'IA n'est pas activée pour ce projet ou cette clé API. Activez Firebase AI Logic / Generative Language API dans Firebase ou Google Cloud."
-        AppLanguage.SPANISH -> "La IA no esta habilitada para este proyecto o API key. Activa Firebase AI Logic / Generative Language API en Firebase o Google Cloud."
+        AppLanguage.SPANISH -> "La IA no está habilitada para este proyecto o API key. Activa Firebase AI Logic / Generative Language API en Firebase o Google Cloud."
     }
 }
 
@@ -1413,7 +1421,7 @@ private fun AppLanguage.aiInvalidApiKeyMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "The Firebase API key is not valid for AI. Check google-services.json or the key restrictions."
         AppLanguage.FRENCH -> "La clé API Firebase n'est pas valide pour l'IA. Vérifiez google-services.json ou les restrictions de la clé."
-        AppLanguage.SPANISH -> "La API key de Firebase no es valida para IA. Revisa el archivo google-services.json o las restricciones de la clave."
+        AppLanguage.SPANISH -> "La API key de Firebase no es válida para IA. Revisa el archivo google-services.json o las restricciones de la clave."
     }
 }
 
@@ -1421,7 +1429,7 @@ private fun AppLanguage.aiTimeoutMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "AI took too long to respond. Check your connection and try again."
         AppLanguage.FRENCH -> "L'IA a mis trop de temps à répondre. Vérifiez votre connexion et réessayez."
-        AppLanguage.SPANISH -> "La IA tardo demasiado en responder. Revisa la conexion e intentalo de nuevo."
+        AppLanguage.SPANISH -> "La IA tardó demasiado en responder. Revisa la conexión e inténtalo de nuevo."
     }
 }
 
@@ -1429,7 +1437,7 @@ private fun AppLanguage.aiGenericFailureMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "Could not connect to AI. Check your internet connection or Firebase configuration."
         AppLanguage.FRENCH -> "Impossible de se connecter à l'IA. Vérifiez internet ou la configuration Firebase."
-        AppLanguage.SPANISH -> "No se pudo conectar con la IA. Revisa internet o la configuracion de Firebase."
+        AppLanguage.SPANISH -> "No se pudo conectar con la IA. Revisa internet o la configuración de Firebase."
     }
 }
 

@@ -20,6 +20,8 @@
     <string name="nav_home">Inicio</string>
     <string name="nav_dietary_profile">Perfil alimentario</string>
     <string name="nav_about">Acerca de la app</string>
+    <string name="nav_ads_privacy_options">Opciones de privacidad</string>
+    <string name="ads_privacy_options_unavailable">No se pudieron abrir las opciones de privacidad ahora. Inténtalo de nuevo en unos minutos.</string>
     <string name="header_subtitle">¿Qué comemos hoy?</string>
     <string name="your_menus">Tus menús</string>
     <string name="view_more">Ver más &gt;</string>
@@ -103,11 +105,11 @@
     <string name="ai_analyzing_pending">Analizando pendientes</string>
     <string name="ai_analyze_pending_with_count">Analizar pendientes con IA (%1$d)</string>
     <string name="ai_retry_ready_title">Ya puedes reintentar con IA</string>
-    <string name="ai_retry_wait_title">IA descansando un momento</string>
+    <string name="ai_retry_wait_title">IA en pausa un momento</string>
     <string name="ai_retry_ready_badge">La pausa terminó</string>
     <string name="ai_retry_wait_badge">Reintento protegido</string>
     <string name="ai_retry_ready_body">Cierra este aviso y vuelve a tocar la opción de IA que querías usar.</string>
-    <string name="ai_retry_wait_body">Evitamos hacer llamadas repetidas para no alargar la espera. Cuando la pausa termine, este aviso cambiará para decirte que puedes reintentar.</string>
+    <string name="ai_retry_wait_body">MenuDado hará un solo intento y bloqueará los toques repetidos mientras espera. Cuando la pausa termine, este aviso cambiará para decirte que puedes reintentar.</string>
     <string name="onboarding_profile_title">Completa tu perfil</string>
     <string name="onboarding_profile_body">Activa si cocinas para persona adulta, peques o bebé. En el perfil alimentario puedes indicar embarazo, alergias y condiciones de salud para adaptar mejor las ideas.</string>
     <string name="onboarding_menus_title">Guarda tus menús</string>

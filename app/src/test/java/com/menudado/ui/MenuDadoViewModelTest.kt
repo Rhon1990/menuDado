@@ -197,7 +197,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
-        assertEquals("Selecciona si el menu es para persona adulta, peques o bebe.", freshViewModel.uiState.value.message)
+        assertEquals("Selecciona si el menú es para persona adulta, peques o bebé.", freshViewModel.uiState.value.message)
     }
 
     @Test
@@ -218,7 +218,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
-        assertEquals("Selecciona si el menu es para persona adulta, peques o bebe.", freshViewModel.uiState.value.message)
+        assertEquals("Selecciona si el menú es para persona adulta, peques o bebé.", freshViewModel.uiState.value.message)
     }
 
     @Test
@@ -559,7 +559,7 @@ class MenuDadoViewModelTest {
         val saved = dao.saved.single().toDomain()
         assertNull(saved.healthAnalysis)
         assertEquals(
-            "Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA.",
+            "Modificaste la receta generada. Para verla como analizada, guarda el menú y toca Analizar IA.",
             viewModel.uiState.value.message
         )
     }
@@ -682,7 +682,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(0, analyzer.generateCalls)
         assertEquals(0, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals("La ayuda con IA gratuita de hoy se agoto. Tus menus siguen disponibles y podras volver a probar mas adelante.", viewModel.uiState.value.message)
+        assertEquals("La ayuda gratuita con IA de hoy se agotó. Tus menús siguen disponibles y podrás volver a probar más adelante.", viewModel.uiState.value.message)
         assertEquals(listOf("ai_daily_limit_reached:generate_menu"), analytics.events)
     }
 
@@ -721,6 +721,20 @@ class MenuDadoViewModelTest {
         runCurrent()
 
         assertEquals(1, analyzer.generateCalls)
+        advanceTimeBy(1_000L)
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `generate menu idea ignores immediate repeated taps before generation coroutine starts`() = runTest(dispatcher) {
+        analyzer.generateDelayMillis = 1_000L
+
+        viewModel.generateMenuIdea()
+        viewModel.generateMenuIdea()
+        runCurrent()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
         advanceTimeBy(1_000L)
         advanceUntilIdle()
     }
@@ -1013,7 +1027,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA esta tomando una pausa para evitar intentos fallidos. Tus menus siguen disponibles.",
+            "La IA está en pausa para evitar intentos repetidos. Tus menús siguen disponibles.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -1037,7 +1051,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA recibio varias peticiones seguidas. Espera un momento antes de volver a intentarlo.",
+            "La IA recibió varias peticiones muy seguidas. Espera un momento antes de volver a intentarlo.",
             viewModel.uiState.value.message
         )
     }
@@ -1059,7 +1073,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La idea necesita un descanso antes de procesarse de nuevo. Puedes seguir usando tus menus.",
+            "La idea necesita una pausa antes de procesarse de nuevo. Puedes seguir usando tus menús.",
             viewModel.uiState.value.message
         )
     }
@@ -1081,7 +1095,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La ayuda con IA gratuita de hoy se agoto. Tus menus siguen disponibles y podras volver a probar mas adelante.",
+            "La ayuda gratuita con IA de hoy se agotó. Tus menús siguen disponibles y podrás volver a probar más adelante.",
             viewModel.uiState.value.message
         )
     }
@@ -1107,7 +1121,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(1, analyzer.generateCalls)
         assertEquals(
-            "La IA esta tomando una pausa para evitar intentos fallidos. Tus menus siguen disponibles.",
+            "La IA está en pausa para evitar intentos repetidos. Tus menús siguen disponibles.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -1130,7 +1144,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(0, analyzer.generateCalls)
         assertEquals(
-            "La IA esta tomando una pausa para evitar intentos fallidos. Tus menus siguen disponibles.",
+            "La IA está en pausa para evitar intentos repetidos. Tus menús siguen disponibles.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -1258,7 +1272,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA esta tomando una pausa para evitar intentos fallidos. Tus menus siguen disponibles.",
+            "La IA está en pausa para evitar intentos repetidos. Tus menús siguen disponibles.",
             viewModel.uiState.value.message
         )
         assertEquals(295_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -1281,6 +1295,26 @@ class MenuDadoViewModelTest {
         val saved = dao.saved.single().toDomain()
         assertEquals(640, saved.calories)
         assertEquals(640, menuVisibleCalories(saved))
+    }
+
+    @Test
+    fun `analyze existing ignores immediate repeated taps before analysis coroutine starts`() = runTest(dispatcher) {
+        val menu = FoodMenu(
+            id = 1,
+            name = "Arroz",
+            mealType = MealType.LUNCH,
+            description = "Arroz con atun"
+        )
+        analyzer.analysisDelayMillis = 1_000L
+
+        viewModel.analyzeExisting(menu)
+        viewModel.analyzeExisting(menu)
+        runCurrent()
+
+        assertEquals(1, analyzer.analysisCalls)
+        assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
+        advanceTimeBy(1_000L)
+        advanceUntilIdle()
     }
 
     @Test
@@ -1412,7 +1446,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertEquals("Agrega nombre e ingredientes para guardar el menu.", state.message)
+        assertEquals("Agrega nombre e ingredientes para guardar el menú.", state.message)
         assertEquals(159_000L, state.aiRetryAtMillis)
         assertFalse(state.isAiRetryNoticeVisible)
     }
@@ -1488,7 +1522,7 @@ class MenuDadoViewModelTest {
         val state = viewModel.uiState.value
         assertFalse(state.isRolling)
         assertNull(state.result)
-        assertEquals("Selecciona si el menu es para persona adulta, peques o bebe.", state.message)
+        assertEquals("Selecciona si el menú es para persona adulta, peques o bebé.", state.message)
         assertEquals(emptyList<String>(), analytics.events)
     }
 
@@ -1793,6 +1827,7 @@ private class FakeMenuDao : MenuDao {
 
 private class RecordingHealthAnalyzer : HealthAnalyzer {
     var wasCalled = false
+    var analysisCalls = 0
     var generateCalls = 0
     var batchAnalyzeCalls = 0
     var requestedMealType: MealType? = null
@@ -1807,6 +1842,7 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
     var generateFailure: Throwable? = null
     var requestedAudience: MenuAudience? = null
     var requestedLanguage: AppLanguage? = null
+    var analysisDelayMillis: Long = 0L
     var generateDelayMillis: Long = 0L
     var generatedMenu = GeneratedMenu(
         name = "Tostada",
@@ -1817,7 +1853,11 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
 
     override suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<HealthAnalysis> {
         wasCalled = true
+        analysisCalls += 1
         requestedLanguage = language
+        if (analysisDelayMillis > 0L) {
+            delay(analysisDelayMillis)
+        }
         analysisFailure?.let { return Result.failure(it) }
         return Result.success(
             HealthAnalysis(
