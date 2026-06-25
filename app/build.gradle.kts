@@ -26,7 +26,9 @@ android {
 
     buildTypes {
         debug {
-            manifestPlaceholders["admobAppId"] = "ca-app-pub-2347852335093406~6979235643"
+            applicationIdSuffix = ".debug"
+            resValue("string", "app_name", "MenuDado Debug")
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
             buildConfigField(
                 "String",
                 "HOME_INLINE_BANNER_AD_UNIT_ID",
@@ -37,7 +39,8 @@ android {
         create("develop") {
             initWith(getByName("debug"))
             matchingFallbacks += listOf("debug")
-            manifestPlaceholders["admobAppId"] = "ca-app-pub-2347852335093406~6979235643"
+            applicationIdSuffix = ".debug"
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
             buildConfigField(
                 "String",
                 "HOME_INLINE_BANNER_AD_UNIT_ID",
@@ -63,9 +66,11 @@ android {
         create("releaseDebuggable") {
             initWith(getByName("release"))
             isDebuggable = true
+            applicationIdSuffix = ".debug"
+            resValue("string", "app_name", "MenuDado Debug")
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release", "debug")
-            manifestPlaceholders["admobAppId"] = "ca-app-pub-2347852335093406~6979235643"
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
             buildConfigField(
                 "String",
                 "HOME_INLINE_BANNER_AD_UNIT_ID",

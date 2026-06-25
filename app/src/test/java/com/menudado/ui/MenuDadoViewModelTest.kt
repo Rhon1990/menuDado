@@ -8,6 +8,7 @@ import com.menudado.data.AiDailyUsageState
 import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiQuotaRetryState
+import com.menudado.data.AiRequestThrottleStore
 import com.menudado.data.MenuDao
 import com.menudado.data.MenuEntity
 import com.menudado.data.MenuRepository
@@ -53,6 +54,7 @@ class MenuDadoViewModelTest {
     private lateinit var dao: FakeMenuDao
     private lateinit var analyzer: RecordingHealthAnalyzer
     private lateinit var aiQuotaRetryStore: FakeAiQuotaRetryStore
+    private lateinit var aiRequestThrottleStore: FakeAiRequestThrottleStore
     private lateinit var aiDailyUsageStore: FakeAiDailyUsageStore
     private lateinit var dietaryProfileStore: FakeDietaryProfileStore
     private lateinit var onboardingStore: FakeOnboardingStore
@@ -68,6 +70,7 @@ class MenuDadoViewModelTest {
         dao = FakeMenuDao()
         analyzer = RecordingHealthAnalyzer()
         aiQuotaRetryStore = FakeAiQuotaRetryStore()
+        aiRequestThrottleStore = FakeAiRequestThrottleStore()
         aiDailyUsageStore = FakeAiDailyUsageStore()
         dietaryProfileStore = FakeDietaryProfileStore()
         onboardingStore = FakeOnboardingStore(completed = true)
@@ -77,6 +80,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             clockMillisProvider = { localMillisAtHour(8) },
             aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
             aiDailyUsageStore = aiDailyUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
@@ -740,7 +744,57 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `generate menu idea waits locally before another real IA request`() = runTest(dispatcher) {
+        var nowMillis = 100_000L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { nowMillis },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        aiRequestThrottleStore.storedLastRequestAtMillis = 80_001L
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(110_001L, viewModel.uiState.value.aiRetryAtMillis)
+        assertEquals(
+            "La IA recibió varias peticiones muy seguidas. Espera un momento antes de volver a intentarlo.",
+            viewModel.uiState.value.message
+        )
+
+        nowMillis = 110_001L
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(110_001L, aiRequestThrottleStore.storedLastRequestAtMillis)
+    }
+
+    @Test
     fun `generate menu idea avoids other generated ideas from the same day`() = runTest(dispatcher) {
+        var nowMillis = 100_000L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { nowMillis },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
         analyzer.generatedMenu = GeneratedMenu(
             name = "Crema de calabacin",
             description = "Calabacin, yogur natural y semillas.",
@@ -749,6 +803,7 @@ class MenuDadoViewModelTest {
         )
         viewModel.generateMenuIdea()
         advanceUntilIdle()
+        nowMillis += 30_000L
         analyzer.generatedMenu = GeneratedMenu(
             name = "Ensalada Cesar saludable",
             description = "Lechuga, pollo a la plancha, yogur y pan integral tostado.",
@@ -757,6 +812,7 @@ class MenuDadoViewModelTest {
         )
         viewModel.generateMenuIdea()
         advanceUntilIdle()
+        nowMillis += 30_000L
         analyzer.generatedMenu = GeneratedMenu(
             name = "Bowl de garbanzos",
             description = "Garbanzos, tomate, pepino y aguacate.",
@@ -1318,12 +1374,48 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `analyze existing shares local wait with recent IA generation`() = runTest(dispatcher) {
+        var nowMillis = 200_000L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { nowMillis },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        nowMillis += 10_000L
+        viewModel.analyzeExisting(
+            FoodMenu(
+                id = 1,
+                name = "Arroz",
+                mealType = MealType.LUNCH,
+                description = "Arroz con atun"
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals(0, analyzer.analysisCalls)
+        assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(230_000L, viewModel.uiState.value.aiRetryAtMillis)
+    }
+
+    @Test
     fun `analyze pending menus uses one IA call and saves valid results`() = runTest(dispatcher) {
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
             aiDailyUsageStore = aiDailyUsageStore
         )
         val analyzed = FoodMenu(
@@ -1956,6 +2048,20 @@ private class FakeAiQuotaRetryStore : AiQuotaRetryStore {
     override fun clearRetryState() {
         storedRetryAtMillis = null
         storedConsecutiveFailures = 0
+    }
+}
+
+private class FakeAiRequestThrottleStore : AiRequestThrottleStore {
+    var storedLastRequestAtMillis: Long? = null
+
+    override fun getLastRequestAtMillis(): Long? = storedLastRequestAtMillis
+
+    override fun saveLastRequestAtMillis(requestAtMillis: Long) {
+        storedLastRequestAtMillis = requestAtMillis
+    }
+
+    override fun clearLastRequest() {
+        storedLastRequestAtMillis = null
     }
 }
 

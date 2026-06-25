@@ -25,12 +25,20 @@ El proyecto incluye Gradle wrapper. Si Android Studio pide sincronizar, acepta l
 
 ## Configurar IA con Firebase
 
-1. Crea un proyecto en Firebase.
-2. Registra una app Android con el package `com.menudado`.
-3. Descarga `google-services.json`.
-4. Coloca el archivo en `app/google-services.json`.
-5. En Firebase, habilita Firebase AI Logic con Gemini Developer API.
-6. Recompila la app.
+El proyecto separa Firebase por entorno:
+
+- Producción/release: `menudado-6a2da`, app Android `com.menudado`.
+- Debug/desarrollo: `menudado-debug`, app Android `com.menudado.debug`.
+
+Ubicaciones esperadas:
+
+- `app/google-services.json`: fallback de producción.
+- `app/src/release/google-services.json`: producción.
+- `app/src/debug/google-services.json`: debug.
+- `app/src/develop/google-services.json`: debug.
+- `app/src/releaseDebuggable/google-services.json`: debug.
+
+En cada proyecto Firebase habilita Firebase AI Logic con Gemini Developer API. Para sincronización remota también habilita Authentication anónimo y Cloud Firestore.
 
 Sin `google-services.json`, la app permite crear menús locales y usar el dado, pero el análisis IA mostrará error de configuración o conexión.
 

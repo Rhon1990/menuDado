@@ -64,8 +64,9 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Se guarda con una única acción principal: `Guardar menú`.
    - El análisis IA no forma parte del guardado inicial; se ejecuta después desde la tarjeta del menú guardado.
    - Desde el formulario se puede generar una idea con IA según el tipo seleccionado.
-  - Mientras se genera una idea con IA, la app debe mostrar un loading bloqueante con el dado de carga de MenuDado para evitar dobles acciones.
-  - Las acciones visibles de IA deben bloquearse de forma inmediata antes de lanzar la corrutina para evitar taps repetidos, doble consumo local y multiples llamadas a Gemini.
+   - Mientras se genera una idea con IA, la app debe mostrar un loading bloqueante con el dado de carga de MenuDado para evitar dobles acciones.
+   - Las acciones visibles de IA deben bloquearse de forma inmediata antes de lanzar la corrutina para evitar taps repetidos, doble consumo local y multiples llamadas a Gemini.
+   - Antes de realizar una llamada real a Gemini, MenuDado aplica una pausa local corta y compartida por generación, análisis individual y análisis por lote. Si hubo un intento de IA hace pocos segundos, la app muestra el aviso de espera sin gastar el contador diario local ni hacer otra petición al proveedor.
    - La generación con IA puede usar uno o más ingredientes base escritos por el usuario, por ejemplo `berenjena`; si algún ingrediente contradice el perfil alimentario configurado, la app debe mostrar un aviso y no llamar a la IA.
    - Las ideas generadas por IA deben ser saludables, ricas, simples y con ingredientes comunes de supermercado.
    - Si el tipo seleccionado es cena, la idea generada por IA debe ser ligera, rapida y de baja energia para la noche: maximo 10 minutos, pocos ingredientes y preparacion similar de sencilla a un desayuno; debe evitar horno, guarniciones multiples y recetas con varios pasos.
@@ -175,6 +176,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Estado y asincronía: Kotlin coroutines y Flow.
 - Integración IA: Firebase AI Logic con Gemini 2.5 Flash-Lite para análisis saludable y lote de pendientes.
 - Generación de ideas IA: Firebase AI Logic con Gemini 2.5 Flash-Lite para texto, análisis saludable y calorías. No se usan modelos de imagen IA; las fotos de menú son opcionales, tomadas con cámara o seleccionadas por el usuario desde biblioteca, y gestionadas después de crear el menú guardado.
+- Todos los build variants usan IA real con Firebase AI Logic; `debug`, `develop` y `releaseDebuggable` usan el proyecto Firebase separado `menudado-debug` con `applicationId` `com.menudado.debug`, mientras `release` usa el proyecto productivo `menudado-6a2da` con `applicationId` `com.menudado`.
 - Perfil alimentario: configuración local por público objetivo en SharedPreferences usada como restricciones del prompt de generación IA y sincronizada en Firestore.
 - Onboarding: estado local en SharedPreferences para mostrar la guía solo en primera apertura y sincronizado en Firestore.
 - Metadatos backend: al abrir la app se sincronizan país de la configuración regional, zona horaria, fabricante/modelo de dispositivo, versión Android, `versionName` y `versionCode`; no se solicita GPS, contactos ni identificador publicitario.
@@ -203,16 +205,17 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - Si UMP indica que las opciones de privacidad son requeridas, el menú lateral muestra `Opciones de privacidad` para abrir el formulario de Google.
   - No se usan anuncios de apertura, interstitials ni rewarded interstitials en esta fase para no interrumpir el dado, el guardado ni la generación con IA.
   - El manifest mantiene removido `com.google.android.gms.permission.AD_ID` hasta completar la decisión explícita sobre anuncios personalizados y actualizar la ficha de Google Play si cambia esa estrategia.
-- Configuración Firebase: `app/google-services.json` para el proyecto Firebase asociado a `com.menudado`.
+- Configuración Firebase: `app/google-services.json` y `app/src/release/google-services.json` apuntan a producción (`menudado-6a2da`, `com.menudado`); `app/src/debug/google-services.json`, `app/src/develop/google-services.json` y `app/src/releaseDebuggable/google-services.json` apuntan a debug (`menudado-debug`, `com.menudado.debug`).
 - Nombre de proyecto Gradle: `MenuDado`.
 - Package/namespace Android: `com.menudado`.
 - Application ID: `com.menudado`.
 - Nombre visible de la app: `MenuDado`.
 - Version visible: sincronizada con `versionName` del build Android.
 - Variantes Android:
-  - `develop`: build depurable para desarrollo local, usa App ID real de AdMob/UMP y ad unit demo de banner para evitar tráfico inválido.
+  - `debug`: build depurable local con `applicationId` `com.menudado.debug`, nombre visible `MenuDado Debug`, Firebase debug y App ID/ad unit demo de AdMob.
+  - `develop`: build depurable para desarrollo local con `applicationId` `com.menudado.debug`, Firebase debug y App ID/ad unit demo de AdMob para evitar tráfico inválido.
   - `release`: build productiva no depurable, usa App ID y ad unit reales de AdMob; queda firmada con debug para poder instalarla desde Android Studio en desarrollo local, no como firma final de tienda.
-  - `releaseDebuggable`: build depurable con configuración de release y ad unit demo, pensada para diagnosticar comportamiento casi productivo sin generar tráfico inválido con anuncios reales.
+  - `releaseDebuggable`: build depurable con configuración de release, `applicationId` `com.menudado.debug`, Firebase debug y App ID/ad unit demo de AdMob, pensada para diagnosticar comportamiento casi productivo sin generar tráfico inválido con anuncios reales ni mezclar datos/IA con producción.
 - Recursos públicos para tienda: GitHub Pages desde `docs/`, con política de privacidad en `https://rhon1990.github.io/menuDado/privacy-policy/` y solicitud de eliminacion de datos en `https://rhon1990.github.io/menuDado/data-deletion/`.
 
 ## Principios de UX

@@ -14,9 +14,11 @@ import com.menudado.data.AiDailyUsageState
 import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiQuotaRetryState
+import com.menudado.data.AiRequestThrottleStore
 import com.menudado.data.MenuRepository
 import com.menudado.data.NoOpAiDailyUsageStore
 import com.menudado.data.NoOpAiQuotaRetryStore
+import com.menudado.data.NoOpAiRequestThrottleStore
 import com.menudado.data.NoOpOnboardingStore
 import com.menudado.data.OnboardingStore
 import com.menudado.domain.DiceSelector
@@ -85,6 +87,7 @@ class MenuDadoViewModel(
     private val todayProvider: () -> String = { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) },
     private val clockMillisProvider: () -> Long = { System.currentTimeMillis() },
     private val aiQuotaRetryStore: AiQuotaRetryStore = NoOpAiQuotaRetryStore,
+    private val aiRequestThrottleStore: AiRequestThrottleStore = NoOpAiRequestThrottleStore,
     private val aiDailyUsageStore: AiDailyUsageStore = NoOpAiDailyUsageStore,
     private val dietaryProfileStore: DietaryProfileStore = NoOpDietaryProfileStore,
     private val onboardingStore: OnboardingStore = NoOpOnboardingStore
@@ -657,11 +660,17 @@ class MenuDadoViewModel(
             showActiveAiRetryNotice(activeRetryAtMillis)
             return
         }
+        val activeRequestThrottleAtMillis = activeAiRequestThrottleAtMillis()
+        if (activeRequestThrottleAtMillis != null) {
+            showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
+            return
+        }
         if (!consumeAiDailyUseOrShowNotice(AI_SOURCE_GENERATE_MENU)) {
             return
         }
         val avoidIdeas = state.buildAvoidIdeas(mealType, audience)
         analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
+        aiRequestThrottleStore.saveLastRequestAtMillis(clockMillisProvider())
         _uiState.update {
             it.copy(
                 isGeneratingMenu = true,
@@ -836,10 +845,16 @@ class MenuDadoViewModel(
             showActiveAiRetryNotice(activeRetryAtMillis)
             return
         }
+        val activeRequestThrottleAtMillis = activeAiRequestThrottleAtMillis()
+        if (activeRequestThrottleAtMillis != null) {
+            showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
+            return
+        }
         if (!consumeAiDailyUseOrShowNotice(AI_SOURCE_ANALYZE_SINGLE)) {
             return
         }
         analytics.trackAiAnalysisStarted(AI_SCOPE_SINGLE, menu.mealType, menuCount = 1)
+        aiRequestThrottleStore.saveLastRequestAtMillis(clockMillisProvider())
         _uiState.update {
             it.copy(
                 isAnalyzing = true,
@@ -909,10 +924,16 @@ class MenuDadoViewModel(
             showActiveAiRetryNotice(activeRetryAtMillis)
             return
         }
+        val activeRequestThrottleAtMillis = activeAiRequestThrottleAtMillis()
+        if (activeRequestThrottleAtMillis != null) {
+            showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
+            return
+        }
         if (!consumeAiDailyUseOrShowNotice(AI_SOURCE_ANALYZE_BATCH)) {
             return
         }
         analytics.trackAiAnalysisStarted(AI_SCOPE_BATCH, mealType = null, menuCount = pendingMenus.size)
+        aiRequestThrottleStore.saveLastRequestAtMillis(clockMillisProvider())
         _uiState.update {
             it.copy(
                 isAnalyzing = true,
@@ -1140,6 +1161,16 @@ class MenuDadoViewModel(
         return null
     }
 
+    private fun activeAiRequestThrottleAtMillis(): Long? {
+        val lastRequestAtMillis = aiRequestThrottleStore.getLastRequestAtMillis() ?: return null
+        val retryAtMillis = lastRequestAtMillis + AI_REQUEST_THROTTLE_MILLIS
+        if (retryAtMillis > clockMillisProvider()) {
+            return retryAtMillis
+        }
+        aiRequestThrottleStore.clearLastRequest()
+        return null
+    }
+
     private fun clearExpiredAiRetryStateIfNeeded(): Boolean {
         val retryAtMillis = _uiState.value.aiRetryAtMillis ?: aiQuotaRetryStore.getRetryState()?.retryAtMillis
         if (retryAtMillis == null || retryAtMillis > clockMillisProvider()) {
@@ -1161,6 +1192,17 @@ class MenuDadoViewModel(
         _uiState.update {
             it.copy(
                 message = currentLanguage().aiRetryMessage(),
+                aiRetryAtMillis = retryAtMillis,
+                isAiRetryNoticeVisible = true
+            )
+        }
+        scheduleAiRetryRefresh(retryAtMillis)
+    }
+
+    private fun showAiRequestThrottleNotice(retryAtMillis: Long) {
+        _uiState.update {
+            it.copy(
+                message = currentLanguage().aiRequestsPerMinuteMessage(),
                 aiRetryAtMillis = retryAtMillis,
                 isAiRetryNoticeVisible = true
             )
@@ -1538,6 +1580,7 @@ private const val AI_FAILURE_GENERIC = "generic"
 private const val FIRST_QUOTA_BACKOFF_MILLIS = 0L
 private const val SECOND_QUOTA_BACKOFF_MILLIS = 2 * 60 * 1000L
 private const val MAX_QUOTA_BACKOFF_MILLIS = 30 * 60 * 1000L
+private const val AI_REQUEST_THROTTLE_MILLIS = 30 * 1000L
 private fun AiQuotaLimitType.message(language: AppLanguage): String {
     return when (this) {
         AiQuotaLimitType.REQUESTS_PER_MINUTE -> language.aiRequestsPerMinuteMessage()

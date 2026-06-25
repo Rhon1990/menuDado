@@ -13,6 +13,7 @@ import com.menudado.backend.FirebaseMenuDadoRemoteDataSource
 import com.menudado.backend.MenuDadoRemoteDataSource
 import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
+import com.menudado.data.AiRequestThrottleStore
 import com.menudado.data.BackendPendingSyncStore
 import com.menudado.data.BackendStoredDataSyncer
 import com.menudado.data.MenuDadoDatabase
@@ -25,6 +26,7 @@ import com.menudado.data.RemoteSyncingOnboardingStore
 import com.menudado.data.SharedPreferencesBackendPendingSyncStore
 import com.menudado.data.SharedPreferencesAiDailyUsageStore
 import com.menudado.data.SharedPreferencesAiQuotaRetryStore
+import com.menudado.data.SharedPreferencesAiRequestThrottleStore
 import com.menudado.data.SharedPreferencesDietaryProfileStore
 import com.menudado.data.SharedPreferencesOnboardingStore
 import kotlinx.coroutines.CoroutineScope
@@ -93,6 +95,10 @@ class MenuDadoApplication : Application() {
 
     val aiQuotaRetryStore: AiQuotaRetryStore by lazy {
         SharedPreferencesAiQuotaRetryStore(applicationContext)
+    }
+
+    val aiRequestThrottleStore: AiRequestThrottleStore by lazy {
+        SharedPreferencesAiRequestThrottleStore(applicationContext)
     }
 
     private val localAiDailyUsageStore: AiDailyUsageStore by lazy {

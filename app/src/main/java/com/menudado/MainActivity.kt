@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
                     repository = app.repository,
                     analytics = app.analytics,
                     aiQuotaRetryStore = app.aiQuotaRetryStore,
+                    aiRequestThrottleStore = app.aiRequestThrottleStore,
                     aiDailyUsageStore = app.aiDailyUsageStore,
                     dietaryProfileStore = app.dietaryProfileStore,
                     onboardingStore = app.onboardingStore
