@@ -27,16 +27,15 @@ El proyecto incluye Gradle wrapper. Si Android Studio pide sincronizar, acepta l
 
 El proyecto separa Firebase por entorno:
 
-- Producción/release: `menudado-6a2da`, app Android `com.menudado`.
-- Debug/desarrollo: `menudado-debug`, app Android `com.menudado.debug`.
+- Producción/release: Firebase `MenuDado Production` (`menudado-6a2da`), app Android `com.menudado`.
+- Debug: Firebase `MenuDado Debug` (`menudado-debug`), app Android `com.menudado.debug`.
 
 Ubicaciones esperadas:
 
 - `app/google-services.json`: fallback de producción.
 - `app/src/release/google-services.json`: producción.
 - `app/src/debug/google-services.json`: debug.
-- `app/src/develop/google-services.json`: debug.
-- `app/src/releaseDebuggable/google-services.json`: debug.
+- `app/src/releaseDebuggable/google-services.json`: producción para depurar el comportamiento de release.
 
 En cada proyecto Firebase habilita Firebase AI Logic con Gemini Developer API. Para sincronización remota también habilita Authentication anónimo y Cloud Firestore.
 

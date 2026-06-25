@@ -36,18 +36,6 @@ android {
             )
         }
 
-        create("develop") {
-            initWith(getByName("debug"))
-            matchingFallbacks += listOf("debug")
-            applicationIdSuffix = ".debug"
-            manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
-            buildConfigField(
-                "String",
-                "HOME_INLINE_BANNER_AD_UNIT_ID",
-                "\"ca-app-pub-3940256099942544/9214589741\""
-            )
-        }
-
         release {
             manifestPlaceholders["admobAppId"] = "ca-app-pub-2347852335093406~6979235643"
             buildConfigField(
@@ -66,10 +54,8 @@ android {
         create("releaseDebuggable") {
             initWith(getByName("release"))
             isDebuggable = true
-            applicationIdSuffix = ".debug"
-            resValue("string", "app_name", "MenuDado Debug")
             signingConfig = signingConfigs.getByName("debug")
-            matchingFallbacks += listOf("release", "debug")
+            matchingFallbacks += listOf("release")
             manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
             buildConfigField(
                 "String",
@@ -126,8 +112,6 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-    "developImplementation"("androidx.compose.ui:ui-tooling")
-    "developImplementation"("androidx.compose.ui:ui-test-manifest")
     "releaseDebuggableImplementation"("androidx.compose.ui:ui-tooling")
     "releaseDebuggableImplementation"("androidx.compose.ui:ui-test-manifest")
 }

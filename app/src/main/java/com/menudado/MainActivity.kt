@@ -1,6 +1,8 @@
 package com.menudado
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -36,9 +38,14 @@ import com.menudado.ui.MenuDadoScreen
 import com.menudado.ui.MenuDadoViewModel
 import com.menudado.ui.theme.MenuDadoColors
 import com.menudado.ui.theme.MenuDadoTheme
-import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
+    private val splashHandler = Handler(Looper.getMainLooper())
+    private val showStartupSplash = mutableStateOf(true)
+    private val hideStartupSplash = Runnable {
+        showStartupSplash.value = false
+    }
+
     private val viewModel: MenuDadoViewModel by viewModels {
         val app = application as MenuDadoApplication
         object : ViewModelProvider.Factory {
@@ -60,6 +67,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.Theme_MenuDado)
         super.onCreate(savedInstanceState)
+        showStartupSplash.value = savedInstanceState == null
+        splashHandler.removeCallbacks(hideStartupSplash)
+        if (showStartupSplash.value) {
+            splashHandler.postDelayed(hideStartupSplash, SPLASH_DURATION_MILLIS)
+        }
         (application as MenuDadoApplication).analytics.trackAppOpened(AndroidDeviceInfoProvider.current())
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(MenuDadoColors.HeaderGreen.toArgb()),
@@ -70,7 +82,7 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             MenuDadoTheme {
-                var showSplash by remember { mutableStateOf(true) }
+                val showSplash by showStartupSplash
                 var areAdsReady by remember { mutableStateOf(false) }
                 var areAdsPrivacyOptionsRequired by remember { mutableStateOf(false) }
                 var adsPrivacyOptionsMessage by remember { mutableStateOf<String?>(null) }
@@ -87,10 +99,6 @@ class MainActivity : ComponentActivity() {
                             adsPrivacyOptionsMessage = getString(R.string.ads_privacy_options_unavailable)
                         }
                     )
-                }
-                LaunchedEffect(Unit) {
-                    delay(SPLASH_DURATION_MILLIS)
-                    showSplash = false
                 }
                 LaunchedEffect(adsController) {
                     adsController.requestConsentAndInitialize()
@@ -112,6 +120,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        splashHandler.removeCallbacks(hideStartupSplash)
+        super.onDestroy()
     }
 
     private companion object {

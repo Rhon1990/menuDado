@@ -71,13 +71,34 @@ class MenuDadoApplication : Application() {
         }
     }
 
+    private val migration6To7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                UPDATE menus
+                SET remoteSyncState = 'PENDING_UPSERT',
+                    remoteSyncToken = NULL
+                WHERE deletedAt IS NULL
+                    AND remoteSyncState = 'SYNCED'
+                """.trimIndent()
+            )
+        }
+    }
+
     private val database: MenuDadoDatabase by lazy {
         Room.databaseBuilder(
             applicationContext,
             MenuDadoDatabase::class.java,
             "menu-dado.db"
         )
-            .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5, migration5To6)
+            .addMigrations(
+                migration1To2,
+                migration2To3,
+                migration3To4,
+                migration4To5,
+                migration5To6,
+                migration6To7
+            )
             .build()
     }
 

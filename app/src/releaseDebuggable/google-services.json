@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "148402710586",
-    "project_id": "menudado-debug",
-    "storage_bucket": "menudado-debug.firebasestorage.app"
+    "project_number": "506906977551",
+    "project_id": "menudado-6a2da",
+    "storage_bucket": "menudado-6a2da.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:148402710586:android:9b3d7000c82325c279ed03",
+        "mobilesdk_app_id": "1:506906977551:android:4d16ace2c24ada3efb8a7a",
         "android_client_info": {
-          "package_name": "com.menudado.debug"
+          "package_name": "com.menudado"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBhR8VbM5KFqfutlk8Y1dkGtm0udzHi8Ds"
+          "current_key": "AIzaSyDSiQYWsvmuEtohcmrkSrQLjux8zIL_XNE"
         }
       ],
       "services": {

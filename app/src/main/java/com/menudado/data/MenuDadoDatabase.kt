@@ -5,7 +5,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [MenuEntity::class],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class MenuDadoDatabase : RoomDatabase() {
