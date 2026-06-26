@@ -666,6 +666,49 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `generate menu idea shows local IA pause after real request without opening notice`() = runTest(dispatcher) {
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { 100_000L },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(104_000L, viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
+        assertNull(viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `generate menu idea stops loading and shows timeout message when IA takes too long`() = runTest(dispatcher) {
+        analyzer.generateDelayMillis = 26_000L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { currentTime },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+
+        viewModel.generateMenuIdea()
+        runCurrent()
+        advanceTimeBy(25_000L)
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.isGeneratingMenu)
+        assertEquals("La IA tardó demasiado en responder. Revisa la conexión e inténtalo de nuevo.", viewModel.uiState.value.message)
+        assertEquals(1, analyzer.generateCalls)
+    }
+
+    @Test
     fun `generate menu idea does not call IA when daily local uses are exhausted`() = runTest(dispatcher) {
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
@@ -758,26 +801,26 @@ class MenuDadoViewModelTest {
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
-        aiRequestThrottleStore.storedLastRequestAtMillis = 80_001L
+        aiRequestThrottleStore.storedLastRequestAtMillis = 98_001L
 
         viewModel.generateMenuIdea()
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
         assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals(110_001L, viewModel.uiState.value.aiRetryAtMillis)
+        assertEquals(102_001L, viewModel.uiState.value.aiRetryAtMillis)
         assertEquals(
             "La IA recibió varias peticiones muy seguidas. Espera un momento antes de volver a intentarlo.",
             viewModel.uiState.value.message
         )
 
-        nowMillis = 110_001L
+        nowMillis = 102_001L
         viewModel.generateMenuIdea()
         advanceUntilIdle()
 
         assertEquals(1, analyzer.generateCalls)
         assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals(110_001L, aiRequestThrottleStore.storedLastRequestAtMillis)
+        assertEquals(102_001L, aiRequestThrottleStore.storedLastRequestAtMillis)
     }
 
     @Test
@@ -1207,6 +1250,34 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `persisted quota retry takes precedence over local request pause`() = runTest(dispatcher) {
+        var nowMillis = 120_000L
+        aiQuotaRetryStore.storedRetryAtMillis = 159_000L
+        aiRequestThrottleStore.storedLastRequestAtMillis = 110_000L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { nowMillis },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+
+        assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRequestThrottlePause)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
+        assertEquals(
+            "La IA está en pausa para evitar intentos repetidos. Tus menús siguen disponibles.",
+            viewModel.uiState.value.message
+        )
+    }
+
+    @Test
     fun `generate menu idea calls IA again after quota retry expires`() = runTest(dispatcher) {
         var nowMillis = 100_000L
         viewModel = MenuDadoViewModel(
@@ -1228,7 +1299,8 @@ class MenuDadoViewModelTest {
 
         assertEquals(2, analyzer.generateCalls)
         assertNull(viewModel.uiState.value.message)
-        assertNull(viewModel.uiState.value.aiRetryAtMillis)
+        assertEquals(164_000L, viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
         assertNull(aiQuotaRetryStore.storedRetryAtMillis)
         assertEquals("Tostada", viewModel.uiState.value.name)
     }
@@ -1391,7 +1463,7 @@ class MenuDadoViewModelTest {
         viewModel.generateMenuIdea()
         advanceUntilIdle()
 
-        nowMillis += 10_000L
+        nowMillis += 2_000L
         viewModel.analyzeExisting(
             FoodMenu(
                 id = 1,
@@ -1405,7 +1477,7 @@ class MenuDadoViewModelTest {
         assertEquals(1, analyzer.generateCalls)
         assertEquals(0, analyzer.analysisCalls)
         assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals(230_000L, viewModel.uiState.value.aiRetryAtMillis)
+        assertEquals(204_000L, viewModel.uiState.value.aiRetryAtMillis)
     }
 
     @Test

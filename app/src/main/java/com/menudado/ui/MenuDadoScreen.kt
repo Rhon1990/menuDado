@@ -1658,6 +1658,7 @@ private fun MenuForm(
         state.formAudience != null &&
         !state.isAnalyzing &&
         !state.isGeneratingMenu
+    val canUseAiActions = canUseFormActions && state.aiRetryAtMillis == null
 
     Card(
         modifier = Modifier
@@ -1737,7 +1738,7 @@ private fun MenuForm(
                     )
                     OutlinedButton(
                         onClick = onGenerate,
-                        enabled = canUseFormActions,
+                        enabled = canUseAiActions,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -2346,7 +2347,7 @@ private fun PendingAnalysisButton(
 ) {
     OutlinedButton(
         onClick = onAnalyzePending,
-        enabled = !isAnalyzing,
+        enabled = !isAnalyzing && !isAiPaused,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
@@ -3026,7 +3027,7 @@ private fun MenuDetailDialog(
                     if (menu.healthAnalysis == null) {
                         OutlinedButton(
                             onClick = onAnalyze,
-                            enabled = !isAnalyzing,
+                            enabled = !isAnalyzing && !isAiPaused,
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp)
                         ) {
@@ -3231,7 +3232,7 @@ private fun MenuCard(
                         if (menu.healthAnalysis == null) {
                             OutlinedButton(
                                 onClick = onAnalyze,
-                                enabled = !isAnalyzing,
+                                enabled = !isAnalyzing && !isAiPaused,
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
