@@ -710,6 +710,28 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `restored local request pause is cleared on startup and does not block generation`() = runTest(dispatcher) {
+        aiRequestThrottleStore.storedLastRequestAtMillis = 99_000L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { 100_000L },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertNull(viewModel.uiState.value.message)
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRequestThrottlePause)
+    }
+
+    @Test
     fun `generate menu idea stops loading and shows timeout message when IA takes too long`() = runTest(dispatcher) {
         analyzer.generateDelayMillis = 26_000L
         viewModel = MenuDadoViewModel(

@@ -1097,15 +1097,7 @@ class MenuDadoViewModel(
     }
 
     private fun refreshStoredAiRequestThrottle() {
-        val state = _uiState.value
-        if (state.aiRetryAtMillis != null && !state.isAiRequestThrottlePause) {
-            return
-        }
-        val lastRequestAtMillis = aiRequestThrottleStore.getLastRequestAtMillis() ?: return
-        val retryAtMillis = lastRequestAtMillis + AI_REQUEST_THROTTLE_MILLIS
-        if (retryAtMillis <= clockMillisProvider()) {
-            aiRequestThrottleStore.clearLastRequest()
-        }
+        aiRequestThrottleStore.clearLastRequest()
     }
 
     private fun refreshAiDailyUsage() {

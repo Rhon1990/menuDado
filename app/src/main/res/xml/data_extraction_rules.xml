@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="menu-dado-ai-daily-usage.xml" />
+        <exclude domain="sharedpref" path="menu-dado-ai-quota.xml" />
+        <exclude domain="sharedpref" path="menu-dado-ai-request-throttle.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="menu-dado-ai-daily-usage.xml" />
+        <exclude domain="sharedpref" path="menu-dado-ai-quota.xml" />
+        <exclude domain="sharedpref" path="menu-dado-ai-request-throttle.xml" />
+    </device-transfer>
+</data-extraction-rules>
