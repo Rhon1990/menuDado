@@ -8,6 +8,7 @@ import com.google.firebase.analytics.FirebaseAnalytics
 import com.menudado.analytics.FirebaseMenuDadoAnalytics
 import com.menudado.analytics.MenuDadoAnalytics
 import com.menudado.ai.FirebaseHealthAnalyzer
+import com.menudado.appcheck.installMenuDadoAppCheckProvider
 import com.menudado.backend.BackendAppMetadata
 import com.menudado.backend.FirebaseMenuDadoRemoteDataSource
 import com.menudado.backend.MenuDadoRemoteDataSource
@@ -183,6 +184,7 @@ class MenuDadoApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        installMenuDadoAppCheckProvider()
         applicationScope.launch {
             val pendingMenuCount = runCatching { repository.pendingSyncMenuCount() }.getOrDefault(0)
             analytics.trackBackendSyncRetried(BACKEND_SYNC_SOURCE_APP_START, pendingMenuCount)

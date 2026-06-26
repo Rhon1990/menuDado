@@ -224,8 +224,52 @@ fun MenuDadoScreen(
         isPhotoSourceDialogVisible = true
     }
 
-    BackHandler(enabled = audienceDetailRoute != null) {
-        audienceDetailRoute = menuAudienceDetailRouteAfterBack(audienceDetailRoute)
+    BackHandler(
+        enabled = drawerState.isOpen ||
+            adsPrivacyOptionsMessage != null ||
+            message != null ||
+            state.showOnboarding ||
+            isPhotoSourceDialogVisible ||
+            pendingDeleteMenuId != null ||
+            state.editingMenuId != null ||
+            selectedDetailMenuId != null ||
+            audienceDetailRoute != null ||
+            destination != MenuDadoDestination.HOME
+    ) {
+        when {
+            drawerState.isOpen -> {
+                coroutineScope.launch { drawerState.close() }
+            }
+            adsPrivacyOptionsMessage != null -> {
+                onAdsPrivacyOptionsMessageDismiss()
+            }
+            message != null -> {
+                viewModel.clearMessage()
+            }
+            state.showOnboarding -> {
+                viewModel.skipOnboarding()
+            }
+            isPhotoSourceDialogVisible -> {
+                isPhotoSourceDialogVisible = false
+                photoPickerMenuId = null
+            }
+            pendingDeleteMenuId != null -> {
+                pendingDeleteMenuId = menuDeleteConfirmationMenuIdAfterDismiss()
+            }
+            state.editingMenuId != null -> {
+                viewModel.cancelEditingMenu()
+            }
+            selectedDetailMenuId != null -> {
+                selectedDetailMenuId = null
+            }
+            audienceDetailRoute != null -> {
+                audienceDetailRoute = menuAudienceDetailRouteAfterBack(audienceDetailRoute)
+            }
+            destination != MenuDadoDestination.HOME -> {
+                selectedDestination = MenuDadoDestination.HOME.name
+                audienceDetailRoute = null
+            }
+        }
     }
 
     LaunchedEffect(audienceDetailRoute) {
@@ -597,10 +641,17 @@ fun MenuDadoScreen(
                     }
                 }
                 item {
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(96.dp))
                 }
             }
         }
+        Spacer(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MenuDadoColors.HeaderGreen)
+                .statusBarsPadding()
+                .align(Alignment.TopCenter)
+        )
         if (state.isGeneratingMenu) {
             AiGenerationLoadingOverlay()
         }

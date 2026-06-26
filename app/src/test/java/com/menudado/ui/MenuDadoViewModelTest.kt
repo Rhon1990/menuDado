@@ -666,7 +666,7 @@ class MenuDadoViewModelTest {
     }
 
     @Test
-    fun `generate menu idea shows local IA pause after real request without opening notice`() = runTest(dispatcher) {
+    fun `generate menu idea keeps local IA pause hidden after real request`() = runTest(dispatcher) {
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             clockMillisProvider = { 100_000L },
@@ -680,9 +680,33 @@ class MenuDadoViewModelTest {
         viewModel.generateMenuIdea()
         advanceUntilIdle()
 
-        assertEquals(104_000L, viewModel.uiState.value.aiRetryAtMillis)
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRequestThrottlePause)
         assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
         assertNull(viewModel.uiState.value.message)
+        assertEquals(100_000L, aiRequestThrottleStore.storedLastRequestAtMillis)
+    }
+
+    @Test
+    fun `typing base ingredients does not expose hidden local IA pause`() = runTest(dispatcher) {
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { 100_000L },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        viewModel.updateAiBaseIngredients("berenjera")
+
+        assertEquals("berenjera", viewModel.uiState.value.aiBaseIngredients)
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRequestThrottlePause)
+        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
     }
 
     @Test
@@ -1299,7 +1323,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(2, analyzer.generateCalls)
         assertNull(viewModel.uiState.value.message)
-        assertEquals(164_000L, viewModel.uiState.value.aiRetryAtMillis)
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
         assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
         assertNull(aiQuotaRetryStore.storedRetryAtMillis)
         assertEquals("Tostada", viewModel.uiState.value.name)

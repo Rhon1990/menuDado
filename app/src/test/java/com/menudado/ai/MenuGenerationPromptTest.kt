@@ -77,7 +77,8 @@ class MenuGenerationPromptTest {
 
         assertTrue(prompt.contains("ingredientes base"))
         assertTrue(prompt.contains("berenjena, tomate"))
-        assertTrue(prompt.contains("debe usar esos ingredientes"))
+        assertTrue(prompt.contains("debe incluir esos ingredientes"))
+        assertFalse(prompt.contains("ingredientes como base principal"))
     }
 
     @Test

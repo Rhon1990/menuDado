@@ -66,7 +66,7 @@ internal object MenuGenerationPrompt {
 
         return """
             Ingredientes base solicitados por el usuario: $ingredients.
-            Debe usar esos ingredientes como base principal, sin anadir ingredientes que contradigan el perfil alimentario.
+            Debe incluir esos ingredientes de forma natural en la receta, sin anadir ingredientes que contradigan el perfil alimentario.
         """.trimIndent()
     }
 

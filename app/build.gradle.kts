@@ -22,12 +22,14 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "GEMINI_MODEL", "\"gemini-2.5-flash-lite\"")
+        buildConfigField("String", "APP_CHECK_PROVIDER", "\"play_integrity\"")
     }
 
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
             resValue("string", "app_name", "MenuDado Debug")
+            buildConfigField("String", "APP_CHECK_PROVIDER", "\"debug\"")
             manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
             buildConfigField(
                 "String",
@@ -99,6 +101,7 @@ dependencies {
     implementation("androidx.room:room-runtime:2.8.3")
     implementation("com.google.firebase:firebase-ai:17.12.1")
     implementation("com.google.firebase:firebase-analytics:22.1.2")
+    implementation("com.google.firebase:firebase-appcheck-playintegrity:18.0.0")
     implementation("com.google.firebase:firebase-auth:23.1.0")
     implementation("com.google.firebase:firebase-firestore:25.1.1")
     implementation("com.google.android.gms:play-services-ads:24.7.0")
@@ -110,6 +113,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
 
+    debugImplementation("com.google.firebase:firebase-appcheck-debug:18.0.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     "releaseDebuggableImplementation"("androidx.compose.ui:ui-tooling")
