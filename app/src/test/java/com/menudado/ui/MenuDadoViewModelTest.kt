@@ -43,6 +43,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.util.Calendar
@@ -333,6 +334,40 @@ class MenuDadoViewModelTest {
         assertEquals("content://menu/photo/1", saved.imageUri)
         assertEquals(HealthStatus.HEALTHY, saved.healthAnalysis?.status)
         assertEquals(480, saved.calories)
+    }
+
+    @Test
+    fun `toggle favorite updates saved menu without clearing analysis or photo`() = runTest(dispatcher) {
+        val savedMenu = FoodMenu(
+            id = 8L,
+            name = "Pasta",
+            mealType = MealType.LUNCH,
+            description = "Pasta con tomate",
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Equilibrado.",
+                suggestion = "Mantener verduras.",
+                calories = 480
+            ),
+            calories = 480,
+            imageUri = "content://menu/photo/1"
+        )
+        dao.seed(listOf(savedMenu))
+        advanceUntilIdle()
+
+        viewModel.toggleFavorite(savedMenu)
+        advanceUntilIdle()
+
+        val saved = dao.saved.single().toDomain()
+        assertTrue(saved.isFavorite)
+        assertEquals(HealthStatus.HEALTHY, saved.healthAnalysis?.status)
+        assertEquals(480, saved.calories)
+        assertEquals("content://menu/photo/1", saved.imageUri)
+
+        viewModel.toggleFavorite(saved)
+        advanceUntilIdle()
+
+        assertFalse(dao.saved.single().toDomain().isFavorite)
     }
 
     @Test
@@ -752,6 +787,17 @@ class MenuDadoViewModelTest {
         assertFalse(viewModel.uiState.value.isGeneratingMenu)
         assertEquals("La IA tardó demasiado en responder. Revisa la conexión e inténtalo de nuevo.", viewModel.uiState.value.message)
         assertEquals(1, analyzer.generateCalls)
+    }
+
+    @Test
+    fun `generate menu idea stops loading even if post success tracking fails`() = runTest(dispatcher) {
+        analytics.throwOnAiMenuGenerationFinished = true
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals("Tostada", viewModel.uiState.value.name)
+        assertFalse(viewModel.uiState.value.isGeneratingMenu)
     }
 
     @Test
@@ -2204,6 +2250,7 @@ private class FakeAiDailyUsageStore : AiDailyUsageStore {
 
 private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
     val events = mutableListOf<String>()
+    var throwOnAiMenuGenerationFinished = false
 
     override fun trackAppOpened(deviceInfo: DeviceInfo?) {
         events += "app_opened"
@@ -2342,6 +2389,9 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
         healthStatus: HealthStatus?,
         failureType: String?
     ) {
+        if (throwOnAiMenuGenerationFinished) {
+            throw IllegalStateException("tracking failed")
+        }
         events += "ai_menu_generation_finished:${mealType.name}:$success:${healthStatus?.name?.lowercase() ?: "unknown"}:${failureType ?: "none"}"
     }
 

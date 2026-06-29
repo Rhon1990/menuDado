@@ -21,15 +21,13 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Archivo raster: `assets/logo/menu-dado-logo.png`.
 - Recurso de icono Android: `app/src/main/res/drawable-nodpi/menu_dado_symbol.png`.
 - Recursos de cabecera Android: `app/src/main/res/drawable-nodpi/menu_dado_symbol.png` y `app/src/main/res/drawable/menu_dado_wordmark.xml`.
-- Splash screen: usa el logo completo `app/src/main/res/drawable/menu_dado_logo.png` centrado sobre fondo sólido `#337551`; en Android 12+ se oculta el icono nativo del sistema para evitar un splash previo duplicado.
+- Splash screen: usa el logo completo `app/src/main/res/drawable/menu_dado_logo.png` centrado sobre fondo sólido `#2F765D`; en Android 12+ se oculta el icono nativo del sistema para evitar un splash previo duplicado.
 - Uso recomendado: el SVG como fuente principal de marca y el PNG para previsualizaciones o exportaciones temporales.
 - Estilo: ilustrado, cálido, apetitoso y cercano, con lectura clara como icono de app.
 
 ### Paleta de Colores
 
-- Verde marca: `#2F765D` - fondo principal de marca, saludable y confiable.
-- Verde cabecera: `#337551` - fondo sólido de la cabecera principal.
-- Verde profundo: `#1F4F43` - cabecera, barra de estado y contrastes fuertes.
+- Verde MenuDado: `#2F765D` - verde único para marca, cabecera, barra de estado, barra de navegación, botones principales y modales de acción.
 - Crema cálido: `#FFF7E7` - dado, fondos claros y contraste suave.
 - Crema del dado de platos: `#FBF2DC` - fondo específico de las caras del dado ilustrado.
 - Fondo app: `#FFF9EC` - fondo general cálido y limpio.
@@ -86,9 +84,12 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Filtrar por desayuno, almuerzo, cena o todos.
    - La sección `Tus menus` se organiza por público objetivo: persona adulta, peques y bebé, mostrando solo públicos activos en el perfil alimentario que además tengan menús guardados.
    - Cada público se presenta como carrusel horizontal con tarjetas compactas y visuales, mostrando por defecto los 10 menús más recientes de ese público.
+   - Los menús se pueden marcar como favoritos desde las tarjetas y desde el detalle. Los favoritos se muestran primero en cada carrusel y además en una sección `Favoritos` al inicio de `Tus menus`.
    - Las tarjetas muestran una portada: si el menú tiene `imageUri`, carga esa imagen local; si no, muestra un placeholder/skeleton visual coherente con la marca y el tipo de comida.
    - La acción `Ver mas` aparece en cada sección con menús y abre una pantalla interna manteniendo el header de la app. Esa pantalla muestra todos los menús de ese público en grilla, sin scroll horizontal, separados por desayuno, almuerzo y cena.
    - Al tocar un item de `Tus menus`, se abre un modal de detalle con descripción, notas, análisis IA y acciones.
+   - Las tarjetas y el modal de detalle ofrecen un menú de tres puntos con acciones de MenuDado sobre fondo verde de cabecera: `Foto del menú`, `Compartir`, `Editar` y `Eliminar`. `Foto del menú` abre el selector existente para tomar una foto con la cámara o elegir una imagen de la biblioteca.
+   - Desde el modal de detalle se puede compartir el menú como texto usando el sistema de compartir de Android, compatible con WhatsApp si está instalado. En esta fase no se comparte la imagen local del menú para evitar permisos y compatibilidad extra.
    - Al tocar `Eliminar`, la app debe pedir confirmación antes de borrar el menú de la lista.
    - Estado vacío que invita a crear el primer menú.
    - Si un menú tiene calorías estimadas, mostrarlas como `kcal aprox.` en tarjeta y modal solo cuando el menú ya tenga análisis IA.
@@ -138,6 +139,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Los menús siguen disponibles sin conexión.
    - Los menús, perfil alimentario, uso diario de IA y onboarding se guardan localmente primero y se sincronizan en Firestore bajo el usuario anónimo del dispositivo.
    - La migración local de Room a versión 7 marca los menús activos existentes como pendientes de subida para corregir instalaciones donde datos creados antes de la sincronización remota quedaron marcados como sincronizados aunque no existían todavía en Firestore.
+   - La migración local de Room a versión 8 agrega `isFavorite` a los menús existentes con valor inicial falso. El favorito forma parte del menú local-first y se sincroniza en Firestore junto con el resto del documento.
    - Si una operación remota falla, la app mantiene estado pendiente local para reintentar la sincronización de menús, perfil alimentario, uso diario de IA y onboarding en un siguiente arranque.
    - El análisis con IA requiere internet y muestra un error claro si no hay conexión.
 
@@ -199,7 +201,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - Eventos propios de activación e inventario: `first_menu_created`, `menu_inventory_changed`.
   - Eventos propios de formulario: `menu_form_started`, `menu_save_blocked`, `meal_type_selected`.
   - Eventos propios de filtros y navegación: `audience_filter_selected`, `menu_list_view_more_opened`.
-  - Eventos propios de edición multimedia: `menu_edit_started`, `menu_edit_saved`, `menu_photo_updated`.
+  - Eventos propios de edición multimedia: `menu_edit_started`, `menu_edit_saved`, `menu_photo_updated`; la apertura del selector cámara/biblioteca desde acciones rápidas se marca como `cta_tapped` con `cta=open_photo_source`.
   - Eventos propios del dado: `dice_filter_selected`, `dice_rolled`, `dice_empty_result`.
   - Eventos propios de consulta de contenido: `menu_card_opened`, `about_app_opened`.
   - Eventos propios de perfil alimentario: `dietary_profile_opened`, `dietary_profile_audience_selected`, `dietary_profile_updated`, sin enviar alérgenos, embarazo, condiciones ni texto libre.

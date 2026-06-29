@@ -61,6 +61,7 @@ class MenuDadoRemoteDataSourceTest {
             ),
             calories = 400,
             imageUri = "content://menu/42",
+            isFavorite = true,
             lastPickedDate = "2026-06-22",
             createdAt = 1_719_000_000_000L
         )
@@ -77,6 +78,7 @@ class MenuDadoRemoteDataSourceTest {
         assertEquals("Anade fruta si queda hambre.", document["healthSuggestion"])
         assertEquals(360, document["calories"])
         assertEquals("content://menu/42", document["imageUri"])
+        assertEquals(true, document["isFavorite"])
         assertEquals("2026-06-22", document["lastPickedDate"])
         assertEquals(1_719_000_000_000L, document["createdAt"])
     }

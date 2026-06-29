@@ -74,11 +74,8 @@ class MainActivity : ComponentActivity() {
         }
         (application as MenuDadoApplication).analytics.trackAppOpened(AndroidDeviceInfoProvider.current())
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(MenuDadoColors.HeaderGreen.toArgb()),
-            navigationBarStyle = SystemBarStyle.light(
-                MenuDadoColors.Background.toArgb(),
-                MenuDadoColors.Background.toArgb()
-            )
+            statusBarStyle = SystemBarStyle.dark(menuDadoStatusBarColor()),
+            navigationBarStyle = SystemBarStyle.dark(menuDadoNavigationBarColor())
         )
         setContent {
             MenuDadoTheme {
@@ -131,6 +128,10 @@ class MainActivity : ComponentActivity() {
         const val SPLASH_DURATION_MILLIS = 1_100L
     }
 }
+
+internal fun menuDadoStatusBarColor(): Int = MenuDadoColors.HeaderGreen.toArgb()
+
+internal fun menuDadoNavigationBarColor(): Int = MenuDadoColors.HeaderGreen.toArgb()
 
 @Composable
 private fun MenuDadoSplashScreen() {

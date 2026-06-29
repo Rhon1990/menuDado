@@ -168,6 +168,7 @@ internal object BackendFirestoreMapper {
             "healthSuggestion" to healthAnalysis?.suggestion,
             "calories" to (healthAnalysis?.calories ?: menu.calories),
             "imageUri" to menu.imageUri,
+            "isFavorite" to menu.isFavorite,
             "lastPickedDate" to menu.lastPickedDate,
             "createdAt" to menu.createdAt
         )

@@ -65,10 +65,12 @@ class MenuCardUiStateTest {
             name = "Pasta",
             mealType = MealType.LUNCH,
             description = "Pasta con tomate",
-            imageUri = "/local/menu-images/pasta.jpg"
+            imageUri = "/local/menu-images/pasta.jpg",
+            isFavorite = true
         )
 
         assertEquals("/local/menu-images/pasta.jpg", menu.toEntity().toDomain().imageUri)
+        assertEquals(true, menu.toEntity().toDomain().isFavorite)
     }
 
     @Test
@@ -111,7 +113,66 @@ class MenuCardUiStateTest {
         assertEquals(R.string.photo_library_description, menuPhotoLibraryOptionDescriptionRes())
         assertEquals(76, menuPhotoSourceOptionMinHeightDp())
         assertEquals(18, menuPhotoSourceSheetHorizontalPaddingDp())
+        assertEquals(menuActionSheetContainerColor(), menuPhotoSourceSheetContainerColor())
+        assertEquals(menuActionSheetContentColor(), menuPhotoSourceContentColor())
+        assertEquals(true, menuPhotoSourceDismissesOnOutsideTap())
+        assertEquals(Color.White, menuPhotoSourceOptionIconTint())
+        assertEquals(Color.White, menuPhotoSourceOptionTitleColor())
+        assertEquals(Color.White.copy(alpha = 0.78f), menuPhotoSourceOptionDescriptionColor())
         assertEquals(".fileprovider", menuPhotoFileProviderAuthoritySuffix())
+    }
+
+    @Test
+    fun `boton de favorito usa el estilo visual de la camara y mantiene rojo al activarse`() {
+        assertEquals(34, menuFavoriteActionButtonSizeDp())
+        assertEquals(2, menuFavoriteActionButtonInsetDp())
+        assertEquals(Color.Transparent, menuFavoriteActionButtonBackgroundColor())
+        assertEquals(Color(0xFFA4ADA9), menuFavoriteActionIconTint(isFavorite = false))
+        assertEquals(MenuDadoColors.Tomato, menuFavoriteActionIconTint(isFavorite = true))
+    }
+
+    @Test
+    fun `menu de tres puntos muestra acciones de menu con estilo MenuDado`() {
+        assertEquals(R.drawable.ic_more_vertical, menuOverflowActionIconRes())
+        assertEquals(34, menuOverflowActionButtonSizeDp())
+        assertEquals(2, menuOverflowActionButtonInsetDp())
+        assertEquals(Color.Transparent, menuOverflowActionButtonBackgroundColor())
+        assertEquals(Color(0xFFA4ADA9), menuOverflowActionIconTint())
+        assertEquals(R.string.menu_actions_open, menuOverflowActionContentDescriptionRes())
+        assertFalse(menuActionSheetShowsTitle())
+        assertEquals(MenuDadoColors.HeaderGreen, menuActionSheetContainerColor())
+        assertEquals(Color.White, menuActionSheetContentColor())
+        assertEquals(true, menuActionSheetDismissesOnOutsideTap())
+        assertEquals(
+            listOf(
+                MenuActionSheetAction.PHOTO,
+                MenuActionSheetAction.SHARE,
+                MenuActionSheetAction.EDIT,
+                MenuActionSheetAction.DELETE
+            ),
+            menuActionSheetActions()
+        )
+        assertEquals(R.string.menu_action_photo, menuActionSheetActionLabelRes(MenuActionSheetAction.PHOTO))
+        assertEquals(R.string.common_share, menuActionSheetActionLabelRes(MenuActionSheetAction.SHARE))
+        assertEquals(R.string.common_edit, menuActionSheetActionLabelRes(MenuActionSheetAction.EDIT))
+        assertEquals(R.string.common_delete, menuActionSheetActionLabelRes(MenuActionSheetAction.DELETE))
+        assertEquals(Color.White, menuActionSheetActionTint(MenuActionSheetAction.PHOTO))
+        assertEquals(Color.White, menuActionSheetActionTint(MenuActionSheetAction.SHARE))
+        assertEquals(Color.White, menuActionSheetActionTint(MenuActionSheetAction.EDIT))
+        assertEquals(Color.White, menuActionSheetActionTint(MenuActionSheetAction.DELETE))
+    }
+
+    @Test
+    fun `barra inferior de navegacion usa el verde de cabecera`() {
+        assertEquals(MenuDadoColors.HeaderGreen, menuDadoNavigationBarScrimColor())
+    }
+
+    @Test
+    fun `verdes principales usan un unico verde MenuDado`() {
+        assertEquals(MenuDadoColors.BrandGreen, MenuDadoColors.HeaderGreen)
+        assertEquals(MenuDadoColors.BrandGreen, MenuDadoColors.DeepGreen)
+        assertEquals(MenuDadoColors.BrandGreen, menuActionSheetContainerColor())
+        assertEquals(MenuDadoColors.BrandGreen, menuDadoNavigationBarScrimColor())
     }
 
     @Test
@@ -158,6 +219,36 @@ class MenuCardUiStateTest {
         )
 
         assertEquals((12L downTo 3L).toList(), visible.map { it.id })
+    }
+
+    @Test
+    fun `carrusel muestra favoritos primero y luego menus recientes`() {
+        val menus = listOf(
+            FoodMenu(id = 1L, name = "Reciente", mealType = MealType.BREAKFAST, audience = MenuAudience.ADULT, description = "A", createdAt = 30L),
+            FoodMenu(id = 2L, name = "Favorito antiguo", mealType = MealType.BREAKFAST, audience = MenuAudience.ADULT, description = "B", createdAt = 1L, isFavorite = true),
+            FoodMenu(id = 3L, name = "Favorito nuevo", mealType = MealType.BREAKFAST, audience = MenuAudience.ADULT, description = "C", createdAt = 20L, isFavorite = true)
+        )
+
+        val visible = menuCarouselVisibleMenus(
+            menus = menus,
+            audience = MenuAudience.ADULT,
+            isExpanded = true
+        )
+
+        assertEquals(listOf(3L, 2L, 1L), visible.map { it.id })
+    }
+
+    @Test
+    fun `seccion favoritos muestra solo menus favoritos ordenados por recientes`() {
+        val menus = listOf(
+            FoodMenu(id = 1L, name = "Normal", mealType = MealType.BREAKFAST, audience = MenuAudience.ADULT, description = "A", createdAt = 30L),
+            FoodMenu(id = 2L, name = "Favorito viejo", mealType = MealType.LUNCH, audience = MenuAudience.ADULT, description = "B", createdAt = 1L, isFavorite = true),
+            FoodMenu(id = 3L, name = "Favorito nuevo", mealType = MealType.DINNER, audience = MenuAudience.CHILD, description = "C", createdAt = 20L, isFavorite = true)
+        )
+
+        assertEquals(listOf(3L, 2L), menuFavoriteMenus(menus).map { it.id })
+        assertTrue(menuShouldShowFavoriteSection(menus))
+        assertFalse(menuShouldShowFavoriteSection(listOf(menus.first())))
     }
 
     @Test
@@ -231,6 +322,43 @@ class MenuCardUiStateTest {
         assertEquals(listOf(MealType.BREAKFAST, MealType.DINNER), groups.map { it.mealType })
         assertEquals(listOf(4L, 3L), groups[0].menus.map { it.id })
         assertEquals(listOf(1L), groups[1].menus.map { it.id })
+    }
+
+    @Test
+    fun `texto compartido del menu incluye datos utiles sin imagen local`() {
+        val menu = FoodMenu(
+            id = 1L,
+            name = "Tostas Mediterraneas",
+            mealType = MealType.LUNCH,
+            audience = MenuAudience.ADULT,
+            description = "Pan integral, garbanzos y tomate.",
+            notes = "Servir frio.",
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Aporta fibra.",
+                suggestion = "Agrega limon."
+            ),
+            calories = 450,
+            imageUri = "content://menu/photo/1"
+        )
+
+        assertEquals(
+            """
+            MenuDado
+
+            Almuerzo para Adulto
+            Tostas Mediterraneas
+
+            Ingredientes o descripcion:
+            Pan integral, garbanzos y tomate.
+
+            Notas:
+            Servir frio.
+
+            Saludable · 450 kcal aprox.
+            """.trimIndent(),
+            menuShareText(menu)
+        )
     }
 
     @Test

@@ -684,47 +684,54 @@ class MenuDadoViewModel(
         }
 
         viewModelScope.launch {
-            withAiRequestTimeout {
-                repository.generateMenu(
-                    mealType = mealType,
-                    avoidIdeas = avoidIdeas,
-                    dietaryProfile = profile,
-                    audience = audience,
-                    baseIngredients = state.aiBaseIngredients.trim(),
-                    language = AppLanguage.fromLocale()
-                )
-            }
-                .onSuccess { generated ->
-                    aiQuotaRetryStore.clearRetryState()
-                    rememberGeneratedIdea(mealType, audience, generated.name, generated.description)
-                    _uiState.update {
-                        it.copy(
-                            name = generated.name,
-                            description = generated.description,
-                            notes = generated.notes,
-                            calories = generated.calories,
-                            generatedHealthAnalysis = generated.healthAnalysis,
-                            isAiRetryNoticeVisible = false
-                        )
+            try {
+                withAiRequestTimeout {
+                    repository.generateMenu(
+                        mealType = mealType,
+                        avoidIdeas = avoidIdeas,
+                        dietaryProfile = profile,
+                        audience = audience,
+                        baseIngredients = state.aiBaseIngredients.trim(),
+                        language = AppLanguage.fromLocale()
+                    )
+                }
+                    .onSuccess { generated ->
+                        aiQuotaRetryStore.clearRetryState()
+                        rememberGeneratedIdea(mealType, audience, generated.name, generated.description)
+                        _uiState.update {
+                            it.copy(
+                                name = generated.name,
+                                description = generated.description,
+                                notes = generated.notes,
+                                calories = generated.calories,
+                                generatedHealthAnalysis = generated.healthAnalysis,
+                                isAiRetryNoticeVisible = false
+                            )
+                        }
+                        runCatching {
+                            analytics.trackAiMenuGenerationFinished(
+                                mealType = mealType,
+                                success = true,
+                                healthStatus = generated.healthAnalysis?.status,
+                                failureType = null
+                            )
+                        }
                     }
-                    analytics.trackAiMenuGenerationFinished(
-                        mealType = mealType,
-                        success = true,
-                        healthStatus = generated.healthAnalysis?.status,
-                        failureType = null
-                    )
-                }
-                .onFailure { error ->
-                    val notice = error.toAiFailureNotice(clockMillisProvider(), currentLanguage())
-                    showAiFailureNotice(notice)
-                    analytics.trackAiMenuGenerationFinished(
-                        mealType = mealType,
-                        success = false,
-                        healthStatus = null,
-                        failureType = error.analyticsFailureType()
-                    )
-                }
-            _uiState.update { it.copy(isGeneratingMenu = false) }
+                    .onFailure { error ->
+                        val notice = error.toAiFailureNotice(clockMillisProvider(), currentLanguage())
+                        showAiFailureNotice(notice)
+                        runCatching {
+                            analytics.trackAiMenuGenerationFinished(
+                                mealType = mealType,
+                                success = false,
+                                healthStatus = null,
+                                failureType = error.analyticsFailureType()
+                            )
+                        }
+                    }
+            } finally {
+                _uiState.update { it.copy(isGeneratingMenu = false) }
+            }
         }
     }
 
@@ -1004,6 +1011,12 @@ class MenuDadoViewModel(
                 analyzedMenuCount = remainingMenus.countAnalyzed(),
                 pendingAnalysisCount = remainingMenus.countPendingAnalysis()
             )
+        }
+    }
+
+    fun toggleFavorite(menu: FoodMenu) {
+        viewModelScope.launch {
+            repository.save(menu.copy(isFavorite = !menu.isFavorite))
         }
     }
 

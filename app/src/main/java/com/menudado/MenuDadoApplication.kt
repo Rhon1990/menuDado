@@ -86,6 +86,12 @@ class MenuDadoApplication : Application() {
         }
     }
 
+    private val migration7To8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE menus ADD COLUMN isFavorite INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
     private val database: MenuDadoDatabase by lazy {
         Room.databaseBuilder(
             applicationContext,
@@ -98,7 +104,8 @@ class MenuDadoApplication : Application() {
                 migration3To4,
                 migration4To5,
                 migration5To6,
-                migration6To7
+                migration6To7,
+                migration7To8
             )
             .build()
     }

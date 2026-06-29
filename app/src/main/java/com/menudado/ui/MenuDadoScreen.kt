@@ -38,15 +38,18 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -171,6 +174,7 @@ fun MenuDadoScreen(
     var audienceDetailRoute by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedDetailMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var pendingDeleteMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var actionSheetMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var photoPickerMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var isPhotoSourceDialogVisible by rememberSaveable { mutableStateOf(false) }
     var pendingCameraUriString by rememberSaveable { mutableStateOf<String?>(null) }
@@ -190,6 +194,9 @@ fun MenuDadoScreen(
     }
     val pendingDeleteMenu = pendingDeleteMenuId?.let { pendingId ->
         state.menus.firstOrNull { it.id == pendingId }
+    }
+    val actionSheetMenu = actionSheetMenuId?.let { actionMenuId ->
+        state.menus.firstOrNull { it.id == actionMenuId }
     }
     fun saveSelectedPhoto(uriString: String) {
         val menuId = photoPickerMenuId
@@ -223,12 +230,12 @@ fun MenuDadoScreen(
         photoPickerMenuId = menuId
         isPhotoSourceDialogVisible = true
     }
-
     BackHandler(
         enabled = drawerState.isOpen ||
             adsPrivacyOptionsMessage != null ||
             message != null ||
             state.showOnboarding ||
+            actionSheetMenuId != null ||
             isPhotoSourceDialogVisible ||
             pendingDeleteMenuId != null ||
             state.editingMenuId != null ||
@@ -248,6 +255,9 @@ fun MenuDadoScreen(
             }
             state.showOnboarding -> {
                 viewModel.skipOnboarding()
+            }
+            actionSheetMenuId != null -> {
+                actionSheetMenuId = null
             }
             isPhotoSourceDialogVisible -> {
                 isPhotoSourceDialogVisible = false
@@ -291,6 +301,9 @@ fun MenuDadoScreen(
         }
         if (pendingDeleteMenuId != null && state.menus.none { it.id == pendingDeleteMenuId }) {
             pendingDeleteMenuId = null
+        }
+        if (actionSheetMenuId != null && state.menus.none { it.id == actionSheetMenuId }) {
+            actionSheetMenuId = null
         }
     }
 
@@ -423,6 +436,39 @@ fun MenuDadoScreen(
         )
     }
 
+    actionSheetMenu?.let { menu ->
+        MenuActionsSheet(
+            menu = menu,
+            onOpenPhotoSource = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_OPEN_PHOTO_SOURCE)
+                actionSheetMenuId = null
+                showPhotoSourceFor(menu.id)
+            },
+            onShare = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_SHARE_MENU)
+                actionSheetMenuId = null
+                shareMenu(context, menu)
+            },
+            onEdit = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_EDIT_MENU)
+                actionSheetMenuId = null
+                if (selectedDetailMenuId == menu.id) {
+                    selectedDetailMenuId = null
+                }
+                viewModel.startEditingMenu(menu)
+            },
+            onDelete = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_DELETE_MENU)
+                actionSheetMenuId = null
+                pendingDeleteMenuId = menuDeleteConfirmationMenuIdAfterDeleteClick(menu)
+            },
+            onDismiss = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_CLOSE_MENU_ACTIONS)
+                actionSheetMenuId = null
+            }
+        )
+    }
+
     selectedDetailMenu?.let { menu ->
         MenuDetailDialog(
             menu = menu,
@@ -433,14 +479,13 @@ fun MenuDadoScreen(
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_ANALYZE_MENU)
                 viewModel.analyzeExisting(menu)
             },
-            onEdit = {
-                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_EDIT_MENU)
-                selectedDetailMenuId = null
-                viewModel.startEditingMenu(menu)
+            onToggleFavorite = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_TOGGLE_FAVORITE)
+                viewModel.toggleFavorite(menu)
             },
-            onDelete = {
-                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_DELETE_MENU)
-                pendingDeleteMenuId = menuDeleteConfirmationMenuIdAfterDeleteClick(menu)
+            onOpenActions = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_OPEN_MENU_ACTIONS)
+                actionSheetMenuId = menu.id
             },
             onDismiss = {
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_CLOSE_MENU_DETAIL)
@@ -545,9 +590,13 @@ fun MenuDadoScreen(
                                         viewModel.trackMenuCardOpened(menu)
                                         selectedDetailMenuId = menu.id
                                     },
-                                    onPickImage = { menu ->
-                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_CHANGE_PHOTO)
-                                        showPhotoSourceFor(menuId = menu.id)
+                                    onOpenActions = { menu ->
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_OPEN_MENU_ACTIONS)
+                                        actionSheetMenuId = menu.id
+                                    },
+                                    onToggleFavorite = { menu ->
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_TOGGLE_FAVORITE)
+                                        viewModel.toggleFavorite(menu)
                                     }
                                 )
                             }
@@ -630,9 +679,13 @@ fun MenuDadoScreen(
                                             viewModel.trackMenuCardOpened(menu)
                                             selectedDetailMenuId = menu.id
                                         },
-                                        onPickImage = { menu ->
-                                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_CHANGE_PHOTO)
-                                            showPhotoSourceFor(menuId = menu.id)
+                                        onOpenActions = { menu ->
+                                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_OPEN_MENU_ACTIONS)
+                                            actionSheetMenuId = menu.id
+                                        },
+                                        onToggleFavorite = { menu ->
+                                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_TOGGLE_FAVORITE)
+                                            viewModel.toggleFavorite(menu)
                                         }
                                     )
                                 }
@@ -651,6 +704,13 @@ fun MenuDadoScreen(
                 .background(MenuDadoColors.HeaderGreen)
                 .statusBarsPadding()
                 .align(Alignment.TopCenter)
+        )
+        Spacer(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                .background(menuDadoNavigationBarScrimColor())
+                .align(Alignment.BottomCenter)
         )
         if (state.isGeneratingMenu) {
             AiGenerationLoadingOverlay()
@@ -1198,6 +1258,18 @@ private fun AiQuotaDialog(
                 )
             }
         }
+    )
+}
+
+private fun shareMenu(context: Context, menu: FoodMenu) {
+    val intent = Intent(Intent.ACTION_SEND)
+        .setType("text/plain")
+        .putExtra(Intent.EXTRA_TEXT, menuShareText(menu))
+    context.startActivity(
+        Intent.createChooser(
+            intent,
+            context.getString(R.string.share_menu_chooser)
+        )
     )
 }
 
@@ -2426,9 +2498,18 @@ private fun MenuCarouselSections(
     enabledAudiences: List<MenuAudience>,
     onViewMore: (MenuAudience) -> Unit,
     onOpenMenu: (FoodMenu) -> Unit,
-    onPickImage: (FoodMenu) -> Unit
+    onOpenActions: (FoodMenu) -> Unit,
+    onToggleFavorite: (FoodMenu) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        if (menuShouldShowFavoriteSection(menus)) {
+            FavoriteMenuCarouselSection(
+                menus = menuFavoriteMenus(menus).take(MenuCarouselCollapsedLimit),
+                onOpenMenu = onOpenMenu,
+                onOpenActions = onOpenActions,
+                onToggleFavorite = onToggleFavorite
+            )
+        }
         menuCarouselAudiencesWithMenus(menus, enabledAudiences).forEach { audience ->
             MenuCarouselSection(
                 audience = audience,
@@ -2440,8 +2521,40 @@ private fun MenuCarouselSections(
                 showToggle = menuCarouselShowsToggle(menus, audience),
                 onViewMore = { onViewMore(audience) },
                 onOpenMenu = onOpenMenu,
-                onPickImage = onPickImage
+                onOpenActions = onOpenActions,
+                onToggleFavorite = onToggleFavorite
             )
+        }
+    }
+}
+
+@Composable
+private fun FavoriteMenuCarouselSection(
+    menus: List<FoodMenu>,
+    onOpenMenu: (FoodMenu) -> Unit,
+    onOpenActions: (FoodMenu) -> Unit,
+    onToggleFavorite: (FoodMenu) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = stringResource(id = R.string.favorite_menus),
+            modifier = Modifier.padding(horizontal = 20.dp),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Black,
+            color = MenuDadoColors.Ink
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(items = menus, key = { it.id }) { menu ->
+                MenuCarouselItem(
+                    menu = menu,
+                    onOpenMenu = { onOpenMenu(menu) },
+                    onOpenActions = { onOpenActions(menu) },
+                    onToggleFavorite = { onToggleFavorite(menu) }
+                )
+            }
         }
     }
 }
@@ -2453,7 +2566,8 @@ private fun MenuCarouselSection(
     showToggle: Boolean,
     onViewMore: () -> Unit,
     onOpenMenu: (FoodMenu) -> Unit,
-    onPickImage: (FoodMenu) -> Unit
+    onOpenActions: (FoodMenu) -> Unit,
+    onToggleFavorite: (FoodMenu) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
@@ -2490,7 +2604,8 @@ private fun MenuCarouselSection(
                 MenuCarouselItem(
                     menu = menu,
                     onOpenMenu = { onOpenMenu(menu) },
-                    onPickImage = { onPickImage(menu) }
+                    onOpenActions = { onOpenActions(menu) },
+                    onToggleFavorite = { onToggleFavorite(menu) }
                 )
             }
         }
@@ -2501,7 +2616,8 @@ private fun MenuCarouselSection(
 private fun MenuCarouselItem(
     menu: FoodMenu,
     onOpenMenu: () -> Unit,
-    onPickImage: () -> Unit,
+    onOpenActions: () -> Unit,
+    onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier.width(150.dp)
 ) {
     Card(
@@ -2513,14 +2629,24 @@ private fun MenuCarouselItem(
         shape = RoundedCornerShape(8.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            MenuCoverImage(
-                menu = menu,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(112.dp),
-                showMealTypeLabel = true,
-                onPickImage = onPickImage
-            )
+            Box {
+                MenuCoverImage(
+                    menu = menu,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(112.dp),
+                    showMealTypeLabel = true
+                )
+                FavoriteMenuIconButton(
+                    isFavorite = menu.isFavorite,
+                    onToggleFavorite = onToggleFavorite,
+                    modifier = Modifier.align(Alignment.TopStart)
+                )
+                MenuOverflowActionButton(
+                    onOpenActions = onOpenActions,
+                    modifier = Modifier.align(Alignment.TopEnd)
+                )
+            }
             Text(
                 text = menu.name,
                 modifier = Modifier.height(menuCarouselItemTitleHeightDp().dp),
@@ -2551,7 +2677,8 @@ private fun MenuAudienceDetailScreen(
     menus: List<FoodMenu>,
     onBack: () -> Unit,
     onOpenMenu: (FoodMenu) -> Unit,
-    onPickImage: (FoodMenu) -> Unit
+    onOpenActions: (FoodMenu) -> Unit,
+    onToggleFavorite: (FoodMenu) -> Unit
 ) {
     val groups = menuAudienceDetailGroups(menus, audience)
     Column(
@@ -2593,7 +2720,8 @@ private fun MenuAudienceDetailScreen(
             MenuAudienceMealGroupSection(
                 group = group,
                 onOpenMenu = onOpenMenu,
-                onPickImage = onPickImage
+                onOpenActions = onOpenActions,
+                onToggleFavorite = onToggleFavorite
             )
         }
     }
@@ -2603,7 +2731,8 @@ private fun MenuAudienceDetailScreen(
 private fun MenuAudienceMealGroupSection(
     group: MenuAudienceMealGroup,
     onOpenMenu: (FoodMenu) -> Unit,
-    onPickImage: (FoodMenu) -> Unit
+    onOpenActions: (FoodMenu) -> Unit,
+    onToggleFavorite: (FoodMenu) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
@@ -2622,7 +2751,8 @@ private fun MenuAudienceMealGroupSection(
                     MenuCarouselItem(
                         menu = menu,
                         onOpenMenu = { onOpenMenu(menu) },
-                        onPickImage = { onPickImage(menu) },
+                        onOpenActions = { onOpenActions(menu) },
+                        onToggleFavorite = { onToggleFavorite(menu) },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -2749,6 +2879,29 @@ private fun MenuPhotoActionButton(
 }
 
 @Composable
+private fun MenuOverflowActionButton(
+    onOpenActions: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val actionDescription = stringResource(id = menuOverflowActionContentDescriptionRes())
+    IconButton(
+        onClick = onOpenActions,
+        modifier = modifier
+            .padding(menuOverflowActionButtonInsetDp().dp)
+            .size(menuOverflowActionButtonSizeDp().dp)
+            .background(menuOverflowActionButtonBackgroundColor(), CircleShape)
+            .semantics { contentDescription = actionDescription }
+    ) {
+        Icon(
+            painter = painterResource(id = menuOverflowActionIconRes()),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = menuOverflowActionIconTint()
+        )
+    }
+}
+
+@Composable
 private fun MenuPhotoSourceDialog(
     onTakePhoto: () -> Unit,
     onChooseFromLibrary: () -> Unit,
@@ -2761,46 +2914,50 @@ private fun MenuPhotoSourceDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = menuPhotoSourceSheetHorizontalPaddingDp().dp)
+                .clickable(onClick = onDismiss)
                 .navigationBarsPadding(),
             contentAlignment = Alignment.BottomCenter
         ) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+                    .clickable(onClick = {}),
+                colors = CardDefaults.cardColors(containerColor = menuPhotoSourceSheetContainerColor()),
                 elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(18.dp),
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.menu_dado_symbol),
-                            contentDescription = null,
-                            modifier = Modifier.size(42.dp)
-                        )
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                text = stringResource(id = R.string.photo_source_title),
-                                color = MenuDadoColors.Ink,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Black
-                            )
-                            Text(
-                                text = stringResource(id = R.string.photo_source_subtitle),
-                                color = MenuDadoColors.MutedInk,
-                                style = MaterialTheme.typography.bodyMedium,
-                                lineHeight = 18.sp
-                            )
-                        }
-                    }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .width(86.dp)
+                            .height(5.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(menuPhotoSourceContentColor().copy(alpha = 0.42f))
+                    )
+                    Text(
+                        text = stringResource(id = R.string.photo_source_title),
+                        color = menuPhotoSourceContentColor(),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = stringResource(id = R.string.photo_source_subtitle),
+                        color = menuPhotoSourceOptionDescriptionColor(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        lineHeight = 18.sp
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(menuPhotoSourceContentColor().copy(alpha = 0.22f))
+                    )
 
                     MenuPhotoSourceOption(
                         iconRes = R.drawable.ic_photo_camera,
@@ -2822,7 +2979,7 @@ private fun MenuPhotoSourceDialog(
                     ) {
                         Text(
                             text = stringResource(id = R.string.common_cancel),
-                            color = MenuDadoColors.DeepGreen,
+                            color = menuPhotoSourceContentColor(),
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -2839,58 +2996,161 @@ private fun MenuPhotoSourceOption(
     description: String,
     onClick: () -> Unit
 ) {
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(menuPhotoSourceOptionMinHeightDp().dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Cream.copy(alpha = 0.72f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MenuDadoColors.OutlineBrown.copy(alpha = 0.18f)),
-        shape = RoundedCornerShape(8.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(menuPhotoSourceContentColor().copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = menuPhotoSourceOptionIconTint()
+            )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = title,
+                color = menuPhotoSourceOptionTitleColor(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = description,
+                color = menuPhotoSourceOptionDescriptionColor(),
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun MenuActionsSheet(
+    menu: FoodMenu,
+    onOpenPhotoSource: () -> Unit,
+    onShare: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val callbacks = mapOf(
+        MenuActionSheetAction.PHOTO to onOpenPhotoSource,
+        MenuActionSheetAction.SHARE to onShare,
+        MenuActionSheetAction.EDIT to onEdit,
+        MenuActionSheetAction.DELETE to onDelete
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .clickable(onClick = onDismiss)
+                .navigationBarsPadding(),
+            contentAlignment = Alignment.BottomCenter
         ) {
-            Box(
+            Card(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MenuDadoColors.Avocado.copy(alpha = 0.18f)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .clickable(onClick = {}),
+                colors = CardDefaults.cardColors(containerColor = menuActionSheetContainerColor()),
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = MenuDadoColors.DeepGreen
-                )
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = title,
-                    color = MenuDadoColors.Ink,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = description,
-                    color = MenuDadoColors.MutedInk,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .width(86.dp)
+                            .height(5.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(menuActionSheetContentColor().copy(alpha = 0.42f))
+                    )
+                    Text(
+                        text = menu.name,
+                        color = menuActionSheetContentColor(),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(menuActionSheetContentColor().copy(alpha = 0.22f))
+                    )
+                    menuActionSheetActions().forEach { action ->
+                        MenuActionSheetRow(
+                            action = action,
+                            onClick = callbacks.getValue(action)
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun MenuActionSheetRow(
+    action: MenuActionSheetAction,
+    onClick: () -> Unit
+) {
+    val tint = menuActionSheetActionTint(action)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(menuActionSheetContentColor().copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = menuActionSheetActionIconRes(action)),
+                contentDescription = null,
+                modifier = Modifier.size(23.dp),
+                colorFilter = ColorFilter.tint(tint)
+            )
+        }
+        Text(
+            text = stringResource(id = menuActionSheetActionLabelRes(action)),
+            color = tint,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -3001,8 +3261,8 @@ private fun MenuDetailDialog(
     aiUsesRemainingToday: Int,
     isAiPaused: Boolean,
     onAnalyze: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onOpenActions: () -> Unit,
     onDismiss: () -> Unit
 ) {
     Dialog(
@@ -3033,6 +3293,19 @@ private fun MenuDetailDialog(
                     )
                     MenuDetailHeroScrim(menu = menu)
                     MenuDetailHeroText(menu = menu)
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FavoriteMenuIconButton(
+                            isFavorite = menu.isFavorite,
+                            onToggleFavorite = onToggleFavorite
+                        )
+                        MenuOverflowActionButton(onOpenActions = onOpenActions)
+                    }
                 }
 
                 Column(
@@ -3068,49 +3341,30 @@ private fun MenuDetailDialog(
                     }
                 }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (menu.healthAnalysis == null) {
-                        OutlinedButton(
-                            onClick = onAnalyze,
-                            enabled = !isAnalyzing && !isAiPaused,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = analyzeAiButtonText(
-                                    isAnalyzing = isAnalyzing,
-                                    isAiPaused = isAiPaused,
-                                    usesRemaining = aiUsesRemainingToday,
-                                    analyzingText = stringResource(id = R.string.ai_analyzing),
-                                    restingText = stringResource(id = R.string.ai_resting),
-                                    availableText = stringResource(
-                                        id = R.string.ai_analyze_with_count,
-                                        aiUsesRemainingToday
-                                    )
-                                ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                softWrap = false
-                            )
-                        }
-                        EditMenuButton(onEdit = onEdit, compact = true)
-                        DeleteMenuButton(onDelete = onDelete, compact = true)
-                    } else {
-                        EditMenuButton(
-                            onEdit = onEdit,
-                            compact = false,
-                            modifier = Modifier.weight(1f)
-                        )
-                        DeleteMenuButton(
-                            onDelete = onDelete,
-                            compact = false,
-                            modifier = Modifier.weight(1f)
+                if (menu.healthAnalysis == null) {
+                    OutlinedButton(
+                        onClick = onAnalyze,
+                        enabled = !isAnalyzing && !isAiPaused,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 12.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = analyzeAiButtonText(
+                                isAnalyzing = isAnalyzing,
+                                isAiPaused = isAiPaused,
+                                usesRemaining = aiUsesRemainingToday,
+                                analyzingText = stringResource(id = R.string.ai_analyzing),
+                                restingText = stringResource(id = R.string.ai_resting),
+                                availableText = stringResource(
+                                    id = R.string.ai_analyze_with_count,
+                                    aiUsesRemainingToday
+                                )
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false
                         )
                     }
                 }
@@ -3368,13 +3622,23 @@ internal fun menuCarouselVisibleMenus(
 ): List<FoodMenu> {
     val audienceMenus = menus
         .filter { it.audience == audience }
-        .sortedByDescending { it.createdAt }
+        .menuSortedForDisplay()
 
     return if (isExpanded) {
         audienceMenus
     } else {
         audienceMenus.take(MenuCarouselCollapsedLimit)
     }
+}
+
+internal fun menuFavoriteMenus(menus: List<FoodMenu>): List<FoodMenu> {
+    return menus
+        .filter { it.isFavorite }
+        .sortedByDescending { it.createdAt }
+}
+
+internal fun menuShouldShowFavoriteSection(menus: List<FoodMenu>): Boolean {
+    return menus.any { it.isFavorite }
 }
 
 internal fun menuCarouselAudiencesWithMenus(
@@ -3432,13 +3696,41 @@ internal fun menuAudienceDetailGroups(
     return MealType.entries.mapNotNull { mealType ->
         val mealMenus = menus
             .filter { it.audience == audience && it.mealType == mealType }
-            .sortedByDescending { it.createdAt }
+            .menuSortedForDisplay()
         if (mealMenus.isEmpty()) {
             null
         } else {
             MenuAudienceMealGroup(mealType = mealType, menus = mealMenus)
         }
     }
+}
+
+internal fun menuShareText(menu: FoodMenu): String {
+    return buildString {
+        appendLine("MenuDado")
+        appendLine()
+        appendLine("${menu.mealType.label} para ${menu.audience.label}")
+        appendLine(menu.name)
+        appendLine()
+        appendLine("Ingredientes o descripcion:")
+        appendLine(menu.description)
+        if (menu.notes.isNotBlank()) {
+            appendLine()
+            appendLine("Notas:")
+            appendLine(menu.notes)
+        }
+        menuVisibleCalories(menu)?.let { calories ->
+            appendLine()
+            append("${menu.healthAnalysis?.status?.label ?: HealthStatus.UNKNOWN.label} · $calories kcal aprox.")
+        }
+    }.trimEnd()
+}
+
+private fun List<FoodMenu>.menuSortedForDisplay(): List<FoodMenu> {
+    return sortedWith(
+        compareByDescending<FoodMenu> { it.isFavorite }
+            .thenByDescending { it.createdAt }
+    )
 }
 
 @StringRes
@@ -3506,6 +3798,13 @@ internal fun menuDetailHeroScrimEndAlphaPercent(): Int = 18
 
 internal fun menuDetailTitleMaxLines(): Int = 2
 
+internal enum class MenuActionSheetAction {
+    PHOTO,
+    SHARE,
+    EDIT,
+    DELETE
+}
+
 internal fun menuPhotoActionIconRes(): Int = R.drawable.ic_photo_camera
 
 internal fun menuPhotoActionButtonSizeDp(): Int = 34
@@ -3513,6 +3812,75 @@ internal fun menuPhotoActionButtonSizeDp(): Int = 34
 internal fun menuPhotoActionButtonInsetDp(): Int = 2
 
 internal fun menuPhotoActionButtonBackgroundColor(): Color = Color.Transparent
+
+internal fun menuFavoriteActionButtonSizeDp(): Int = menuPhotoActionButtonSizeDp()
+
+internal fun menuFavoriteActionButtonInsetDp(): Int = menuPhotoActionButtonInsetDp()
+
+internal fun menuFavoriteActionButtonBackgroundColor(): Color = menuPhotoActionButtonBackgroundColor()
+
+internal fun menuFavoriteActionIconTint(isFavorite: Boolean): Color {
+    return if (isFavorite) {
+        MenuDadoColors.Tomato
+    } else {
+        menuPhotoActionIconTint()
+    }
+}
+
+internal fun menuOverflowActionIconRes(): Int = R.drawable.ic_more_vertical
+
+internal fun menuOverflowActionButtonSizeDp(): Int = menuPhotoActionButtonSizeDp()
+
+internal fun menuOverflowActionButtonInsetDp(): Int = menuPhotoActionButtonInsetDp()
+
+internal fun menuOverflowActionButtonBackgroundColor(): Color = menuPhotoActionButtonBackgroundColor()
+
+internal fun menuOverflowActionIconTint(): Color = menuPhotoActionIconTint()
+
+@StringRes
+internal fun menuOverflowActionContentDescriptionRes(): Int = R.string.menu_actions_open
+
+internal fun menuActionSheetShowsTitle(): Boolean = false
+
+internal fun menuActionSheetContainerColor(): Color = MenuDadoColors.HeaderGreen
+
+internal fun menuActionSheetContentColor(): Color = Color.White
+
+internal fun menuActionSheetDismissesOnOutsideTap(): Boolean = true
+
+internal fun menuActionSheetActions(): List<MenuActionSheetAction> {
+    return listOf(
+        MenuActionSheetAction.PHOTO,
+        MenuActionSheetAction.SHARE,
+        MenuActionSheetAction.EDIT,
+        MenuActionSheetAction.DELETE
+    )
+}
+
+@StringRes
+internal fun menuActionSheetActionLabelRes(action: MenuActionSheetAction): Int {
+    return when (action) {
+        MenuActionSheetAction.PHOTO -> R.string.menu_action_photo
+        MenuActionSheetAction.SHARE -> R.string.common_share
+        MenuActionSheetAction.EDIT -> R.string.common_edit
+        MenuActionSheetAction.DELETE -> R.string.common_delete
+    }
+}
+
+internal fun menuActionSheetActionIconRes(action: MenuActionSheetAction): Int {
+    return when (action) {
+        MenuActionSheetAction.PHOTO -> R.drawable.ic_photo_camera
+        MenuActionSheetAction.SHARE -> R.drawable.ic_share
+        MenuActionSheetAction.EDIT -> R.drawable.ic_edit
+        MenuActionSheetAction.DELETE -> R.drawable.ic_delete
+    }
+}
+
+internal fun menuActionSheetActionTint(action: MenuActionSheetAction): Color {
+    return menuActionSheetContentColor()
+}
+
+internal fun menuDadoNavigationBarScrimColor(): Color = MenuDadoColors.HeaderGreen
 
 @StringRes
 internal fun menuPhotoActionContentDescriptionRes(hasImage: Boolean): Int {
@@ -3544,6 +3912,18 @@ internal fun menuPhotoLibraryOptionDescriptionRes(): Int = R.string.photo_librar
 internal fun menuPhotoSourceOptionMinHeightDp(): Int = 76
 
 internal fun menuPhotoSourceSheetHorizontalPaddingDp(): Int = 18
+
+internal fun menuPhotoSourceSheetContainerColor(): Color = menuActionSheetContainerColor()
+
+internal fun menuPhotoSourceContentColor(): Color = menuActionSheetContentColor()
+
+internal fun menuPhotoSourceDismissesOnOutsideTap(): Boolean = true
+
+internal fun menuPhotoSourceOptionIconTint(): Color = menuPhotoSourceContentColor()
+
+internal fun menuPhotoSourceOptionTitleColor(): Color = menuPhotoSourceContentColor()
+
+internal fun menuPhotoSourceOptionDescriptionColor(): Color = menuPhotoSourceContentColor().copy(alpha = 0.78f)
 
 internal fun menuPhotoFileProviderAuthoritySuffix(): String = ".fileprovider"
 
@@ -3702,6 +4082,44 @@ private fun EditMenuButton(
 }
 
 @Composable
+private fun ShareMenuButton(
+    onShare: () -> Unit,
+    compact: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val shareDescription = stringResource(id = R.string.common_share)
+    TextButton(
+        onClick = onShare,
+        modifier = if (compact) {
+            modifier
+                .width(54.dp)
+                .semantics { contentDescription = shareDescription }
+        } else {
+            modifier.fillMaxWidth()
+        },
+        shape = RoundedCornerShape(8.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.ic_share),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            colorFilter = ColorFilter.tint(MenuDadoColors.BrandGreen)
+        )
+        if (!compact) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(id = R.string.common_share),
+                color = MenuDadoColors.BrandGreen,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
 private fun DeleteMenuButton(
     onDelete: () -> Unit,
     compact: Boolean,
@@ -3734,6 +4152,42 @@ private fun DeleteMenuButton(
                 fontWeight = FontWeight.Bold
             )
         }
+    }
+}
+
+@Composable
+private fun FavoriteMenuIconButton(
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val description = stringResource(
+        id = if (isFavorite) {
+            R.string.common_remove_favorite
+        } else {
+            R.string.common_mark_favorite
+        }
+    )
+    IconButton(
+        onClick = onToggleFavorite,
+        modifier = modifier
+            .padding(menuFavoriteActionButtonInsetDp().dp)
+            .size(menuFavoriteActionButtonSizeDp().dp)
+            .background(menuFavoriteActionButtonBackgroundColor(), CircleShape)
+            .semantics { contentDescription = description }
+    ) {
+        Icon(
+            painter = painterResource(
+                id = if (isFavorite) {
+                    R.drawable.ic_favorite_filled
+                } else {
+                    R.drawable.ic_favorite_border
+                }
+            ),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = menuFavoriteActionIconTint(isFavorite)
+        )
     }
 }
 
@@ -4015,6 +4469,7 @@ private const val ANALYTICS_CTA_ANALYZE_PENDING = "analyze_pending"
 private const val ANALYTICS_CTA_VIEW_MORE = "view_more"
 private const val ANALYTICS_CTA_OPEN_MENU = "open_menu"
 private const val ANALYTICS_CTA_CHANGE_PHOTO = "change_photo"
+private const val ANALYTICS_CTA_OPEN_PHOTO_SOURCE = "open_photo_source"
 private const val ANALYTICS_CTA_TAKE_PHOTO = "take_photo"
 private const val ANALYTICS_CTA_CHOOSE_PHOTO = "choose_photo"
 private const val ANALYTICS_CTA_CANCEL_PHOTO_SOURCE = "cancel_photo_source"
@@ -4023,6 +4478,10 @@ private const val ANALYTICS_CTA_CANCEL_EDIT_MENU = "cancel_edit_menu"
 private const val ANALYTICS_CTA_ANALYZE_MENU = "analyze_menu"
 private const val ANALYTICS_CTA_EDIT_MENU = "edit_menu"
 private const val ANALYTICS_CTA_DELETE_MENU = "delete_menu"
+private const val ANALYTICS_CTA_TOGGLE_FAVORITE = "toggle_favorite"
+private const val ANALYTICS_CTA_SHARE_MENU = "share_menu"
+private const val ANALYTICS_CTA_OPEN_MENU_ACTIONS = "open_menu_actions"
+private const val ANALYTICS_CTA_CLOSE_MENU_ACTIONS = "close_menu_actions"
 private const val ANALYTICS_CTA_CLOSE_MENU_DETAIL = "close_menu_detail"
 private const val ANALYTICS_CTA_CONFIRM_DELETE_MENU = "confirm_delete_menu"
 private const val ANALYTICS_CTA_CANCEL_DELETE_MENU = "cancel_delete_menu"

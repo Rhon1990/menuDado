@@ -7,8 +7,8 @@ import androidx.compose.ui.graphics.Color
 
 object MenuDadoColors {
     val BrandGreen = Color(0xFF2F765D)
-    val HeaderGreen = Color(0xFF337551)
-    val DeepGreen = Color(0xFF1F4F43)
+    val HeaderGreen = BrandGreen
+    val DeepGreen = BrandGreen
     val Cream = Color(0xFFFFF7E7)
     val Background = Color(0xFFFFF9EC)
     val Surface = Color(0xFFFFFCF4)
