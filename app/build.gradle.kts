@@ -9,6 +9,25 @@ if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
+fun ProviderFactory.optionalConfig(
+    gradlePropertyName: String,
+    environmentVariableName: String
+): String = gradleProperty(gradlePropertyName)
+    .orElse(environmentVariable(environmentVariableName))
+    .orElse("")
+    .get()
+
+fun String.asAndroidStringValue(): String = "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+val debugGoogleWebClientId = providers.optionalConfig(
+    gradlePropertyName = "menudadoDebugGoogleWebClientId",
+    environmentVariableName = "MENUDADO_DEBUG_GOOGLE_WEB_CLIENT_ID"
+)
+val productionGoogleWebClientId = providers.optionalConfig(
+    gradlePropertyName = "menudadoProductionGoogleWebClientId",
+    environmentVariableName = "MENUDADO_PRODUCTION_GOOGLE_WEB_CLIENT_ID"
+)
+
 android {
     namespace = "com.menudado"
     compileSdk = 35
@@ -29,6 +48,7 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             resValue("string", "app_name", "MenuDado Debug")
+            resValue("string", "google_web_client_id", debugGoogleWebClientId.asAndroidStringValue())
             buildConfigField("String", "APP_CHECK_PROVIDER", "\"debug\"")
             manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
             buildConfigField(
@@ -39,6 +59,11 @@ android {
         }
 
         release {
+            resValue(
+                "string",
+                "google_web_client_id",
+                productionGoogleWebClientId.asAndroidStringValue()
+            )
             manifestPlaceholders["admobAppId"] = "ca-app-pub-2347852335093406~6979235643"
             buildConfigField(
                 "String",
@@ -93,6 +118,8 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.fragment:fragment:1.8.9")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
@@ -106,6 +133,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth:23.1.0")
     implementation("com.google.firebase:firebase-config:22.1.2")
     implementation("com.google.firebase:firebase-firestore:25.1.1")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("com.google.android.gms:play-services-ads:24.7.0")
     implementation("com.google.android.ump:user-messaging-platform:3.2.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")

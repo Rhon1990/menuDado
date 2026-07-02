@@ -1,6 +1,7 @@
 package com.menudado.backend
 
 import com.menudado.analytics.DeviceInfo
+import com.menudado.auth.MenuDadoAuthSession
 import com.menudado.data.AiDailyUsageState
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
@@ -37,11 +38,37 @@ class MenuDadoRemoteDataSourceTest {
         assertEquals("15", document["androidVersion"])
         assertEquals("1.2.3", document["appVersionName"])
         assertEquals(7, document["appVersionCode"])
-        assertEquals("anonymous", document["authMode"])
+        assertEquals("none", document["authMode"])
+        assertEquals(null, document["accountEmail"])
         assertFalse(document.containsKey("latitude"))
         assertFalse(document.containsKey("longitude"))
         assertFalse(document.containsKey("gps"))
         assertFalse(document.containsKey("adId"))
+    }
+
+    @Test
+    fun `metadata document records signed in account mode and email`() {
+        val metadata = BackendAppMetadata.fromDeviceInfo(
+            deviceInfo = DeviceInfo(
+                manufacturer = "Google",
+                model = "Pixel 8",
+                androidVersion = "15",
+                localeCountry = "ES",
+                timeZone = "Europe/Madrid"
+            ),
+            appVersionName = "1.2.3",
+            appVersionCode = 7,
+            authSession = MenuDadoAuthSession(
+                userId = "registered-user",
+                email = "user@example.com",
+                isAnonymous = false
+            )
+        )
+
+        val document = BackendFirestoreMapper.metadataDocument(metadata)
+
+        assertEquals("signed_in", document["authMode"])
+        assertEquals("user@example.com", document["accountEmail"])
     }
 
     @Test
@@ -140,6 +167,29 @@ class MenuDadoRemoteDataSourceTest {
     }
 
     @Test
+    fun `dietary profile document deserializes remote profile and skips invalid allergens`() {
+        val document = mapOf(
+            "isEnabled" to true,
+            "ageRange" to "2-12 anos",
+            "isPregnant" to false,
+            "isVegan" to true,
+            "hasAllergies" to true,
+            "allergens" to listOf("EGG", "UNKNOWN"),
+            "otherAvoidances" to "sin picante"
+        )
+
+        val profile = BackendFirestoreMapper.dietaryProfileFromDocument(MenuAudience.CHILD, document)
+
+        assertEquals(true, profile.isEnabled)
+        assertEquals("2-12 anos", profile.ageRange)
+        assertEquals(false, profile.isPregnant)
+        assertEquals(true, profile.isVegan)
+        assertEquals(true, profile.hasAllergies)
+        assertEquals(setOf(DietaryAllergen.EGG), profile.allergens)
+        assertEquals("sin picante", profile.otherAvoidances)
+    }
+
+    @Test
     fun `ai usage and onboarding documents use stable keys`() {
         assertEquals(
             mapOf("dateKey" to "2026-06-22", "usedCount" to 3),
@@ -148,6 +198,12 @@ class MenuDadoRemoteDataSourceTest {
         assertEquals(
             mapOf("completed" to true, "contentVersion" to 2),
             BackendFirestoreMapper.onboardingCompletedDocument(contentVersion = 2)
+        )
+        assertEquals(
+            2,
+            BackendFirestoreMapper.onboardingCompletedVersionFromDocument(
+                mapOf("completed" to true, "contentVersion" to 2L)
+            )
         )
     }
 }

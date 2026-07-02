@@ -119,6 +119,10 @@ class MenuRepository(
         return menuDao.countPendingSyncMenus()
     }
 
+    suspend fun markVisibleMenusPendingBackendSync() {
+        menuDao.markVisibleMenusPendingUpsert(clockMillisProvider())
+    }
+
     suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<HealthAnalysis> {
         return healthAnalyzer.analyze(menu, language)
     }

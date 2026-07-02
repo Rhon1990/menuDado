@@ -5,6 +5,7 @@ import com.menudado.backend.MenuDadoRemoteDataSource
 class BackendStoredDataSyncer(
     private val dietaryProfileStore: DietaryProfileStore,
     private val aiDailyUsageStore: AiDailyUsageStore,
+    private val onboardingStore: OnboardingStore,
     private val pendingSyncStore: BackendPendingSyncStore,
     private val remoteDataSource: MenuDadoRemoteDataSource
 ) {
@@ -25,6 +26,22 @@ class BackendStoredDataSyncer(
         pendingSyncStore.getPendingOnboardingVersion()?.let { version ->
             runCatching { remoteDataSource.upsertOnboardingCompleted(version) }
                 .onSuccess { pendingSyncStore.clearOnboardingPending() }
+        }
+    }
+
+    suspend fun hydrateRemoteStoredData() {
+        val pendingProfileAudiences = pendingSyncStore.getPendingDietaryProfileAudiences()
+        runCatching { remoteDataSource.fetchDietaryProfiles() }
+            .getOrDefault(emptyMap())
+            .filterKeys { audience -> audience !in pendingProfileAudiences }
+            .forEach { (audience, profile) ->
+                dietaryProfileStore.saveProfile(profile, audience)
+            }
+
+        if (pendingSyncStore.getPendingOnboardingVersion() == null) {
+            runCatching { remoteDataSource.fetchOnboardingCompletedVersion() }
+                .getOrNull()
+                ?.let(onboardingStore::markOnboardingCompleted)
         }
     }
 }

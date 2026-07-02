@@ -1577,17 +1577,17 @@ private fun AppLanguage.generatedAnalysisManualEditMessage(): String {
 
 private fun AppLanguage.aiConfigurationMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI is not enabled for this project or API key. Enable Firebase AI Logic / Generative Language API in Firebase or Google Cloud."
-        AppLanguage.FRENCH -> "L'IA n'est pas activée pour ce projet ou cette clé API. Activez Firebase AI Logic / Generative Language API dans Firebase ou Google Cloud."
-        AppLanguage.SPANISH -> "La IA no está habilitada para este proyecto o API key. Activa Firebase AI Logic / Generative Language API en Firebase o Google Cloud."
+        AppLanguage.ENGLISH -> "AI help is not available right now. You can keep using your menus and try again later."
+        AppLanguage.FRENCH -> "L'aide IA n'est pas disponible pour le moment. Vous pouvez continuer à utiliser vos menus et réessayer plus tard."
+        AppLanguage.SPANISH -> "La ayuda con IA no está disponible en este momento. Puedes seguir usando tus menús e intentarlo más tarde."
     }
 }
 
 private fun AppLanguage.aiInvalidApiKeyMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "The Firebase API key is not valid for AI. Check google-services.json or the key restrictions."
-        AppLanguage.FRENCH -> "La clé API Firebase n'est pas valide pour l'IA. Vérifiez google-services.json ou les restrictions de la clé."
-        AppLanguage.SPANISH -> "La API key de Firebase no es válida para IA. Revisa el archivo google-services.json o las restricciones de la clave."
+        AppLanguage.ENGLISH -> "AI help could not start right now. You can keep using your menus and try again later."
+        AppLanguage.FRENCH -> "L'aide IA n'a pas pu démarrer pour le moment. Vous pouvez continuer à utiliser vos menus et réessayer plus tard."
+        AppLanguage.SPANISH -> "La ayuda con IA no pudo iniciar en este momento. Puedes seguir usando tus menús e intentarlo más tarde."
     }
 }
 
@@ -1601,9 +1601,9 @@ private fun AppLanguage.aiTimeoutMessage(): String {
 
 private fun AppLanguage.aiGenericFailureMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "Could not connect to AI. Check your internet connection or Firebase configuration."
-        AppLanguage.FRENCH -> "Impossible de se connecter à l'IA. Vérifiez internet ou la configuration Firebase."
-        AppLanguage.SPANISH -> "No se pudo conectar con la IA. Revisa internet o la configuración de Firebase."
+        AppLanguage.ENGLISH -> "Could not connect to AI. Check your internet connection and try again."
+        AppLanguage.FRENCH -> "Impossible de se connecter à l'IA. Vérifiez votre connexion internet et réessayez."
+        AppLanguage.SPANISH -> "No se pudo conectar con la IA. Revisa tu conexión a internet e inténtalo de nuevo."
     }
 }
 

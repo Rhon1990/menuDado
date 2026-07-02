@@ -87,9 +87,10 @@ class RemoteSyncingStoresTest {
     fun `pending stored data syncer retries failed store writes`() = scope.runTest {
         val profileStore = FakeLocalDietaryProfileStore()
         val aiUsageStore = FakeLocalAiDailyUsageStore()
+        val onboardingStore = FakeLocalOnboardingStore()
         val pending = FakeBackendPendingSyncStore()
         val remote = RecordingStoresRemoteDataSource()
-        val syncer = BackendStoredDataSyncer(profileStore, aiUsageStore, pending, remote)
+        val syncer = BackendStoredDataSyncer(profileStore, aiUsageStore, onboardingStore, pending, remote)
         val profile = DietaryProfile(isEnabled = true, ageRange = "18+ anos")
         val usage = AiDailyUsageState(dateKey = "2026-06-23", usedCount = 2)
 
@@ -107,6 +108,28 @@ class RemoteSyncingStoresTest {
         assertEquals(emptySet<MenuAudience>(), pending.getPendingDietaryProfileAudiences())
         assertEquals(false, pending.isAiUsagePending())
         assertEquals(null, pending.getPendingOnboardingVersion())
+    }
+
+    @Test
+    fun `stored data syncer hydrates remote profile and onboarding when nothing local is pending`() = scope.runTest {
+        val profileStore = FakeLocalDietaryProfileStore()
+        val aiUsageStore = FakeLocalAiDailyUsageStore()
+        val onboardingStore = FakeLocalOnboardingStore()
+        val pending = FakeBackendPendingSyncStore()
+        val remote = RecordingStoresRemoteDataSource()
+        val syncer = BackendStoredDataSyncer(profileStore, aiUsageStore, onboardingStore, pending, remote)
+        val childProfile = DietaryProfile(
+            isEnabled = true,
+            ageRange = "2-12 anos",
+            isVegan = true
+        )
+        remote.remoteDietaryProfiles = mapOf(MenuAudience.CHILD to childProfile)
+        remote.remoteOnboardingVersion = 2
+
+        syncer.hydrateRemoteStoredData()
+
+        assertEquals(childProfile, profileStore.getProfile(MenuAudience.CHILD))
+        assertEquals(true, onboardingStore.isOnboardingCompleted(2))
     }
 }
 
@@ -148,9 +171,13 @@ private class RecordingStoresRemoteDataSource : MenuDadoRemoteDataSource {
     val dietaryProfiles = mutableListOf<Pair<MenuAudience, DietaryProfile>>()
     val aiUsageStates = mutableListOf<AiDailyUsageState>()
     val onboardingVersions = mutableListOf<Int>()
+    var remoteDietaryProfiles: Map<MenuAudience, DietaryProfile> = emptyMap()
+    var remoteOnboardingVersion: Int? = null
 
     override suspend fun upsertMetadata(metadata: BackendAppMetadata) = Unit
     override suspend fun fetchMenus(): List<FoodMenu> = emptyList()
+    override suspend fun fetchDietaryProfiles(): Map<MenuAudience, DietaryProfile> = remoteDietaryProfiles
+    override suspend fun fetchOnboardingCompletedVersion(): Int? = remoteOnboardingVersion
     override suspend fun upsertMenu(menu: FoodMenu) = Unit
     override suspend fun deleteMenu(menu: FoodMenu) = Unit
 

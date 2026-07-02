@@ -12,7 +12,20 @@
           "package_name": "com.menudado"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "506906977551-kkl7fmnb27g4q7nu2m8vv08cmcgajcs5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.menudado",
+            "certificate_hash": "d0ed4a6b3d7d06e261a0dd13a39258da0b4381e1"
+          }
+        },
+        {
+          "client_id": "506906977551-rnmopmpt3skbrippigfo8tvvadrjsoug.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDSiQYWsvmuEtohcmrkSrQLjux8zIL_XNE"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "506906977551-rnmopmpt3skbrippigfo8tvvadrjsoug.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

@@ -24,7 +24,7 @@
     <string name="common_next">Suivant</string>
     <string name="common_start">Commencer</string>
     <string name="common_skip">Ignorer</string>
-    <string name="common_back">&lt; Retour</string>
+    <string name="common_back">Retour</string>
     <string name="nav_home">Accueil</string>
     <string name="nav_dietary_profile">Profil</string>
     <string name="nav_about">À propos</string>

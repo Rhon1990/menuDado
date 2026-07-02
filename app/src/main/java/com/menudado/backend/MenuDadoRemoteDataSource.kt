@@ -6,7 +6,9 @@ import com.google.firebase.firestore.SetOptions
 import com.menudado.BuildConfig
 import com.menudado.analytics.AndroidDeviceInfoProvider
 import com.menudado.analytics.DeviceInfo
+import com.menudado.auth.MenuDadoAuthSession
 import com.menudado.data.AiDailyUsageState
+import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthAnalysis
@@ -21,21 +23,25 @@ data class BackendAppMetadata(
     val deviceModel: String,
     val androidVersion: String,
     val appVersionName: String,
-    val appVersionCode: Int
+    val appVersionCode: Int,
+    val authMode: String,
+    val accountEmail: String?
 ) {
     companion object {
-        fun current(): BackendAppMetadata {
+        fun current(authSession: MenuDadoAuthSession?): BackendAppMetadata {
             return fromDeviceInfo(
                 deviceInfo = AndroidDeviceInfoProvider.current(),
                 appVersionName = BuildConfig.VERSION_NAME,
-                appVersionCode = BuildConfig.VERSION_CODE
+                appVersionCode = BuildConfig.VERSION_CODE,
+                authSession = authSession
             )
         }
 
         fun fromDeviceInfo(
             deviceInfo: DeviceInfo,
             appVersionName: String,
-            appVersionCode: Int
+            appVersionCode: Int,
+            authSession: MenuDadoAuthSession? = null
         ): BackendAppMetadata {
             return BackendAppMetadata(
                 country = deviceInfo.localeCountry,
@@ -44,7 +50,13 @@ data class BackendAppMetadata(
                 deviceModel = deviceInfo.model,
                 androidVersion = deviceInfo.androidVersion,
                 appVersionName = appVersionName,
-                appVersionCode = appVersionCode
+                appVersionCode = appVersionCode,
+                authMode = when {
+                    authSession == null -> "none"
+                    authSession.isAnonymous -> "guest"
+                    else -> "signed_in"
+                },
+                accountEmail = authSession?.email?.takeUnless { authSession.isAnonymous }
             )
         }
     }
@@ -53,6 +65,8 @@ data class BackendAppMetadata(
 interface MenuDadoRemoteDataSource {
     suspend fun upsertMetadata(metadata: BackendAppMetadata)
     suspend fun fetchMenus(): List<FoodMenu>
+    suspend fun fetchDietaryProfiles(): Map<MenuAudience, DietaryProfile>
+    suspend fun fetchOnboardingCompletedVersion(): Int?
     suspend fun upsertMenu(menu: FoodMenu)
     suspend fun deleteMenu(menu: FoodMenu)
     suspend fun upsertDietaryProfile(audience: MenuAudience, profile: DietaryProfile)
@@ -89,6 +103,35 @@ class FirebaseMenuDadoRemoteDataSource(
                     document = snapshot.data.orEmpty()
                 )
             }
+    }
+
+    override suspend fun fetchDietaryProfiles(): Map<MenuAudience, DietaryProfile> {
+        val userDocument = userDocument()
+        return userDocument
+            .collection("dietaryProfiles")
+            .get()
+            .awaitBackendTask()
+            .documents
+            .mapNotNull { snapshot ->
+                val audience = runCatching { MenuAudience.valueOf(snapshot.id) }.getOrNull()
+                    ?: return@mapNotNull null
+                audience to BackendFirestoreMapper.dietaryProfileFromDocument(
+                    audience = audience,
+                    document = snapshot.data.orEmpty()
+                )
+            }
+            .toMap()
+    }
+
+    override suspend fun fetchOnboardingCompletedVersion(): Int? {
+        val userDocument = userDocument()
+        return userDocument
+            .collection("onboarding")
+            .document("current")
+            .get()
+            .awaitBackendTask()
+            .data
+            ?.let(BackendFirestoreMapper::onboardingCompletedVersionFromDocument)
     }
 
     override suspend fun upsertMenu(menu: FoodMenu) {
@@ -169,7 +212,8 @@ internal object BackendFirestoreMapper {
             "androidVersion" to metadata.androidVersion,
             "appVersionName" to metadata.appVersionName,
             "appVersionCode" to metadata.appVersionCode,
-            "authMode" to "anonymous"
+            "authMode" to metadata.authMode,
+            "accountEmail" to metadata.accountEmail
         )
     }
 
@@ -244,6 +288,29 @@ internal object BackendFirestoreMapper {
         )
     }
 
+    fun dietaryProfileFromDocument(audience: MenuAudience, document: Map<String, Any?>): DietaryProfile {
+        val allergens = (document["allergens"] as? List<*>)
+            .orEmpty()
+            .mapNotNull { value ->
+                (value as? String)?.let {
+                    runCatching { DietaryAllergen.valueOf(it) }.getOrNull()
+                }
+            }
+            .toSet()
+
+        return DietaryProfile(
+            isEnabled = document["isEnabled"] as? Boolean ?: (audience == MenuAudience.ADULT),
+            ageRange = (document["ageRange"] as? String)
+                ?.takeIf { it.isNotBlank() }
+                ?: audience.defaultAgeRange,
+            isPregnant = document["isPregnant"] as? Boolean ?: false,
+            isVegan = document["isVegan"] as? Boolean ?: false,
+            hasAllergies = document["hasAllergies"] as? Boolean ?: false,
+            allergens = allergens,
+            otherAvoidances = (document["otherAvoidances"] as? String).orEmpty()
+        )
+    }
+
     fun aiUsageDocument(state: AiDailyUsageState): Map<String, Any?> {
         return mapOf(
             "dateKey" to state.dateKey,
@@ -256,6 +323,15 @@ internal object BackendFirestoreMapper {
             "completed" to true,
             "contentVersion" to contentVersion
         )
+    }
+
+    fun onboardingCompletedVersionFromDocument(document: Map<String, Any?>): Int? {
+        val isCompleted = document["completed"] as? Boolean ?: false
+        return if (isCompleted) {
+            (document["contentVersion"] as? Number)?.toInt()
+        } else {
+            null
+        }
     }
 }
 

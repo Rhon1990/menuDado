@@ -16,7 +16,7 @@ class MainActivitySystemBarsTest {
     }
 
     @Test
-    fun `opciones de privacidad no se muestran en release`() {
+    fun `opciones de privacidad no se muestran en la barra de navegacion`() {
         assertEquals(
             false,
             shouldShowAdsPrivacyOptionsInNavigation(
@@ -27,18 +27,6 @@ class MainActivitySystemBarsTest {
         )
         assertEquals(
             false,
-            shouldShowAdsPrivacyOptionsInNavigation(
-                areAdsEnabled = true,
-                buildType = "release",
-                areAdsPrivacyOptionsRequired = false
-            )
-        )
-    }
-
-    @Test
-    fun `opciones de privacidad se pueden mostrar en builds de prueba`() {
-        assertEquals(
-            true,
             shouldShowAdsPrivacyOptionsInNavigation(
                 areAdsEnabled = true,
                 buildType = "debug",
@@ -46,7 +34,7 @@ class MainActivitySystemBarsTest {
             )
         )
         assertEquals(
-            true,
+            false,
             shouldShowAdsPrivacyOptionsInNavigation(
                 areAdsEnabled = true,
                 buildType = "releaseDebuggable",
@@ -56,17 +44,9 @@ class MainActivitySystemBarsTest {
         assertEquals(
             false,
             shouldShowAdsPrivacyOptionsInNavigation(
-                areAdsEnabled = true,
-                buildType = "debug",
-                areAdsPrivacyOptionsRequired = false
-            )
-        )
-        assertEquals(
-            false,
-            shouldShowAdsPrivacyOptionsInNavigation(
                 areAdsEnabled = false,
                 buildType = "debug",
-                areAdsPrivacyOptionsRequired = true
+                areAdsPrivacyOptionsRequired = false
             )
         )
     }

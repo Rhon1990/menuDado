@@ -1,6 +1,7 @@
 package com.menudado
 
 import android.app.Application
+import android.content.Context
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
@@ -12,6 +13,12 @@ import com.menudado.appcheck.installMenuDadoAppCheckProvider
 import com.menudado.backend.BackendAppMetadata
 import com.menudado.backend.FirebaseMenuDadoRemoteDataSource
 import com.menudado.backend.MenuDadoRemoteDataSource
+import com.menudado.auth.FirebaseMenuDadoAuthService
+import com.menudado.auth.MenuDadoAuthSession
+import com.menudado.auth.MenuDadoAuthService
+import com.menudado.auth.MenuDadoAuthStore
+import com.menudado.auth.SharedPreferencesMenuDadoAuthStore
+import com.menudado.auth.shouldStartMenuDadoBackendSync
 import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiRequestThrottleStore
@@ -30,13 +37,18 @@ import com.menudado.data.SharedPreferencesAiQuotaRetryStore
 import com.menudado.data.SharedPreferencesAiRequestThrottleStore
 import com.menudado.data.SharedPreferencesDietaryProfileStore
 import com.menudado.data.SharedPreferencesOnboardingStore
+import com.menudado.domain.MenuAudience
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 
 class MenuDadoApplication : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val backendAccountPreferences by lazy {
+        applicationContext.getSharedPreferences(BACKEND_ACCOUNT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+    }
 
     private val migration1To2 = object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -114,6 +126,14 @@ class MenuDadoApplication : Application() {
         FirebaseMenuDadoRemoteDataSource()
     }
 
+    val authStore: MenuDadoAuthStore by lazy {
+        SharedPreferencesMenuDadoAuthStore(applicationContext)
+    }
+
+    val authService: MenuDadoAuthService by lazy {
+        FirebaseMenuDadoAuthService(authStore = authStore)
+    }
+
     val repository: MenuRepository by lazy {
         MenuRepository(
             menuDao = database.menuDao(),
@@ -180,6 +200,7 @@ class MenuDadoApplication : Application() {
         BackendStoredDataSyncer(
             dietaryProfileStore = localDietaryProfileStore,
             aiDailyUsageStore = localAiDailyUsageStore,
+            onboardingStore = localOnboardingStore,
             pendingSyncStore = pendingSyncStore,
             remoteDataSource = remoteDataSource
         )
@@ -192,25 +213,68 @@ class MenuDadoApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         installMenuDadoAppCheckProvider()
+        if (shouldStartMenuDadoBackendSync(authService.currentSession(), authStore.isGuestModeSelected())) {
+            syncBackendNow(BACKEND_SYNC_SOURCE_APP_START)
+        }
+    }
+
+    fun syncBackendNow(source: String = BACKEND_SYNC_SOURCE_AUTH) {
         applicationScope.launch {
+            val session = authService.currentSession()
+            prepareLocalDataForBackendAccountIfNeeded(session)
             val pendingMenuCount = runCatching { repository.pendingSyncMenuCount() }.getOrDefault(0)
-            analytics.trackBackendSyncRetried(BACKEND_SYNC_SOURCE_APP_START, pendingMenuCount)
+            analytics.trackBackendSyncRetried(source, pendingMenuCount)
             val syncResult = runCatching {
-                remoteDataSource.upsertMetadata(BackendAppMetadata.current())
+                remoteDataSource.upsertMetadata(BackendAppMetadata.current(session))
                 repository.syncPendingMenus()
                 repository.syncRemoteMenus()
+                backendStoredDataSyncer.hydrateRemoteStoredData()
                 backendStoredDataSyncer.syncPending()
             }
+            if (syncResult.isSuccess && session?.isAnonymous == false) {
+                markBackendAccountSynced(session.userId)
+            }
             analytics.trackBackendSyncFinished(
-                source = BACKEND_SYNC_SOURCE_APP_START,
+                source = source,
                 status = if (syncResult.isSuccess) BACKEND_SYNC_STATUS_SUCCESS else BACKEND_SYNC_STATUS_FAILURE,
                 pendingMenuCount = runCatching { repository.pendingSyncMenuCount() }.getOrDefault(pendingMenuCount)
             )
         }
     }
 
+    suspend fun prepareLocalDataForSignedInBackendSync() {
+        withContext(Dispatchers.IO) {
+            markLocalStoredDataPendingBackendSync()
+        }
+    }
+
+    private suspend fun prepareLocalDataForBackendAccountIfNeeded(session: MenuDadoAuthSession?) {
+        if (session?.isAnonymous != false) return
+        val lastSyncedUserId = backendAccountPreferences.getString(KEY_LAST_SYNCED_USER_ID, null)
+        if (lastSyncedUserId != session.userId) {
+            markLocalStoredDataPendingBackendSync()
+        }
+    }
+
+    private suspend fun markLocalStoredDataPendingBackendSync() {
+        repository.markVisibleMenusPendingBackendSync()
+        MenuAudience.entries.forEach(pendingSyncStore::markDietaryProfilePending)
+        if (localAiDailyUsageStore.getUsageState() != null) {
+            pendingSyncStore.markAiUsagePending()
+        }
+    }
+
+    private fun markBackendAccountSynced(userId: String) {
+        backendAccountPreferences.edit()
+            .putString(KEY_LAST_SYNCED_USER_ID, userId)
+            .apply()
+    }
+
     private companion object {
+        const val BACKEND_ACCOUNT_PREFERENCES_NAME = "menu-dado-backend-account"
+        const val KEY_LAST_SYNCED_USER_ID = "last_synced_user_id"
         const val BACKEND_SYNC_SOURCE_APP_START = "app_start"
+        const val BACKEND_SYNC_SOURCE_AUTH = "auth"
         const val BACKEND_SYNC_STATUS_SUCCESS = "success"
         const val BACKEND_SYNC_STATUS_FAILURE = "failure"
     }

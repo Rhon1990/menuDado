@@ -2159,6 +2159,23 @@ private class FakeMenuDao : MenuDao {
         return updatedCount
     }
 
+    override suspend fun markVisibleMenusPendingUpsert(updatedAt: Long): Int {
+        var updatedCount = 0
+        menus.value = menus.value.map { existing ->
+            if (existing.deletedAt == null) {
+                updatedCount += 1
+                existing.copy(
+                    remoteSyncState = RemoteSyncState.PENDING_UPSERT.name,
+                    updatedAt = updatedAt,
+                    remoteSyncToken = null
+                )
+            } else {
+                existing
+            }
+        }
+        return updatedCount
+    }
+
     override suspend fun insert(menu: MenuEntity): Long {
         val nextId = (menus.value.maxOfOrNull { it.id } ?: 0L) + 1L
         menus.value = listOf(menu.copy(id = nextId)) + menus.value

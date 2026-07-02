@@ -130,6 +130,10 @@ import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import com.menudado.R
 import com.menudado.ads.MenuDadoBannerAd
+import com.menudado.about.MenuDadoAboutContent
+import com.menudado.auth.MenuDadoAuthFormMode
+import com.menudado.auth.MenuDadoAuthFormScreen
+import com.menudado.auth.MenuDadoAuthSession
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import com.menudado.domain.FoodMenu
@@ -157,7 +161,20 @@ fun MenuDadoScreen(
     areAdsPrivacyOptionsRequired: Boolean = false,
     adsPrivacyOptionsMessage: String? = null,
     onAdsPrivacyOptionsMessageDismiss: () -> Unit = {},
-    onAdsPrivacyOptionsClick: () -> Unit = {}
+    onAdsPrivacyOptionsClick: () -> Unit = {},
+    authSession: MenuDadoAuthSession? = null,
+    isAuthLoading: Boolean = false,
+    authErrorMessage: String? = null,
+    onAuthSignIn: (String, String) -> Unit = { _, _ -> },
+    onAuthRegister: (String, String) -> Unit = { _, _ -> },
+    onAuthGoogleSignIn: () -> Unit = {},
+    onAuthSignOut: () -> Unit = {},
+    aboutContent: MenuDadoAboutContent = MenuDadoAboutContent(
+        description = "",
+        createdBy = "",
+        contact = ""
+    ),
+    onAuthErrorDismiss: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val result = state.result
@@ -174,6 +191,7 @@ fun MenuDadoScreen(
     var actionSheetMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var photoPickerMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var isPhotoSourceDialogVisible by rememberSaveable { mutableStateOf(false) }
+    var authFormMode by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingCameraUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedDestination by rememberSaveable { mutableStateOf(MenuDadoDestination.HOME.name) }
     val pendingAnalysisCount = state.menus.count { it.healthAnalysis == null }
@@ -231,6 +249,7 @@ fun MenuDadoScreen(
         enabled = adsPrivacyOptionsMessage != null ||
             message != null ||
             state.showOnboarding ||
+            authFormMode != null ||
             actionSheetMenuId != null ||
             isPhotoSourceDialogVisible ||
             pendingDeleteMenuId != null ||
@@ -248,6 +267,10 @@ fun MenuDadoScreen(
             }
             state.showOnboarding -> {
                 viewModel.skipOnboarding()
+            }
+            authFormMode != null -> {
+                authFormMode = null
+                onAuthErrorDismiss()
             }
             actionSheetMenuId != null -> {
                 actionSheetMenuId = null
@@ -309,6 +332,27 @@ fun MenuDadoScreen(
             viewModel.clearResult()
         }
     }
+    val shouldShowHeaderBack = shouldShowMenuDadoHeaderBackButton(
+        destination = destination,
+        hasAudienceDetail = audienceDetailRoute != null,
+        hasAuthForm = authFormMode != null
+    )
+    fun onHeaderBack() {
+        when {
+            authFormMode != null -> {
+                authFormMode = null
+                onAuthErrorDismiss()
+            }
+            audienceDetailRoute != null -> {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_BACK)
+                audienceDetailRoute = null
+            }
+            destination == MenuDadoDestination.ABOUT -> {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_BOTTOM_NAV, ANALYTICS_CTA_BACK)
+                selectedDestination = MenuDadoDestination.MY_ZONE.name
+            }
+        }
+    }
 
     if (message != null && aiRetryAtMillis != null && state.isAiRetryNoticeVisible) {
         AiQuotaDialog(
@@ -364,6 +408,12 @@ fun MenuDadoScreen(
                 viewModel.completeOnboarding()
             }
         )
+    }
+
+    LaunchedEffect(authSession?.userId, authSession?.isAnonymous) {
+        if (authSession?.isAnonymous == false) {
+            authFormMode = null
+        }
     }
 
     if (isPhotoSourceDialogVisible) {
@@ -495,10 +545,19 @@ fun MenuDadoScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MenuDadoColors.Background),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(
+                if (destination == MenuDadoDestination.MY_ZONE) {
+                    0.dp
+                } else {
+                    12.dp
+                }
+            )
         ) {
             item {
-                Header()
+                Header(
+                    showBackButton = shouldShowHeaderBack,
+                    onBack = { onHeaderBack() }
+                )
             }
 
             when (destination) {
@@ -521,7 +580,52 @@ fun MenuDadoScreen(
                 }
                 MenuDadoDestination.ABOUT -> {
                     item {
-                        AboutAppSection()
+                        AboutAppSection(aboutContent = aboutContent)
+                    }
+                }
+                MenuDadoDestination.MY_ZONE -> {
+                    item {
+                        authFormMode?.let { modeName ->
+                            val mode = MenuDadoAuthFormMode.valueOf(modeName)
+                            MenuDadoAuthFormScreen(
+                                mode = mode,
+                                isLoading = isAuthLoading,
+                                errorMessage = authErrorMessage,
+                                onSubmit = { email, password ->
+                                    when (mode) {
+                                        MenuDadoAuthFormMode.REGISTER -> onAuthRegister(email, password)
+                                        MenuDadoAuthFormMode.SIGN_IN -> onAuthSignIn(email, password)
+                                    }
+                                },
+                                onGoogleSignIn = onAuthGoogleSignIn,
+                                onSwitchMode = { nextMode ->
+                                    onAuthErrorDismiss()
+                                    authFormMode = nextMode.name
+                                }
+                            )
+                        } ?: MyZoneSection(
+                            authSession = authSession,
+                            shouldShowPrivacyOption = shouldShowMyZonePrivacyOption(BuildConfig.BUILD_TYPE),
+                            onRegisterClick = {
+                                onAuthErrorDismiss()
+                                authFormMode = MenuDadoAuthFormMode.REGISTER.name
+                            },
+                            onSignInClick = {
+                                onAuthErrorDismiss()
+                                authFormMode = MenuDadoAuthFormMode.SIGN_IN.name
+                            },
+                            onAboutClick = {
+                                viewModel.trackCtaTapped(ANALYTICS_SCREEN_BOTTOM_NAV, ANALYTICS_CTA_NAV_ABOUT)
+                                selectedDestination = MenuDadoDestination.ABOUT.name
+                            },
+                            onPrivacyClick = {
+                                viewModel.trackCtaTapped(ANALYTICS_SCREEN_BOTTOM_NAV, ANALYTICS_CTA_ADS_PRIVACY_OPTIONS)
+                                onAdsPrivacyOptionsClick()
+                            },
+                            onSignOutClick = {
+                                onAuthSignOut()
+                            }
+                        )
                     }
                 }
                 MenuDadoDestination.HOME,
@@ -531,10 +635,6 @@ fun MenuDadoScreen(
                             MenuAudienceDetailScreen(
                                 audience = audienceDetail,
                                 menus = state.menus,
-                                onBack = {
-                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_BACK)
-                                    audienceDetailRoute = null
-                                },
                                 onOpenMenu = { menu ->
                                     viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_OPEN_MENU)
                                     viewModel.trackMenuCardOpened(menu)
@@ -679,6 +779,11 @@ fun MenuDadoScreen(
                         selectedDestination = MenuDadoDestination.ABOUT.name
                         audienceDetailRoute = null
                     }
+                    MenuDadoDestination.MY_ZONE -> {
+                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_BOTTOM_NAV, ANALYTICS_CTA_NAV_MY_ZONE)
+                        selectedDestination = MenuDadoDestination.MY_ZONE.name
+                        audienceDetailRoute = null
+                    }
                     MenuDadoDestination.PRIVACY -> {
                         viewModel.trackCtaTapped(ANALYTICS_SCREEN_BOTTOM_NAV, ANALYTICS_CTA_ADS_PRIVACY_OPTIONS)
                         selectedDestination = MenuDadoDestination.HOME.name
@@ -784,6 +889,7 @@ internal enum class MenuDadoDestination {
     HOME,
     PROFILE,
     ABOUT,
+    MY_ZONE,
     PRIVACY
 }
 
@@ -864,16 +970,11 @@ private fun MenuDadoBottomNavigationItem(
 internal fun menuDadoBottomNavigationDestinations(
     areAdsPrivacyOptionsRequired: Boolean
 ): List<MenuDadoDestination> {
-    val baseDestinations = listOf(
+    return listOf(
         MenuDadoDestination.HOME,
         MenuDadoDestination.PROFILE,
-        MenuDadoDestination.ABOUT
+        MenuDadoDestination.MY_ZONE
     )
-    return if (areAdsPrivacyOptionsRequired) {
-        baseDestinations + MenuDadoDestination.PRIVACY
-    } else {
-        baseDestinations
-    }
 }
 
 internal fun menuDadoBottomNavigationContainerColor(): Color = MenuDadoColors.HeaderGreen
@@ -887,6 +988,7 @@ internal fun menuDadoBottomNavigationLabelRes(destination: MenuDadoDestination):
         MenuDadoDestination.HOME -> R.string.nav_home
         MenuDadoDestination.PROFILE -> R.string.nav_dietary_profile
         MenuDadoDestination.ABOUT -> R.string.nav_about
+        MenuDadoDestination.MY_ZONE -> R.string.nav_my_zone
         MenuDadoDestination.PRIVACY -> R.string.nav_ads_privacy_options
     }
 
@@ -895,6 +997,7 @@ internal fun menuDadoBottomNavigationIconRes(destination: MenuDadoDestination): 
         MenuDadoDestination.HOME -> R.drawable.ic_nav_home
         MenuDadoDestination.PROFILE -> R.drawable.ic_nav_profile
         MenuDadoDestination.ABOUT -> R.drawable.ic_nav_about
+        MenuDadoDestination.MY_ZONE -> R.drawable.ic_nav_my_zone
         MenuDadoDestination.PRIVACY -> R.drawable.ic_nav_privacy
     }
 
@@ -913,6 +1016,19 @@ internal fun menuDadoBottomNavigationIndicatorWidthDp(isSelected: Boolean): Int 
 
 internal fun menuDadoBottomNavigationIndicatorHeightDp(): Int = 6
 
+internal fun shouldShowMenuDadoHeaderBackButton(
+    destination: MenuDadoDestination,
+    hasAudienceDetail: Boolean,
+    hasAuthForm: Boolean
+): Boolean {
+    return hasAuthForm || hasAudienceDetail || destination == MenuDadoDestination.ABOUT
+}
+
+internal fun menuDadoHeaderBackIconRes(): Int = R.drawable.ic_arrow_back
+
+@StringRes
+internal fun menuDadoHeaderBackContentDescriptionRes(): Int = R.string.common_back
+
 internal fun aiGenerationLoadingImageRes(): Int = R.drawable.dado_loading
 
 @StringRes
@@ -930,6 +1046,8 @@ internal fun aiGenerationLoadingBlocksTouches(): Boolean = true
 internal fun menuDadoHeaderBrandTopPaddingDp(): Int = 0
 
 internal fun menuDadoHeaderBrandStartGapDp(): Int = 6
+
+internal fun menuDadoHeaderBackButtonSizeDp(): Int = 48
 
 internal fun menuDadoWordmarkVisualStartInsetDp(): Int = 15
 
@@ -979,18 +1097,14 @@ internal fun onboardingStepAfterSwipe(
 
 private const val ONBOARDING_SWIPE_THRESHOLD = 56f
 
-internal data class AboutAppInfo(
-    val creator: String,
-    val contact: String
-)
-
-internal fun aboutAppInfo(): AboutAppInfo = AboutAppInfo(
-    creator = "Rhonal A. Delgado Padilla",
-    contact = "rhonal.delgado@gmail.com"
-)
-
 @Composable
-private fun AboutAppSection() {
+private fun AboutAppSection(aboutContent: MenuDadoAboutContent) {
+    val fallbackDescription = stringResource(id = R.string.about_reason)
+    val fallbackCreatedBy = stringResource(id = R.string.about_created_by_value)
+    val fallbackContact = stringResource(id = R.string.about_contact_value)
+    val description = aboutContent.description.ifBlank { fallbackDescription }
+    val createdBy = aboutContent.createdBy.ifBlank { fallbackCreatedBy }
+    val contact = aboutContent.contact.ifBlank { fallbackContact }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1010,7 +1124,7 @@ private fun AboutAppSection() {
                 color = MenuDadoColors.Ink
             )
             Text(
-                text = stringResource(id = R.string.about_reason),
+                text = description,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MenuDadoColors.MutedInk
             )
@@ -1022,7 +1136,7 @@ private fun AboutAppSection() {
                     color = MenuDadoColors.DeepGreen
                 )
                 Text(
-                    text = aboutAppInfo().creator,
+                    text = createdBy,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MenuDadoColors.Ink
                 )
@@ -1035,7 +1149,7 @@ private fun AboutAppSection() {
                     color = MenuDadoColors.DeepGreen
                 )
                 Text(
-                    text = aboutAppInfo().contact,
+                    text = contact,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MenuDadoColors.MutedInk
                 )
@@ -1049,6 +1163,356 @@ private fun AboutAppSection() {
         }
     }
 }
+
+@Composable
+private fun MyZoneSection(
+    authSession: MenuDadoAuthSession?,
+    shouldShowPrivacyOption: Boolean,
+    onRegisterClick: () -> Unit,
+    onSignInClick: () -> Unit,
+    onAboutClick: () -> Unit,
+    onPrivacyClick: () -> Unit,
+    onSignOutClick: () -> Unit
+) {
+    val isSignedIn = authSession?.isAnonymous == false
+    var isBenefitsDialogVisible by rememberSaveable { mutableStateOf(false) }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        MyZoneHeader(authSession = authSession, isSignedIn = isSignedIn)
+        if (!isSignedIn) {
+            MyZoneBenefitsButton(
+                onClick = {
+                    isBenefitsDialogVisible = true
+                }
+            )
+            if (isBenefitsDialogVisible) {
+                MyZoneBenefitsDialog(
+                    onDismiss = {
+                        isBenefitsDialogVisible = false
+                    }
+                )
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+            Text(
+                text = stringResource(id = R.string.my_zone_guest_prompt),
+                color = MenuDadoColors.Ink,
+                style = MaterialTheme.typography.headlineSmall,
+                textAlign = TextAlign.Center
+            )
+            Button(
+                onClick = onRegisterClick,
+                modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MenuDadoColors.DeepGreen)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.auth_register_free),
+                        fontWeight = FontWeight.Black
+                    )
+                }
+                Button(
+                    onClick = onSignInClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MenuDadoColors.Tomato)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.auth_sign_in),
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+        } else {
+            MyZoneSignedInData(
+                authSession = authSession,
+                shouldShowPrivacyOption = shouldShowPrivacyOption,
+                onAboutClick = onAboutClick,
+                onPrivacyClick = onPrivacyClick,
+                onSignOutClick = onSignOutClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun MyZoneBenefitsButton(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MenuDadoColors.EggYellow)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(id = R.string.my_zone_benefits_title),
+            color = MenuDadoColors.Ink,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(
+            painter = painterResource(id = R.drawable.ic_expand_more),
+            contentDescription = null,
+            tint = MenuDadoColors.Ink,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+@Composable
+private fun MyZoneBenefitsDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    text = stringResource(id = R.string.common_understood),
+                    color = MenuDadoColors.DeepGreen,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        title = {
+            Text(
+                text = stringResource(id = R.string.my_zone_benefits_title),
+                color = MenuDadoColors.Ink,
+                fontWeight = FontWeight.Black
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                myZoneAccountBenefitRes().forEach { benefitRes ->
+                    MyZoneBenefit(text = stringResource(id = benefitRes))
+                }
+            }
+        },
+        containerColor = MenuDadoColors.Surface,
+        shape = RoundedCornerShape(8.dp)
+    )
+}
+
+@StringRes
+internal fun myZoneAccountBenefitRes(): List<Int> = listOf(
+    R.string.my_zone_benefit_reinstall,
+    R.string.my_zone_benefit_profile,
+    R.string.my_zone_benefit_personalization,
+    R.string.my_zone_benefit_favorites,
+    R.string.my_zone_benefit_devices,
+    R.string.my_zone_benefit_ai_context
+)
+
+@Composable
+private fun MyZoneHeader(authSession: MenuDadoAuthSession?, isSignedIn: Boolean) {
+    val accountName = authSession?.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
+    val initial = accountName?.firstOrNull()?.uppercaseChar()?.toString() ?: "M"
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MenuDadoColors.HeaderGreen)
+            .padding(horizontal = 20.dp, vertical = 26.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(18.dp)
+    ) {
+        if (isSignedIn) {
+            Box(
+                modifier = Modifier
+                    .size(74.dp)
+                    .clip(CircleShape)
+                    .background(MenuDadoColors.EggYellow),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = initial,
+                    color = MenuDadoColors.Ink,
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Black
+                )
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = if (isSignedIn && accountName != null) {
+                    stringResource(id = R.string.my_zone_signed_in_title, accountName)
+                } else {
+                    stringResource(id = R.string.my_zone_guest_title)
+                },
+                color = Color.White,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = if (isSignedIn) {
+                    stringResource(id = R.string.my_zone_signed_in_body)
+                } else {
+                    stringResource(id = R.string.my_zone_guest_body)
+                },
+                color = Color.White.copy(alpha = 0.92f),
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+    }
+}
+
+@Composable
+private fun MyZoneBenefit(text: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(top = 7.dp)
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(MenuDadoColors.DeepGreen)
+        )
+        Text(
+            text = text,
+            color = MenuDadoColors.MutedInk,
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
+}
+
+@Composable
+private fun MyZoneSignedInData(
+    authSession: MenuDadoAuthSession?,
+    shouldShowPrivacyOption: Boolean,
+    onAboutClick: () -> Unit,
+    onPrivacyClick: () -> Unit,
+    onSignOutClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MenuDadoColors.Background)
+            .padding(horizontal = 24.dp, vertical = 34.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(22.dp)
+    ) {
+        Text(
+            text = stringResource(id = R.string.my_zone_my_data),
+            color = MenuDadoColors.Ink,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Black
+        )
+        Box(
+            modifier = Modifier
+                .width(96.dp)
+                .height(5.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(MenuDadoColors.EggYellow)
+        )
+        MyZoneDataRow(
+            label = stringResource(id = R.string.my_zone_email),
+            value = authSession?.email.orEmpty()
+        )
+        MyZoneDataRow(
+            label = stringResource(id = R.string.my_zone_synced_account),
+            value = stringResource(id = myZoneSyncedAccountValueRes())
+        )
+        MyZoneActionRow(
+            label = stringResource(id = R.string.my_zone_about_app),
+            onClick = onAboutClick
+        )
+        if (shouldShowPrivacyOption) {
+            MyZoneActionRow(
+                label = stringResource(id = R.string.my_zone_privacy),
+                onClick = onPrivacyClick
+            )
+        }
+        MyZoneActionRow(
+            label = stringResource(id = R.string.my_zone_sign_out),
+            color = MenuDadoColors.Tomato,
+            onClick = onSignOutClick
+        )
+    }
+}
+
+@Composable
+private fun MyZoneDataRow(label: String, value: String) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = label,
+            color = MenuDadoColors.MutedInk,
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Text(
+            text = value,
+            color = MenuDadoColors.Ink,
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MenuDadoColors.OutlineBrown.copy(alpha = 0.45f))
+        )
+    }
+}
+
+@Composable
+private fun MyZoneActionRow(
+    label: String,
+    color: Color = MenuDadoColors.Ink,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            color = color,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Icon(
+            painter = painterResource(id = R.drawable.ic_expand_more),
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(MenuDadoColors.OutlineBrown.copy(alpha = 0.45f))
+    )
+}
+
+internal fun shouldShowMyZonePrivacyOption(buildType: String): Boolean {
+    return buildType == "debug"
+}
+
+@StringRes
+internal fun myZoneSyncedAccountValueRes(): Int = R.string.my_zone_synced_account_value
 
 @Composable
 private fun DietaryProfileSection(
@@ -1305,7 +1769,10 @@ private fun shareMenu(context: Context, menu: FoodMenu) {
 }
 
 @Composable
-private fun Header() {
+private fun Header(
+    showBackButton: Boolean = false,
+    onBack: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1315,6 +1782,18 @@ private fun Header() {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(menuDadoHeaderBrandStartGapDp().dp)
     ) {
+        if (showBackButton) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.size(menuDadoHeaderBackButtonSizeDp().dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = menuDadoHeaderBackIconRes()),
+                    contentDescription = stringResource(id = menuDadoHeaderBackContentDescriptionRes()),
+                    tint = Color.White
+                )
+            }
+        }
         Image(
             painter = painterResource(id = R.drawable.menu_dado_symbol),
             contentDescription = stringResource(id = R.string.app_name),
@@ -2716,7 +3195,6 @@ private fun MenuCarouselItem(
 private fun MenuAudienceDetailScreen(
     audience: MenuAudience,
     menus: List<FoodMenu>,
-    onBack: () -> Unit,
     onOpenMenu: (FoodMenu) -> Unit,
     onOpenActions: (FoodMenu) -> Unit,
     onToggleFavorite: (FoodMenu) -> Unit
@@ -2732,16 +3210,6 @@ private fun MenuAudienceDetailScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                TextButton(
-                    onClick = onBack,
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.common_back),
-                        color = MenuDadoColors.DeepGreen,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
                 Text(
                     text = stringResource(id = menuAudienceLabelRes(audience)),
                     color = MenuDadoColors.Ink,
@@ -4543,6 +5011,7 @@ private const val ANALYTICS_SCREEN_AUDIENCE_DETAIL = "audience_detail"
 private const val ANALYTICS_CTA_NAV_HOME = "nav_home"
 private const val ANALYTICS_CTA_NAV_DIETARY_PROFILE = "nav_dietary_profile"
 private const val ANALYTICS_CTA_NAV_ABOUT = "nav_about"
+private const val ANALYTICS_CTA_NAV_MY_ZONE = "nav_my_zone"
 private const val ANALYTICS_CTA_ADS_PRIVACY_OPTIONS = "ads_privacy_options"
 private const val ANALYTICS_CTA_BACK = "back"
 private const val ANALYTICS_CTA_ROLL_DICE = "roll_dice"

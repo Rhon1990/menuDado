@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +32,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -39,10 +43,16 @@ import androidx.lifecycle.ViewModelProvider
 import com.menudado.analytics.AndroidDeviceInfoProvider
 import com.menudado.ads.MenuDadoAdsController
 import com.menudado.ads.MenuDadoAdsRemoteConfig
+import com.menudado.about.MenuDadoAboutContent
+import com.menudado.about.MenuDadoAboutRemoteConfig
+import com.menudado.auth.shouldStartGuestModeByDefault
 import com.menudado.ui.MenuDadoScreen
 import com.menudado.ui.MenuDadoViewModel
 import com.menudado.ui.theme.MenuDadoColors
 import com.menudado.ui.theme.MenuDadoTheme
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val splashHandler = Handler(Looper.getMainLooper())
@@ -72,12 +82,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.Theme_MenuDado)
         super.onCreate(savedInstanceState)
+        val app = application as MenuDadoApplication
         showStartupSplash.value = savedInstanceState == null
         splashHandler.removeCallbacks(hideStartupSplash)
         if (showStartupSplash.value) {
             splashHandler.postDelayed(hideStartupSplash, SPLASH_DURATION_MILLIS)
         }
-        (application as MenuDadoApplication).analytics.trackAppOpened(AndroidDeviceInfoProvider.current())
+        app.analytics.trackAppOpened(AndroidDeviceInfoProvider.current())
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(menuDadoStatusBarColor()),
             navigationBarStyle = SystemBarStyle.dark(menuDadoNavigationBarColor())
@@ -85,10 +96,96 @@ class MainActivity : ComponentActivity() {
         setContent {
             MenuDadoTheme {
                 val showSplash by showStartupSplash
+                val authScope = rememberCoroutineScope()
+                var authSession by remember { mutableStateOf(app.authService.currentSession()) }
+                var isGuestModeSelected by remember { mutableStateOf(app.authStore.isGuestModeSelected()) }
+                var isAuthLoading by remember { mutableStateOf(false) }
+                var authErrorMessage by remember { mutableStateOf<String?>(null) }
                 var areAdsReady by remember { mutableStateOf(false) }
                 var areAdsEnabled by remember { mutableStateOf(false) }
                 var areAdsPrivacyOptionsRequired by remember { mutableStateOf(false) }
                 var adsPrivacyOptionsMessage by remember { mutableStateOf<String?>(null) }
+                val defaultAboutContent = remember {
+                    MenuDadoAboutContent(
+                        description = getString(R.string.about_reason),
+                        createdBy = getString(R.string.about_created_by_value),
+                        contact = getString(R.string.about_contact_value)
+                    )
+                }
+                var aboutContent by remember { mutableStateOf(defaultAboutContent) }
+                fun refreshAuthState() {
+                    authSession = app.authService.currentSession()
+                    isGuestModeSelected = app.authStore.isGuestModeSelected()
+                }
+                fun runAuthAction(mergeLocalDataIntoAccount: Boolean = false, action: suspend () -> Unit) {
+                    isAuthLoading = true
+                    authErrorMessage = null
+                    authScope.launch {
+                        val result = runCatching { action() }
+                        if (result.isSuccess) {
+                            refreshAuthState()
+                            if (mergeLocalDataIntoAccount && authSession?.isAnonymous == false) {
+                                app.prepareLocalDataForSignedInBackendSync()
+                            }
+                            app.syncBackendNow()
+                        } else {
+                            authErrorMessage = result.exceptionOrNull()
+                                ?.localizedMessage
+                                ?: getString(R.string.auth_error_generic)
+                        }
+                        isAuthLoading = false
+                    }
+                }
+                fun startGoogleSignIn() {
+                    val generatedWebClientIdRes = resources.getIdentifier(
+                        "default_web_client_id",
+                        "string",
+                        packageName
+                    )
+                    val generatedWebClientId = if (generatedWebClientIdRes != 0) {
+                        getString(generatedWebClientIdRes).trim()
+                    } else {
+                        ""
+                    }
+                    val webClientId = generatedWebClientId.ifBlank {
+                        getString(R.string.google_web_client_id).trim()
+                    }
+                    if (webClientId.isBlank()) {
+                        authErrorMessage = getString(R.string.auth_google_unavailable)
+                        return
+                    }
+                    runAuthAction(mergeLocalDataIntoAccount = true) {
+                        val googleIdOption = GetGoogleIdOption.Builder()
+                            .setFilterByAuthorizedAccounts(false)
+                            .setServerClientId(webClientId)
+                            .build()
+                        val request = GetCredentialRequest.Builder()
+                            .addCredentialOption(googleIdOption)
+                            .build()
+                        val response = CredentialManager.create(this@MainActivity)
+                            .getCredential(
+                                context = this@MainActivity,
+                                request = request
+                            )
+                        val credential = response.credential
+                        val idToken = if (
+                            credential is CustomCredential &&
+                            credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                        ) {
+                            GoogleIdTokenCredential.createFrom(credential.data).idToken
+                        } else {
+                            null
+                        } ?: error(getString(R.string.auth_google_missing_token))
+                        app.authService.signInWithGoogleIdToken(idToken)
+                    }
+                }
+                LaunchedEffect(showSplash, authSession?.userId, authSession?.isAnonymous, isGuestModeSelected) {
+                    if (!showSplash && shouldStartGuestModeByDefault(authSession, isGuestModeSelected)) {
+                        runAuthAction {
+                            app.authService.continueAsGuest()
+                        }
+                    }
+                }
                 val adsController = remember {
                     MenuDadoAdsController(
                         activity = this@MainActivity,
@@ -114,14 +211,24 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
-                val lifecycleOwner = LocalLifecycleOwner.current
-                LaunchedEffect(adsRemoteConfig) {
-                    adsRemoteConfig.fetchAdsEnabled()
+                val aboutRemoteConfig = remember(defaultAboutContent) {
+                    MenuDadoAboutRemoteConfig(
+                        defaultContent = defaultAboutContent,
+                        onAboutContentChanged = { content ->
+                            aboutContent = content
+                        }
+                    )
                 }
-                DisposableEffect(lifecycleOwner, adsRemoteConfig) {
+                val lifecycleOwner = LocalLifecycleOwner.current
+                LaunchedEffect(adsRemoteConfig, aboutRemoteConfig) {
+                    adsRemoteConfig.fetchAdsEnabled()
+                    aboutRemoteConfig.fetchAboutContent()
+                }
+                DisposableEffect(lifecycleOwner, adsRemoteConfig, aboutRemoteConfig) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (shouldRefreshAdsRemoteConfigOnLifecycleEvent(event)) {
                             adsRemoteConfig.fetchAdsEnabled()
+                            aboutRemoteConfig.fetchAboutContent()
                         }
                     }
                     lifecycleOwner.lifecycle.addObserver(observer)
@@ -155,7 +262,32 @@ class MainActivity : ComponentActivity() {
                         onAdsPrivacyOptionsMessageDismiss = {
                             adsPrivacyOptionsMessage = null
                         },
-                        onAdsPrivacyOptionsClick = adsController::showPrivacyOptionsForm
+                        onAdsPrivacyOptionsClick = adsController::showPrivacyOptionsForm,
+                        authSession = authSession,
+                        isAuthLoading = isAuthLoading,
+                        authErrorMessage = authErrorMessage,
+                        onAuthSignIn = { email, password ->
+                            runAuthAction(mergeLocalDataIntoAccount = true) {
+                                app.authService.signInWithEmail(email, password)
+                            }
+                        },
+                        onAuthRegister = { email, password ->
+                            runAuthAction(mergeLocalDataIntoAccount = true) {
+                                app.authService.registerWithEmail(email, password)
+                            }
+                        },
+                        onAuthGoogleSignIn = {
+                            startGoogleSignIn()
+                        },
+                        onAuthSignOut = {
+                            runAuthAction {
+                                app.authService.signOut()
+                            }
+                        },
+                        aboutContent = aboutContent,
+                        onAuthErrorDismiss = {
+                            authErrorMessage = null
+                        }
                     )
                 }
             }
@@ -181,7 +313,7 @@ internal fun shouldShowAdsPrivacyOptionsInNavigation(
     buildType: String,
     areAdsPrivacyOptionsRequired: Boolean
 ): Boolean {
-    return areAdsEnabled && areAdsPrivacyOptionsRequired && buildType != RELEASE_BUILD_TYPE
+    return false
 }
 
 internal fun shouldRefreshAdsRemoteConfigOnLifecycleEvent(event: Lifecycle.Event): Boolean {

@@ -2,7 +2,7 @@
 
 ## Visión
 
-MenuDado es una app Android nativa para planificar menús de comida y elegir qué comer hoy cuando el usuario no sabe qué cocinar. La app mantiene comportamiento local-first con Room para funcionar sin conexión, sincroniza los datos guardados en Firebase Firestore mediante autenticación anónima sin pantalla de login y usa IA online para evaluar si un menú es saludable.
+MenuDado es una app Android nativa para planificar menús de comida y elegir qué comer hoy cuando el usuario no sabe qué cocinar. La app mantiene comportamiento local-first con Room para funcionar sin conexión, sincroniza los datos guardados en Firebase Firestore mediante Firebase Auth y usa IA online para evaluar si un menú es saludable. La primera pantalla siempre es Inicio y la app entra por defecto como invitado; desde `Mi zona` el usuario puede crear cuenta o iniciar sesión con correo o Google para recuperar datos tras reinstalar.
 
 ## Nombre del Producto
 
@@ -137,7 +137,15 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 5. Comportamiento local primero con backend.
    - Los menús siguen disponibles sin conexión.
-   - Los menús, perfil alimentario, uso diario de IA y onboarding se guardan localmente primero y se sincronizan en Firestore bajo el usuario anónimo del dispositivo.
+   - Los menús, perfil alimentario, uso diario de IA y onboarding se guardan localmente primero y se sincronizan en Firestore bajo el usuario Firebase actual.
+   - En una instalación sin sesión resuelta, MenuDado entra por defecto como invitado y conserva el comportamiento anterior con usuario anónimo; no muestra una pantalla de acceso antes de Inicio.
+   - La barra inferior incluye `Mi zona`, una sección de cuenta inspirada en el patrón de zona de usuario: saludo, franja/botón de ventajas que abre un modal con beneficios ampliados y acciones `Registrarme gratis` e `Iniciar sesión` cuando el usuario sigue como invitado.
+   - Los formularios de `Registrarme gratis` e `Iniciar sesión` son pantallas internas reutilizables dentro de `Mi zona`, no modales bloqueantes ni pantallas previas al uso de la app. Ambas permiten continuar con Google además de correo y contraseña.
+   - Si un invitado crea cuenta con correo, MenuDado vincula el usuario anónimo actual con la credencial de email para conservar el mismo `uid`; así los datos existentes bajo `users/{uid}` quedan asociados a la cuenta sin copiar documentos.
+   - Si un invitado inicia sesión con Google, MenuDado vincula el usuario anónimo actual con la credencial de Google cuando Firebase lo permite para conservar el mismo `uid`; en sesiones no invitadas usa el inicio de sesión Firebase normal con Google.
+   - Si ya existe una sesión con cuenta registrada por correo o Google, la app entra directamente sin pedir iniciar sesión otra vez.
+   - Cuando el usuario ya inició sesión, `Mi zona` muestra `Mis datos` con el correo, el estado `Datos guardados en tu cuenta`, acceso a `Acerca de la app`, acceso a `Privacidad` solo en la variante `debug` y la acción `Cerrar sesión`.
+   - Los formularios internos de cuenta, `Acerca de la app` y los detalles abiertos con `Ver mas` usan una flecha de retroceso en la cabecera verde de la app; no deben mostrar una `X` suelta ni un texto `< Volver` dentro del contenido.
    - La migración local de Room a versión 7 marca los menús activos existentes como pendientes de subida para corregir instalaciones donde datos creados antes de la sincronización remota quedaron marcados como sincronizados aunque no existían todavía en Firestore.
    - La migración local de Room a versión 8 agrega `isFavorite` a los menús existentes con valor inicial falso. El favorito forma parte del menú local-first y se sincroniza en Firestore junto con el resto del documento.
    - Si una operación remota falla, la app mantiene estado pendiente local para reintentar la sincronización de menús, perfil alimentario, uso diario de IA y onboarding en un siguiente arranque.
@@ -165,10 +173,8 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - La generación de ideas con IA debe respetar el perfil del público objetivo seleccionado, incluyendo rango de edad, restricciones y condiciones de salud escritas por el usuario, sin cambiar la creación manual de menús.
 
 8. Acerca de la app.
-   - La barra inferior ofrece una sección `Acerca`.
-   - La sección explica que MenuDado se hizo para ayudar cuando el usuario no sabe qué comer, permitiendo guardar menús, elegir con el dado y apoyarse con IA.
-   - Muestra como creador a `Rhonal A. Delgado Padilla`.
-   - Muestra el contacto `rhonal.delgado@gmail.com`.
+   - `Acerca de la app` se abre desde `Mi zona`.
+   - La descripción, el creador y el contacto visibles vienen de Firebase Remote Config mediante las variables string `about_description`, `about_created_by` y `about_contact`; si no existen o están vacías, la app usa textos locales de respaldo.
    - Muestra al final la versión visible de la app desde `BuildConfig.VERSION_NAME` en texto pequeño.
 
 ## Dirección Técnica
@@ -177,8 +183,9 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Lenguaje: Kotlin.
 - UI: Jetpack Compose.
 - Almacenamiento local: Room.
-- Backend: Firebase Auth anónimo y Firebase Firestore por usuario bajo `users/{uid}`; no hay login visible.
-- La app hidrata menús remotos desde Firestore al arrancar cuando no hay escrituras locales pendientes, usando el `uid` anónimo actual. Si se borra la app y Firebase crea un `uid` anónimo nuevo, los datos guardados bajo el `uid` anterior no se muestran por diseño de seguridad; recuperar datos entre reinstalaciones requiere conservar el mismo usuario anónimo o añadir un mecanismo de cuenta/login.
+- Backend: Firebase Auth con email/contraseña, Google Sign-In e invitado anónimo, y Firebase Firestore por usuario bajo `users/{uid}`.
+- Google Sign-In requiere que el proveedor Google esté habilitado en Firebase Auth para los proyectos `menudado-debug` y `menudado-6a2da`, que las apps Android tengan las huellas SHA correctas registradas y que cada build tenga un OAuth Web Client ID. La app lee primero el `default_web_client_id` generado desde `google-services.json`; como fallback, Gradle puede inyectar `menudadoDebugGoogleWebClientId` o `MENUDADO_DEBUG_GOOGLE_WEB_CLIENT_ID` para `debug`, y `menudadoProductionGoogleWebClientId` o `MENUDADO_PRODUCTION_GOOGLE_WEB_CLIENT_ID` para `release` y `releaseDebuggable`. Si no existe Web Client ID, la app compila y muestra un aviso de configuración al tocar `Continuar con Google`.
+- La app hidrata menús remotos desde Firestore al arrancar cuando no hay escrituras locales pendientes, usando el `uid` actual. Al registrarse o iniciar sesión con una cuenta, MenuDado marca una vez los datos locales relevantes como pendientes para fusionarlos en `users/{uid}` de esa cuenta, incluso si antes estaban sincronizados como invitado. En modo invitado, si se borra la app y Firebase crea un `uid` anónimo nuevo, los datos guardados bajo el `uid` anterior no se muestran por diseño de seguridad. Para recuperar datos entre reinstalaciones el usuario debe crear cuenta o iniciar sesión con correo.
 - Arquitectura: MVVM con repositorios.
 - Estado y asincronía: Kotlin coroutines y Flow.
 - Integración IA: Firebase AI Logic con Gemini 2.5 Flash-Lite para análisis saludable y lote de pendientes.
@@ -187,8 +194,12 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Todos los build variants usan IA real con Firebase AI Logic; `debug` usa el proyecto Firebase separado `MenuDado Debug` (`menudado-debug`) con `applicationId` `com.menudado.debug`, mientras `release` y `releaseDebuggable` usan el proyecto productivo `MenuDado Production` (`menudado-6a2da`) con `applicationId` `com.menudado`.
 - Perfil alimentario: configuración local por público objetivo en SharedPreferences usada como restricciones del prompt de generación IA y sincronizada en Firestore.
 - Onboarding: estado local en SharedPreferences para mostrar la guía solo en primera apertura y sincronizado en Firestore.
-- Metadatos backend: al abrir la app se sincronizan país de la configuración regional, zona horaria, fabricante/modelo de dispositivo, versión Android, `versionName` y `versionCode`; no se solicita GPS, contactos ni identificador publicitario.
+- Metadatos backend: al abrir la app se sincronizan país de la configuración regional, zona horaria, fabricante/modelo de dispositivo, versión Android, `versionName`, `versionCode`, modo de cuenta (`none`, `guest` o `signed_in`) y correo solo cuando el usuario tiene cuenta registrada; no se solicita GPS, contactos ni identificador publicitario.
 - Reglas Firestore: `firestore.rules` restringe lectura/escritura a `users/{request.auth.uid}/**`.
+- Remote Config:
+  - La visibilidad de publicidad se controla con la variable booleana `ads_enabled`; solo si vale `true` se solicita consentimiento, se inicializa AdMob y se muestra el banner. El valor por defecto local es `false`.
+  - El contenido de `Acerca de la app` se controla con las variables string `about_description`, `about_created_by` y `about_contact`; sus valores por defecto locales conservan la descripción actual, el creador `Rhonal A. Delgado Padilla` y el contacto `rhonal.delgado@gmail.com`.
+  - En builds con `BuildConfig.DEBUG = true` se usa fetch inmediato para probar cambios sin esperar caché; en builds no debug se conserva intervalo mínimo de 1 hora.
 - App Check:
   - MenuDado inicializa Firebase App Check al arrancar la aplicación antes de usar Analytics, Firestore o Firebase AI Logic.
   - La variante `debug` (`com.menudado.debug`, proyecto `MenuDado Debug`) usa `DebugAppCheckProviderFactory`; para probar contra Firebase hay que registrar el token debug que aparece en Logcat dentro de App Check del proyecto debug.
@@ -212,11 +223,11 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - Los eventos no deben enviar nombres de menú, ingredientes, notas, recetas, correo de contacto, nombre del creador, IDs de documentos, UID de Firebase, URI de imagen, alérgenos específicos, embarazo, condiciones de salud ni texto libre del perfil.
 - Publicidad:
   - Integración inicial con Google Mobile Ads SDK y User Messaging Platform para consentimiento antes de solicitar anuncios.
-  - La visibilidad de publicidad se controla con Firebase Remote Config mediante la variable booleana `ads_enabled`; solo si vale `true` se solicita consentimiento, se inicializa AdMob y se muestra el banner. El valor por defecto local es `false`. En builds debug se usa fetch inmediato de Remote Config para probar cambios sin esperar la caché; en release se conserva intervalo mínimo de 1 hora.
+  - La visibilidad de publicidad se controla con Firebase Remote Config mediante la variable booleana `ads_enabled`.
   - El primer formato monetizable es un banner adaptativo no invasivo en Home, insertado en el contenido después del formulario `Agregar menu` y antes de `Tus menus`.
   - Durante desarrollo usa el App ID y ad unit ID demo de Google para evitar tráfico inválido en AdMob.
   - La app solicita anuncios no personalizados por defecto mientras el permiso de identificador publicitario se mantiene removido.
-  - Si UMP indica que las opciones de privacidad son requeridas, la barra inferior muestra `Privacidad` solo en builds de prueba (`debug` y `releaseDebuggable`) para abrir el formulario de Google; en `release` se mantiene oculta como en la navegación lateral anterior.
+  - Si UMP indica que las opciones de privacidad son requeridas, `Mi zona` muestra `Privacidad` solo en builds de prueba para abrir el formulario de Google; en `release` se mantiene oculta.
   - No se usan anuncios de apertura, interstitials ni rewarded interstitials en esta fase para no interrumpir el dado, el guardado ni la generación con IA.
   - El manifest mantiene removido `com.google.android.gms.permission.AD_ID` hasta completar la decisión explícita sobre anuncios personalizados y actualizar la ficha de Google Play si cambia esa estrategia.
 - Configuración Firebase: `app/google-services.json`, `app/src/release/google-services.json` y `app/src/releaseDebuggable/google-services.json` apuntan a producción (`MenuDado Production`, `menudado-6a2da`, `com.menudado`); `app/src/debug/google-services.json` apunta a debug (`MenuDado Debug`, `menudado-debug`, `com.menudado.debug`).
@@ -234,7 +245,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 ## Principios de UX
 
 - La primera pantalla debe ser la app usable, no una página de presentación.
-- La navegación principal vive en una barra inferior verde MenuDado con accesos a Inicio, Perfil, Acerca y, solo en builds de prueba cuando UMP lo requiera, Privacidad.
+- La navegación principal vive en una barra inferior verde MenuDado con accesos a Inicio, Perfil y Mi zona. `Acerca de la app` y `Privacidad` se acceden desde `Mi zona`.
 - Una acción principal clara: agregar menú.
 - Una acción divertida y protagonista: tocar el dado, ver una animación corta y recibir una sugerencia.
 - La cabecera debe respetar el espacio de la barra de estado y usar colores de sistema coherentes con la marca.
@@ -242,7 +253,8 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Los selectores de modo, filtros de comida y switches booleanos deben usar controles reutilizables con estilo de marca MenuDado, evitando componentes básicos sin personalización cuando formen parte de flujos principales.
 - En la pantalla principal, los filtros repetidos de tipo de comida y público objetivo deben mostrarse como selectores compactos con menú para reducir la sensación de exceso de botones.
 - La respuesta saludable debe ser breve y no juzgar al usuario.
-- La app debe funcionar bien con pocos menús y no requerir configuración compleja más allá de Firebase/API.
+- La app debe funcionar bien con pocos menús y no pedir configuración técnica al usuario final.
+- Los textos visibles para usuarios finales no deben mencionar nombres técnicos internos como Firebase, Firestore, API keys, Remote Config, google-services, IDs de cliente ni nombres de variantes como `MenuDado Debug`; esos detalles quedan solo en código, logs técnicos o documentación interna.
 
 ## Foco de Validación
 

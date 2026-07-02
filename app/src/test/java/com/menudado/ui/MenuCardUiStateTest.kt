@@ -184,7 +184,7 @@ class MenuCardUiStateTest {
             listOf(
                 MenuDadoDestination.HOME,
                 MenuDadoDestination.PROFILE,
-                MenuDadoDestination.ABOUT
+                MenuDadoDestination.MY_ZONE
             ),
             menuDadoBottomNavigationDestinations(areAdsPrivacyOptionsRequired = false)
         )
@@ -192,15 +192,78 @@ class MenuCardUiStateTest {
             listOf(
                 MenuDadoDestination.HOME,
                 MenuDadoDestination.PROFILE,
-                MenuDadoDestination.ABOUT,
-                MenuDadoDestination.PRIVACY
+                MenuDadoDestination.MY_ZONE
             ),
             menuDadoBottomNavigationDestinations(areAdsPrivacyOptionsRequired = true)
         )
         assertEquals(R.string.nav_home, menuDadoBottomNavigationLabelRes(MenuDadoDestination.HOME))
         assertEquals(R.string.nav_dietary_profile, menuDadoBottomNavigationLabelRes(MenuDadoDestination.PROFILE))
-        assertEquals(R.string.nav_about, menuDadoBottomNavigationLabelRes(MenuDadoDestination.ABOUT))
-        assertEquals(R.string.nav_ads_privacy_options, menuDadoBottomNavigationLabelRes(MenuDadoDestination.PRIVACY))
+        assertEquals(R.string.nav_my_zone, menuDadoBottomNavigationLabelRes(MenuDadoDestination.MY_ZONE))
+    }
+
+    @Test
+    fun `pantallas internas muestran flecha de retroceso en cabecera`() {
+        assertEquals(R.drawable.ic_arrow_back, menuDadoHeaderBackIconRes())
+        assertEquals(R.string.common_back, menuDadoHeaderBackContentDescriptionRes())
+        assertEquals(
+            true,
+            shouldShowMenuDadoHeaderBackButton(
+                destination = MenuDadoDestination.ABOUT,
+                hasAudienceDetail = false,
+                hasAuthForm = false
+            )
+        )
+        assertEquals(
+            true,
+            shouldShowMenuDadoHeaderBackButton(
+                destination = MenuDadoDestination.HOME,
+                hasAudienceDetail = true,
+                hasAuthForm = false
+            )
+        )
+        assertEquals(
+            true,
+            shouldShowMenuDadoHeaderBackButton(
+                destination = MenuDadoDestination.MY_ZONE,
+                hasAudienceDetail = false,
+                hasAuthForm = true
+            )
+        )
+        assertEquals(
+            false,
+            shouldShowMenuDadoHeaderBackButton(
+                destination = MenuDadoDestination.MY_ZONE,
+                hasAudienceDetail = false,
+                hasAuthForm = false
+            )
+        )
+    }
+
+    @Test
+    fun `mi zona muestra beneficios ampliados de tener cuenta`() {
+        assertEquals(
+            listOf(
+                R.string.my_zone_benefit_reinstall,
+                R.string.my_zone_benefit_profile,
+                R.string.my_zone_benefit_personalization,
+                R.string.my_zone_benefit_favorites,
+                R.string.my_zone_benefit_devices,
+                R.string.my_zone_benefit_ai_context
+            ),
+            myZoneAccountBenefitRes()
+        )
+    }
+
+    @Test
+    fun `mi zona muestra privacidad solo en debug`() {
+        assertEquals(true, shouldShowMyZonePrivacyOption(buildType = "debug"))
+        assertEquals(false, shouldShowMyZonePrivacyOption(buildType = "release"))
+        assertEquals(false, shouldShowMyZonePrivacyOption(buildType = "releaseDebuggable"))
+    }
+
+    @Test
+    fun `mi zona no muestra el nombre tecnico de la variante como cuenta sincronizada`() {
+        assertEquals(R.string.my_zone_synced_account_value, myZoneSyncedAccountValueRes())
     }
 
     @Test
@@ -527,9 +590,14 @@ class MenuCardUiStateTest {
 
     @Test
     fun `acerca de la app muestra motivo creador y version`() {
-        val info = aboutAppInfo()
+        val info = com.menudado.about.MenuDadoAboutContent(
+            description = "MenuDado ayuda a decidir que comer.",
+            createdBy = "Rhonal A. Delgado Padilla",
+            contact = "rhonal.delgado@gmail.com"
+        )
 
-        assertEquals("Rhonal A. Delgado Padilla", info.creator)
+        assertEquals("MenuDado ayuda a decidir que comer.", info.description)
+        assertEquals("Rhonal A. Delgado Padilla", info.createdBy)
         assertEquals("rhonal.delgado@gmail.com", info.contact)
     }
 }

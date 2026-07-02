@@ -22,6 +22,9 @@ interface MenuDao {
     @Query("UPDATE menus SET remoteSyncState = 'SYNCED', remoteSyncToken = NULL WHERE id = :id AND remoteSyncToken = :remoteSyncToken AND remoteSyncState = 'PENDING_UPSERT'")
     suspend fun markUpsertSynced(id: Long, remoteSyncToken: String): Int
 
+    @Query("UPDATE menus SET remoteSyncState = 'PENDING_UPSERT', remoteSyncToken = NULL, updatedAt = :updatedAt WHERE deletedAt IS NULL")
+    suspend fun markVisibleMenusPendingUpsert(updatedAt: Long): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(menu: MenuEntity): Long
 
