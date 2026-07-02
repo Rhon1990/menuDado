@@ -562,6 +562,64 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `saved generated menu appears first in matching carousel`() = runTest(dispatcher) {
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(
+                menuDao = dao,
+                healthAnalyzer = analyzer,
+                clockMillisProvider = { 2_000L }
+            ),
+            analytics = analytics,
+            clockMillisProvider = { localMillisAtHour(12) },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        dao.seed(
+            listOf(
+                FoodMenu(
+                    id = 1L,
+                    name = "Menu antiguo",
+                    mealType = MealType.LUNCH,
+                    audience = MenuAudience.ADULT,
+                    description = "Arroz con pollo.",
+                    createdAt = 1_000L
+                )
+            )
+        )
+        advanceUntilIdle()
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Bowl mediterraneo",
+            description = "Quinoa, pollo, tomate y pepino.",
+            notes = "Servir fresco.",
+            calories = 520,
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Incluye proteina y vegetales.",
+                suggestion = "Mantener."
+            )
+        )
+        viewModel.setFormMealType(MealType.LUNCH)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        viewModel.saveMenu()
+        advanceUntilIdle()
+
+        val visibleMenus = menuCarouselVisibleMenus(
+            menus = viewModel.uiState.value.menus,
+            audience = MenuAudience.ADULT,
+            isExpanded = false
+        )
+        assertEquals("Bowl mediterraneo", visibleMenus.first().name)
+        assertEquals(MealType.LUNCH, visibleMenus.first().mealType)
+        assertEquals(MenuAudience.ADULT, visibleMenus.first().audience)
+    }
+
+    @Test
     fun `manual menu is created without photo from add form`() = runTest(dispatcher) {
         viewModel.updateName("Crema de calabaza")
         viewModel.updateDescription("Calabaza, patata y aceite de oliva.")
@@ -1896,6 +1954,42 @@ class MenuDadoViewModelTest {
             listOf("dice_rolled:DINNER:true:DINNER:2:1"),
             analytics.events
         )
+    }
+
+    @Test
+    fun `roll dice keeps rolling for the fixed animation duration`() = runTest(dispatcher) {
+        dao.seed(
+            listOf(
+                FoodMenu(
+                    id = 1,
+                    name = "Tostada",
+                    mealType = MealType.BREAKFAST,
+                    audience = MenuAudience.ADULT,
+                    description = "Pan"
+                )
+            )
+        )
+        advanceUntilIdle()
+        viewModel.setDiceFilter(MealType.BREAKFAST)
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
+
+        viewModel.rollDice()
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.isRolling)
+        assertNull(viewModel.uiState.value.result)
+
+        advanceTimeBy(DICE_ROLL_DURATION_MILLIS - 1)
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.isRolling)
+        assertNull(viewModel.uiState.value.result)
+
+        advanceTimeBy(1)
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.isRolling)
+        assertEquals("Tostada", viewModel.uiState.value.result?.name)
     }
 
     @Test

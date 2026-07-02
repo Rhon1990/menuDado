@@ -107,7 +107,10 @@ class MainActivity : ComponentActivity() {
                     MenuDadoScreen(
                         viewModel = viewModel,
                         areAdsReady = areAdsReady,
-                        areAdsPrivacyOptionsRequired = areAdsPrivacyOptionsRequired,
+                        areAdsPrivacyOptionsRequired = shouldShowAdsPrivacyOptionsInNavigation(
+                            buildType = BuildConfig.BUILD_TYPE,
+                            areAdsPrivacyOptionsRequired = areAdsPrivacyOptionsRequired
+                        ),
                         adsPrivacyOptionsMessage = adsPrivacyOptionsMessage,
                         onAdsPrivacyOptionsMessageDismiss = {
                             adsPrivacyOptionsMessage = null
@@ -132,6 +135,15 @@ class MainActivity : ComponentActivity() {
 internal fun menuDadoStatusBarColor(): Int = MenuDadoColors.HeaderGreen.toArgb()
 
 internal fun menuDadoNavigationBarColor(): Int = MenuDadoColors.HeaderGreen.toArgb()
+
+internal fun shouldShowAdsPrivacyOptionsInNavigation(
+    buildType: String,
+    areAdsPrivacyOptionsRequired: Boolean
+): Boolean {
+    return areAdsPrivacyOptionsRequired && buildType != RELEASE_BUILD_TYPE
+}
+
+private const val RELEASE_BUILD_TYPE = "release"
 
 @Composable
 private fun MenuDadoSplashScreen() {

@@ -96,7 +96,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 3. Sugerencia aleatoria.
    - Botón de dado para elegir un menú guardado al azar.
-   - Al tocar el dado, se muestra una animación breve de lanzamiento antes del resultado.
+   - Al tocar el dado, se muestra una animación breve de lanzamiento con duración constante antes del resultado.
    - La animación debe mostrar un dado 3D con seis platos ilustrados en sus caras, bordes redondeados y acabado cálido similar al logo; no debe usar puntos, letras, icono estático ni una cara plana 2D.
    - El dado del botón de lanzamiento debe permitir ajustar su ángulo con el dedo: al mantener presionado sobre el dado y arrastrar, cambia la rotación, y al soltar conserva la posición elegida.
    - Al detenerse después de cada lanzamiento, el dado debe quedar en una orientación de reposo distinta para que se vea una cara diferente.
@@ -152,7 +152,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Al empezar u omitir, el onboarding se marca como completado en almacenamiento local y no vuelve a mostrarse en siguientes aperturas hasta que exista una nueva versión de contenido relevante.
 
 7. Perfil alimentario.
-   - La app ofrece un menú hamburguesa con acceso a `Perfil alimentario`.
+   - La app ofrece una barra inferior verde con acceso a `Perfil`.
    - El perfil se guarda localmente en el móvil y se sincroniza en Firestore para el usuario anónimo.
    - El perfil alimentario se configura por público objetivo: persona adulta, peques y bebé.
    - Cada público tiene un interruptor `Activo`; por defecto solo `Persona adulta` viene activo, y `Peques` y `Bebé` empiezan desactivados. Si un público está desactivado, no aparece como botón seleccionable al agregar menús ni al lanzar el dado. La app impide desactivar el último público activo para que siempre quede al menos uno disponible.
@@ -165,7 +165,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - La generación de ideas con IA debe respetar el perfil del público objetivo seleccionado, incluyendo rango de edad, restricciones y condiciones de salud escritas por el usuario, sin cambiar la creación manual de menús.
 
 8. Acerca de la app.
-   - El menú hamburguesa ofrece una sección `Acerca de la app`.
+   - La barra inferior ofrece una sección `Acerca`.
    - La sección explica que MenuDado se hizo para ayudar cuando el usuario no sabe qué comer, permitiendo guardar menús, elegir con el dado y apoyarse con IA.
    - Muestra como creador a `Rhonal A. Delgado Padilla`.
    - Muestra el contacto `rhonal.delgado@gmail.com`.
@@ -214,7 +214,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - El primer formato monetizable es un banner adaptativo no invasivo en Home, insertado en el contenido después del formulario `Agregar menu` y antes de `Tus menus`.
   - Durante desarrollo usa el App ID y ad unit ID demo de Google para evitar tráfico inválido en AdMob.
   - La app solicita anuncios no personalizados por defecto mientras el permiso de identificador publicitario se mantiene removido.
-  - Si UMP indica que las opciones de privacidad son requeridas, el menú lateral muestra `Opciones de privacidad` para abrir el formulario de Google.
+  - Si UMP indica que las opciones de privacidad son requeridas, la barra inferior muestra `Privacidad` solo en builds de prueba (`debug` y `releaseDebuggable`) para abrir el formulario de Google; en `release` se mantiene oculta como en la navegación lateral anterior.
   - No se usan anuncios de apertura, interstitials ni rewarded interstitials en esta fase para no interrumpir el dado, el guardado ni la generación con IA.
   - El manifest mantiene removido `com.google.android.gms.permission.AD_ID` hasta completar la decisión explícita sobre anuncios personalizados y actualizar la ficha de Google Play si cambia esa estrategia.
 - Configuración Firebase: `app/google-services.json`, `app/src/release/google-services.json` y `app/src/releaseDebuggable/google-services.json` apuntan a producción (`MenuDado Production`, `menudado-6a2da`, `com.menudado`); `app/src/debug/google-services.json` apunta a debug (`MenuDado Debug`, `menudado-debug`, `com.menudado.debug`).
@@ -232,6 +232,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 ## Principios de UX
 
 - La primera pantalla debe ser la app usable, no una página de presentación.
+- La navegación principal vive en una barra inferior verde MenuDado con accesos a Inicio, Perfil, Acerca y, solo en builds de prueba cuando UMP lo requiera, Privacidad.
 - Una acción principal clara: agregar menú.
 - Una acción divertida y protagonista: tocar el dado, ver una animación corta y recibir una sugerencia.
 - La cabecera debe respetar el espacio de la barra de estado y usar colores de sistema coherentes con la marca.

@@ -13,4 +13,47 @@ class MainActivitySystemBarsTest {
         assertEquals(headerGreen, menuDadoStatusBarColor())
         assertEquals(headerGreen, menuDadoNavigationBarColor())
     }
+
+    @Test
+    fun `opciones de privacidad no se muestran en release`() {
+        assertEquals(
+            false,
+            shouldShowAdsPrivacyOptionsInNavigation(
+                buildType = "release",
+                areAdsPrivacyOptionsRequired = true
+            )
+        )
+        assertEquals(
+            false,
+            shouldShowAdsPrivacyOptionsInNavigation(
+                buildType = "release",
+                areAdsPrivacyOptionsRequired = false
+            )
+        )
+    }
+
+    @Test
+    fun `opciones de privacidad se pueden mostrar en builds de prueba`() {
+        assertEquals(
+            true,
+            shouldShowAdsPrivacyOptionsInNavigation(
+                buildType = "debug",
+                areAdsPrivacyOptionsRequired = true
+            )
+        )
+        assertEquals(
+            true,
+            shouldShowAdsPrivacyOptionsInNavigation(
+                buildType = "releaseDebuggable",
+                areAdsPrivacyOptionsRequired = true
+            )
+        )
+        assertEquals(
+            false,
+            shouldShowAdsPrivacyOptionsInNavigation(
+                buildType = "debug",
+                areAdsPrivacyOptionsRequired = false
+            )
+        )
+    }
 }

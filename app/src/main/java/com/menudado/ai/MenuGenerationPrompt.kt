@@ -27,35 +27,47 @@ internal object MenuGenerationPrompt {
 
         return """
             ${guidance.opening}
-            Tipo seleccionado en la app: ${mealType.localizedLabel(language)}.
-            Publico seleccionado en la app: ${audience.localizedLabel(language)}.
-            ${guidance.fitRule}
-            ${guidance.exclusionRule}
-            ${guidance.effortRule.orEmpty()}
-            ${audienceGuidance}
+            
+            Tipo: ${mealType.localizedLabel(language)}.
+            Público: ${audience.localizedLabel(language)}.
+            
+            Reglas:
+            - ${guidance.fitRule}
+            - ${guidance.exclusionRule}
+            ${guidance.effortRule?.let { "- $it" }.orEmpty()}
+            - Debe ser saludable, rica, simple y con ingredientes comunes.
+            - Evita productos raros, caros o difíciles de conseguir.
+            - Debe ser distinta de los platos previos.
+            - No repitas el mismo plato ni una variante muy parecida.
+            - Cambia base, proteína, preparación o estilo cuando sea posible.
+            - La evaluación saludable debe ser breve y práctica.
+            
+            $audienceGuidance
+            
             $dietaryProfileBlock
+            
             $baseIngredientsBlock
-            Debe ser saludable, rica, simple y con ingredientes comunes de supermercado.
-            Evita productos raros, caros o dificiles de conseguir.
-            Variedad sugerida: puedes proponer cremas o sopas ligeras, ensaladas completas como ensalada Cesar saludable, bowls equilibrados, salteados simples, tortillas, legumbres, wraps, tostas, pasta integral o arroz integral.
-            Debe ser claramente distinta de los platos previos listados abajo:
+            
+            Platos previos a evitar:
             $avoidBlock
-            No repitas el mismo plato, ni una variante demasiado parecida.
-            Cambia la base principal, la proteina principal, la preparacion y el estilo cuando sea posible.
-            La evaluacion saludable debe ser breve, practica y sin tono de juicio.
-            Write name, description, notes, reason and suggestion in ${language.promptLanguageName}.
-            Responde solo JSON valido, sin markdown, con estas claves:
+            
+            Responde solo JSON válido, sin markdown:
             {
-              "name": "nombre breve del plato",
-              "description": "ingredientes y preparacion breve",
-              "notes": "nota practica opcional",
+              "name": "nombre breve",
+              "description": "ingredientes y preparación breve",
+              "notes": "nota práctica opcional",
               "calories": 520,
-              "health_status": "saludable|intermedio|no_saludable",
-              "health_reason": "resumen breve de por que tiene ese estado",
-              "health_suggestion": "una sugerencia practica para mejorarlo o mantenerlo"
+              "health_status": "saludable",
+              "health_reason": "motivo breve",
+              "health_suggestion": "sugerencia práctica"
             }
-            Las calorias deben ser una estimacion numerica realista para una racion adecuada al publico seleccionado.
-        """.trimIndent()
+            
+            health_status debe ser exactamente uno de:
+            saludable, intermedio, no_saludable.
+            
+            Las calorías deben ser una estimación numérica realista para una ración adecuada al público.
+            Escribe name, description, notes, health_reason y health_suggestion en ${language.promptLanguageName}.
+            """.trimIndent()
     }
 
     private fun String.toBaseIngredientsPromptBlock(): String {
@@ -101,11 +113,13 @@ internal object MenuGenerationPrompt {
                     fitRule = "The recipe must clearly fit as ${localizedLabel(language).lowercase()}.",
                     exclusionRule = "Do not generate recipes for other meal types."
                 )
+
                 MealType.LUNCH -> GenerationGuidance(
                     opening = "Generate a healthy ${localizedLabel(language).lowercase()} idea.",
                     fitRule = "The recipe must clearly fit as ${localizedLabel(language).lowercase()}.",
                     exclusionRule = "Do not generate breakfast or dinner ideas."
                 )
+
                 MealType.DINNER -> GenerationGuidance(
                     opening = "Generate a healthy ${localizedLabel(language).lowercase()} idea.",
                     fitRule = "The recipe must clearly fit as a light, quick, low-energy night dinner.",
@@ -120,11 +134,13 @@ internal object MenuGenerationPrompt {
                 fitRule = "La receta debe encajar claramente como desayuno cotidiano.",
                 exclusionRule = "No generes almuerzos ni cenas."
             )
+
             MealType.LUNCH -> GenerationGuidance(
                 opening = "Genera un almuerzo saludable.",
                 fitRule = "La receta debe encajar claramente como almuerzo o comida de mediodia.",
                 exclusionRule = "No generes desayunos ni cenas."
             )
+
             MealType.DINNER -> GenerationGuidance(
                 opening = "Genera una cena saludable.",
                 fitRule = "La receta debe encajar claramente como cena de noche, ligera, rapida y de baja energia para alguien cansado.",

@@ -26,9 +26,9 @@
     <string name="common_skip">Omitir</string>
     <string name="common_back">&lt; Volver</string>
     <string name="nav_home">Inicio</string>
-    <string name="nav_dietary_profile">Perfil alimentario</string>
-    <string name="nav_about">Acerca de la app</string>
-    <string name="nav_ads_privacy_options">Opciones de privacidad</string>
+    <string name="nav_dietary_profile">Perfil</string>
+    <string name="nav_about">Acerca</string>
+    <string name="nav_ads_privacy_options">Privacidad</string>
     <string name="ads_privacy_options_unavailable">No se pudieron abrir las opciones de privacidad ahora. Inténtalo de nuevo en unos minutos.</string>
     <string name="header_subtitle">¿Qué comemos hoy?</string>
     <string name="your_menus">Tus menús</string>
@@ -119,7 +119,7 @@
     <string name="ai_retry_ready_body">Cierra este aviso y vuelve a tocar la opción de IA que querías usar.</string>
     <string name="ai_retry_wait_body">MenuDado hará un solo intento y bloqueará los toques repetidos mientras espera. Cuando la pausa termine, este aviso cambiará para decirte que puedes reintentar.</string>
     <string name="onboarding_profile_title">Completa tu perfil</string>
-    <string name="onboarding_profile_body">Activa si cocinas para persona adulta, peques o bebé. En el perfil alimentario puedes indicar embarazo, alergias y condiciones de salud para adaptar mejor las ideas.</string>
+    <string name="onboarding_profile_body">Entra en Perfil desde la barra inferior para activar si cocinas para persona adulta, peques o bebé e indicar embarazo, alergias o condiciones de salud.</string>
     <string name="onboarding_menus_title">Guarda tus menús</string>
     <string name="onboarding_menus_body">Agrega desayunos, almuerzos y cenas con ingredientes, notas y calorías si quieres.</string>
     <string name="onboarding_ai_title">Personaliza con IA</string>

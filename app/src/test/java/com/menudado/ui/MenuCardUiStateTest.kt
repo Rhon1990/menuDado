@@ -116,6 +116,11 @@ class MenuCardUiStateTest {
         assertEquals(menuActionSheetContainerColor(), menuPhotoSourceSheetContainerColor())
         assertEquals(menuActionSheetContentColor(), menuPhotoSourceContentColor())
         assertEquals(true, menuPhotoSourceDismissesOnOutsideTap())
+        assertFalse(menuPhotoSourceShowsCancelButton())
+        assertTrue(menuPhotoSourceShowsCloseAction())
+        assertEquals(R.drawable.ic_close, menuSheetCloseActionIconRes())
+        assertEquals(R.string.common_close, menuSheetCloseActionContentDescriptionRes())
+        assertEquals(34, menuSheetCloseActionButtonSizeDp())
         assertEquals(Color.White, menuPhotoSourceOptionIconTint())
         assertEquals(Color.White, menuPhotoSourceOptionTitleColor())
         assertEquals(Color.White.copy(alpha = 0.78f), menuPhotoSourceOptionDescriptionColor())
@@ -143,6 +148,9 @@ class MenuCardUiStateTest {
         assertEquals(MenuDadoColors.HeaderGreen, menuActionSheetContainerColor())
         assertEquals(Color.White, menuActionSheetContentColor())
         assertEquals(true, menuActionSheetDismissesOnOutsideTap())
+        assertTrue(menuActionSheetShowsCloseAction())
+        assertEquals(R.drawable.ic_close, menuSheetCloseActionIconRes())
+        assertEquals(R.string.common_close, menuSheetCloseActionContentDescriptionRes())
         assertEquals(
             listOf(
                 MenuActionSheetAction.PHOTO,
@@ -165,6 +173,42 @@ class MenuCardUiStateTest {
     @Test
     fun `barra inferior de navegacion usa el verde de cabecera`() {
         assertEquals(MenuDadoColors.HeaderGreen, menuDadoNavigationBarScrimColor())
+    }
+
+    @Test
+    fun `opciones principales viven en barra inferior verde`() {
+        assertEquals(MenuDadoColors.HeaderGreen, menuDadoBottomNavigationContainerColor())
+        assertEquals(Color.White, menuDadoBottomNavigationContentColor(isSelected = true))
+        assertEquals(Color.White.copy(alpha = 0.72f), menuDadoBottomNavigationContentColor(isSelected = false))
+        assertEquals(
+            listOf(
+                MenuDadoDestination.HOME,
+                MenuDadoDestination.PROFILE,
+                MenuDadoDestination.ABOUT
+            ),
+            menuDadoBottomNavigationDestinations(areAdsPrivacyOptionsRequired = false)
+        )
+        assertEquals(
+            listOf(
+                MenuDadoDestination.HOME,
+                MenuDadoDestination.PROFILE,
+                MenuDadoDestination.ABOUT,
+                MenuDadoDestination.PRIVACY
+            ),
+            menuDadoBottomNavigationDestinations(areAdsPrivacyOptionsRequired = true)
+        )
+        assertEquals(R.string.nav_home, menuDadoBottomNavigationLabelRes(MenuDadoDestination.HOME))
+        assertEquals(R.string.nav_dietary_profile, menuDadoBottomNavigationLabelRes(MenuDadoDestination.PROFILE))
+        assertEquals(R.string.nav_about, menuDadoBottomNavigationLabelRes(MenuDadoDestination.ABOUT))
+        assertEquals(R.string.nav_ads_privacy_options, menuDadoBottomNavigationLabelRes(MenuDadoDestination.PRIVACY))
+    }
+
+    @Test
+    fun `animacion del dado aterriza exactamente en reposo`() {
+        assertEquals(0f, diceRollRemainingSpinDegrees(1f), 0.001f)
+        assertEquals(0f, diceRollPulse(1f), 0.001f)
+        assertEquals(1f, diceRollScale(1f), 0.001f)
+        assertEquals(0f, diceRollLift(1f), 0.001f)
     }
 
     @Test
@@ -236,6 +280,20 @@ class MenuCardUiStateTest {
         )
 
         assertEquals(listOf(3L, 2L, 1L), visible.map { it.id })
+    }
+
+    @Test
+    fun `carrusel cambia llave de scroll cuando entra un menu nuevo primero`() {
+        val previousMenus = listOf(
+            FoodMenu(id = 1L, name = "Menu anterior", mealType = MealType.LUNCH, audience = MenuAudience.ADULT, description = "A", createdAt = 1L)
+        )
+        val currentMenus = listOf(
+            FoodMenu(id = 2L, name = "Menu IA nuevo", mealType = MealType.LUNCH, audience = MenuAudience.ADULT, description = "B", createdAt = 2L),
+            previousMenus.single()
+        )
+
+        assertEquals(1L, menuCarouselScrollResetKey(previousMenus))
+        assertEquals(2L, menuCarouselScrollResetKey(currentMenus))
     }
 
     @Test
@@ -362,19 +420,22 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `drawer deja visible parte de la pantalla en moviles`() {
-        assertEquals(256, menuDadoDrawerWidthDp(screenWidthDp = 320))
-        assertEquals(288, menuDadoDrawerWidthDp(screenWidthDp = 360))
-        assertEquals(304, menuDadoDrawerWidthDp(screenWidthDp = 412))
+    fun `barra inferior reserva espacio tactil suficiente`() {
+        assertEquals(8, menuDadoBottomNavigationHorizontalPaddingDp())
+        assertEquals(8, menuDadoBottomNavigationVerticalPaddingDp())
+        assertEquals(58, menuDadoBottomNavigationMinHeightDp())
+        assertEquals(24, menuDadoBottomNavigationIconSizeDp())
     }
 
     @Test
-    fun `drawer usa colores y formas de MenuDado`() {
-        assertEquals(MenuDadoColors.Surface, menuDadoDrawerContainerColor())
-        assertEquals(MenuDadoColors.BrandGreen, menuDadoDrawerSelectedContainerColor())
-        assertEquals(Color.White, menuDadoDrawerSelectedTextColor())
-        assertEquals(MenuDadoColors.Ink, menuDadoDrawerUnselectedTextColor())
-        assertEquals(8, menuDadoDrawerItemCornerRadiusDp())
+    fun `barra inferior usa colores y formas de MenuDado`() {
+        assertEquals(MenuDadoColors.HeaderGreen, menuDadoBottomNavigationContainerColor())
+        assertEquals(Color.White, menuDadoBottomNavigationContentColor(isSelected = true))
+        assertEquals(Color.White.copy(alpha = 0.72f), menuDadoBottomNavigationContentColor(isSelected = false))
+        assertEquals(8, menuDadoBottomNavigationItemCornerRadiusDp())
+        assertEquals(6, menuDadoBottomNavigationIndicatorWidthDp(isSelected = true))
+        assertEquals(0, menuDadoBottomNavigationIndicatorWidthDp(isSelected = false))
+        assertEquals(6, menuDadoBottomNavigationIndicatorHeightDp())
     }
 
     @Test

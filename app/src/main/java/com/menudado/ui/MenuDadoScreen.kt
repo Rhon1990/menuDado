@@ -20,6 +20,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Animatable as ComposeAnimatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -46,6 +48,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -64,21 +67,15 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -89,7 +86,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -146,6 +142,7 @@ import kotlinx.coroutines.launch
 import android.widget.ImageView
 import java.io.File
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -167,8 +164,6 @@ fun MenuDadoScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val coroutineScope = rememberCoroutineScope()
     var previousRolling by remember { mutableStateOf(state.isRolling) }
     var diceFaceIndex by remember { mutableIntStateOf(0) }
     var audienceDetailRoute by rememberSaveable { mutableStateOf<String?>(null) }
@@ -231,8 +226,7 @@ fun MenuDadoScreen(
         isPhotoSourceDialogVisible = true
     }
     BackHandler(
-        enabled = drawerState.isOpen ||
-            adsPrivacyOptionsMessage != null ||
+        enabled = adsPrivacyOptionsMessage != null ||
             message != null ||
             state.showOnboarding ||
             actionSheetMenuId != null ||
@@ -244,9 +238,6 @@ fun MenuDadoScreen(
             destination != MenuDadoDestination.HOME
     ) {
         when {
-            drawerState.isOpen -> {
-                coroutineScope.launch { drawerState.close() }
-            }
             adsPrivacyOptionsMessage != null -> {
                 onAdsPrivacyOptionsMessageDismiss()
             }
@@ -497,205 +488,161 @@ fun MenuDadoScreen(
     BoxWithConstraints(
         modifier = Modifier.hideKeyboardOnTouch(focusManager, keyboardController)
     ) {
-        ModalNavigationDrawer(
-            drawerState = drawerState,
-            drawerContent = {
-                MenuDadoDrawer(
-                    selectedDestination = destination,
-                    drawerWidthDp = menuDadoDrawerWidthDp(maxWidth.value.toInt()),
-                    areAdsPrivacyOptionsRequired = areAdsPrivacyOptionsRequired,
-                    onDestinationSelected = { selected ->
-                        if (selected == MenuDadoDestination.ABOUT) {
-                            viewModel.trackAboutAppOpened()
-                        }
-                        if (selected == MenuDadoDestination.PROFILE) {
-                            viewModel.trackDietaryProfileOpened()
-                        }
-                        viewModel.trackCtaTapped(
-                            screen = ANALYTICS_SCREEN_DRAWER,
-                            cta = when (selected) {
-                                MenuDadoDestination.HOME -> ANALYTICS_CTA_NAV_HOME
-                                MenuDadoDestination.PROFILE -> ANALYTICS_CTA_NAV_DIETARY_PROFILE
-                                MenuDadoDestination.ABOUT -> ANALYTICS_CTA_NAV_ABOUT
-                            }
-                        )
-                        selectedDestination = selected.name
-                        audienceDetailRoute = null
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    onAdsPrivacyOptionsSelected = {
-                        viewModel.trackCtaTapped(
-                            screen = ANALYTICS_SCREEN_DRAWER,
-                            cta = ANALYTICS_CTA_ADS_PRIVACY_OPTIONS
-                        )
-                        coroutineScope.launch {
-                            drawerState.close()
-                            onAdsPrivacyOptionsClick()
-                        }
-                    }
-                )
-            }
+        LazyColumn(
+            state = activeListState,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MenuDadoColors.Background),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            LazyColumn(
-                state = activeListState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MenuDadoColors.Background),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    Header(
-                        onMenuClick = {
-                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_OPEN_DRAWER)
-                            coroutineScope.launch { drawerState.open() }
-                        }
-                    )
-                }
+            item {
+                Header()
+            }
 
-                when (destination) {
-                    MenuDadoDestination.PROFILE -> {
+            when (destination) {
+                MenuDadoDestination.PROFILE -> {
+                    item {
+                        DietaryProfileSection(
+                            audience = state.dietaryProfileAudience,
+                            audienceAgeRanges = state.audienceAgeRanges,
+                            enabledAudienceCount = state.enabledAudiences.size,
+                            profile = state.dietaryProfile,
+                            onAudienceChanged = viewModel::setDietaryProfileAudience,
+                            onAudienceEnabledChanged = viewModel::setDietaryProfileAudienceEnabled,
+                            onPregnantChanged = viewModel::setDietaryProfilePregnant,
+                            onVeganChanged = viewModel::setDietaryProfileVegan,
+                            onHasAllergiesChanged = viewModel::setDietaryProfileHasAllergies,
+                            onAllergenToggled = viewModel::toggleDietaryAllergen,
+                            onOtherAvoidancesChanged = viewModel::updateDietaryProfileOtherAvoidances
+                        )
+                    }
+                }
+                MenuDadoDestination.ABOUT -> {
+                    item {
+                        AboutAppSection()
+                    }
+                }
+                MenuDadoDestination.HOME,
+                MenuDadoDestination.PRIVACY -> {
+                    if (audienceDetail != null) {
                         item {
-                            DietaryProfileSection(
-                                audience = state.dietaryProfileAudience,
-                                audienceAgeRanges = state.audienceAgeRanges,
-                                enabledAudienceCount = state.enabledAudiences.size,
-                                profile = state.dietaryProfile,
-                                onAudienceChanged = viewModel::setDietaryProfileAudience,
-                                onAudienceEnabledChanged = viewModel::setDietaryProfileAudienceEnabled,
-                                onPregnantChanged = viewModel::setDietaryProfilePregnant,
-                                onVeganChanged = viewModel::setDietaryProfileVegan,
-                                onHasAllergiesChanged = viewModel::setDietaryProfileHasAllergies,
-                                onAllergenToggled = viewModel::toggleDietaryAllergen,
-                                onOtherAvoidancesChanged = viewModel::updateDietaryProfileOtherAvoidances
+                            MenuAudienceDetailScreen(
+                                audience = audienceDetail,
+                                menus = state.menus,
+                                onBack = {
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_BACK)
+                                    audienceDetailRoute = null
+                                },
+                                onOpenMenu = { menu ->
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_OPEN_MENU)
+                                    viewModel.trackMenuCardOpened(menu)
+                                    selectedDetailMenuId = menu.id
+                                },
+                                onOpenActions = { menu ->
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_OPEN_MENU_ACTIONS)
+                                    actionSheetMenuId = menu.id
+                                },
+                                onToggleFavorite = { menu ->
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_TOGGLE_FAVORITE)
+                                    viewModel.toggleFavorite(menu)
+                                }
                             )
                         }
-                    }
-                    MenuDadoDestination.ABOUT -> {
+                    } else {
                         item {
-                            AboutAppSection()
+                            DiceSection(
+                                filter = state.diceFilter,
+                                audienceFilter = state.diceAudienceFilter,
+                                enabledAudiences = state.enabledAudiences,
+                                isRolling = state.isRolling,
+                                diceFaceIndex = diceFaceIndex,
+                                onFilterChanged = viewModel::setDiceFilter,
+                                onAudienceFilterChanged = viewModel::setDiceAudienceFilter,
+                                onRoll = {
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_ROLL_DICE)
+                                    viewModel.rollDice()
+                                }
+                            )
                         }
-                    }
-                    MenuDadoDestination.HOME -> {
-                        if (audienceDetail != null) {
+                        item {
+                            MenuForm(
+                                state = state,
+                                enabledAudiences = state.enabledAudiences,
+                                onMealTypeChanged = viewModel::setFormMealType,
+                                onAudienceChanged = viewModel::setFormAudience,
+                                onNameChanged = viewModel::updateName,
+                                onDescriptionChanged = viewModel::updateDescription,
+                                onNotesChanged = viewModel::updateNotes,
+                                onAiBaseIngredientsChanged = viewModel::updateAiBaseIngredients,
+                                onGenerate = {
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_GENERATE_AI_MENU)
+                                    viewModel.generateMenuIdea()
+                                },
+                                onSave = {
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_SAVE_MENU)
+                                    viewModel.saveMenu()
+                                }
+                            )
+                        }
+                        item {
+                            MenuDadoBannerAd(isReady = areAdsReady)
+                        }
+                        item {
+                            Text(
+                                text = stringResource(id = R.string.your_menus),
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        if (pendingAnalysisCount > 0) {
                             item {
-                                MenuAudienceDetailScreen(
-                                    audience = audienceDetail,
+                                PendingAnalysisButton(
+                                    isAnalyzing = state.isAnalyzing,
+                                    isAiPaused = state.aiRetryAtMillis != null,
+                                    usesRemaining = state.aiUsesRemainingToday,
+                                    onAnalyzePending = {
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_ANALYZE_PENDING)
+                                        viewModel.analyzePendingMenus()
+                                    }
+                                )
+                            }
+                        }
+                        if (state.menus.isEmpty()) {
+                            item {
+                                EmptyState()
+                            }
+                        } else {
+                            item {
+                                MenuCarouselSections(
                                     menus = state.menus,
-                                    onBack = {
-                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_BACK)
-                                        audienceDetailRoute = null
+                                    enabledAudiences = state.enabledAudiences,
+                                    onViewMore = { audience ->
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_VIEW_MORE)
+                                        viewModel.trackMenuListViewMoreOpened(audience)
+                                        audienceDetailRoute = menuAudienceDetailRouteAfterViewMore(audience)
                                     },
                                     onOpenMenu = { menu ->
-                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_OPEN_MENU)
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_OPEN_MENU)
                                         viewModel.trackMenuCardOpened(menu)
                                         selectedDetailMenuId = menu.id
                                     },
                                     onOpenActions = { menu ->
-                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_OPEN_MENU_ACTIONS)
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_OPEN_MENU_ACTIONS)
                                         actionSheetMenuId = menu.id
                                     },
                                     onToggleFavorite = { menu ->
-                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_TOGGLE_FAVORITE)
+                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_TOGGLE_FAVORITE)
                                         viewModel.toggleFavorite(menu)
                                     }
                                 )
                             }
-                        } else {
-                            item {
-                                DiceSection(
-                                    filter = state.diceFilter,
-                                    audienceFilter = state.diceAudienceFilter,
-                                    enabledAudiences = state.enabledAudiences,
-                                    isRolling = state.isRolling,
-                                    diceFaceIndex = diceFaceIndex,
-                                    onFilterChanged = viewModel::setDiceFilter,
-                                    onAudienceFilterChanged = viewModel::setDiceAudienceFilter,
-                                    onRoll = {
-                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_ROLL_DICE)
-                                        viewModel.rollDice()
-                                    }
-                                )
-                            }
-                            item {
-                                MenuForm(
-                                    state = state,
-                                    enabledAudiences = state.enabledAudiences,
-                                    onMealTypeChanged = viewModel::setFormMealType,
-                                    onAudienceChanged = viewModel::setFormAudience,
-                                    onNameChanged = viewModel::updateName,
-                                    onDescriptionChanged = viewModel::updateDescription,
-                                    onNotesChanged = viewModel::updateNotes,
-                                    onAiBaseIngredientsChanged = viewModel::updateAiBaseIngredients,
-                                    onGenerate = {
-                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_GENERATE_AI_MENU)
-                                        viewModel.generateMenuIdea()
-                                    },
-                                    onSave = {
-                                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_SAVE_MENU)
-                                        viewModel.saveMenu()
-                                    }
-                                )
-                            }
-                            item {
-                                MenuDadoBannerAd(isReady = areAdsReady)
-                            }
-                            item {
-                                Text(
-                                    text = stringResource(id = R.string.your_menus),
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            if (pendingAnalysisCount > 0) {
-                                item {
-                                    PendingAnalysisButton(
-                                        isAnalyzing = state.isAnalyzing,
-                                        isAiPaused = state.aiRetryAtMillis != null,
-                                        usesRemaining = state.aiUsesRemainingToday,
-                                        onAnalyzePending = {
-                                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_ANALYZE_PENDING)
-                                            viewModel.analyzePendingMenus()
-                                        }
-                                    )
-                                }
-                            }
-                            if (state.menus.isEmpty()) {
-                                item {
-                                    EmptyState()
-                                }
-                            } else {
-                                item {
-                                    MenuCarouselSections(
-                                        menus = state.menus,
-                                        enabledAudiences = state.enabledAudiences,
-                                        onViewMore = { audience ->
-                                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_VIEW_MORE)
-                                            viewModel.trackMenuListViewMoreOpened(audience)
-                                            audienceDetailRoute = menuAudienceDetailRouteAfterViewMore(audience)
-                                        },
-                                        onOpenMenu = { menu ->
-                                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_OPEN_MENU)
-                                            viewModel.trackMenuCardOpened(menu)
-                                            selectedDetailMenuId = menu.id
-                                        },
-                                        onOpenActions = { menu ->
-                                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_OPEN_MENU_ACTIONS)
-                                            actionSheetMenuId = menu.id
-                                        },
-                                        onToggleFavorite = { menu ->
-                                            viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_TOGGLE_FAVORITE)
-                                            viewModel.toggleFavorite(menu)
-                                        }
-                                    )
-                                }
-                            }
                         }
                     }
                 }
-                item {
-                    Spacer(modifier = Modifier.height(96.dp))
-                }
+            }
+            item {
+                Spacer(modifier = Modifier.height(132.dp))
             }
         }
         Spacer(
@@ -704,6 +651,38 @@ fun MenuDadoScreen(
                 .background(MenuDadoColors.HeaderGreen)
                 .statusBarsPadding()
                 .align(Alignment.TopCenter)
+        )
+        MenuDadoBottomNavigation(
+            selectedDestination = destination,
+            areAdsPrivacyOptionsRequired = areAdsPrivacyOptionsRequired,
+            onDestinationSelected = { selected ->
+                when (selected) {
+                    MenuDadoDestination.HOME -> {
+                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_BOTTOM_NAV, ANALYTICS_CTA_NAV_HOME)
+                        selectedDestination = MenuDadoDestination.HOME.name
+                        audienceDetailRoute = null
+                    }
+                    MenuDadoDestination.PROFILE -> {
+                        viewModel.trackDietaryProfileOpened()
+                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_BOTTOM_NAV, ANALYTICS_CTA_NAV_DIETARY_PROFILE)
+                        selectedDestination = MenuDadoDestination.PROFILE.name
+                        audienceDetailRoute = null
+                    }
+                    MenuDadoDestination.ABOUT -> {
+                        viewModel.trackAboutAppOpened()
+                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_BOTTOM_NAV, ANALYTICS_CTA_NAV_ABOUT)
+                        selectedDestination = MenuDadoDestination.ABOUT.name
+                        audienceDetailRoute = null
+                    }
+                    MenuDadoDestination.PRIVACY -> {
+                        viewModel.trackCtaTapped(ANALYTICS_SCREEN_BOTTOM_NAV, ANALYTICS_CTA_ADS_PRIVACY_OPTIONS)
+                        selectedDestination = MenuDadoDestination.HOME.name
+                        audienceDetailRoute = null
+                        onAdsPrivacyOptionsClick()
+                    }
+                }
+            },
+            modifier = Modifier.align(Alignment.BottomCenter)
         )
         Spacer(
             modifier = Modifier
@@ -731,73 +710,6 @@ private fun Modifier.hideKeyboardOnTouch(
                     focusManager.clearFocus()
                     keyboardController?.hide()
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MenuDadoDrawer(
-    selectedDestination: MenuDadoDestination,
-    drawerWidthDp: Int,
-    areAdsPrivacyOptionsRequired: Boolean,
-    onDestinationSelected: (MenuDadoDestination) -> Unit,
-    onAdsPrivacyOptionsSelected: () -> Unit
-) {
-    ModalDrawerSheet(
-        modifier = Modifier.width(drawerWidthDp.dp),
-        drawerContainerColor = menuDadoDrawerContainerColor(),
-        drawerContentColor = menuDadoDrawerUnselectedTextColor()
-    ) {
-        val drawerItemColors = NavigationDrawerItemDefaults.colors(
-            selectedContainerColor = menuDadoDrawerSelectedContainerColor(),
-            unselectedContainerColor = Color.Transparent,
-            selectedTextColor = menuDadoDrawerSelectedTextColor(),
-            unselectedTextColor = menuDadoDrawerUnselectedTextColor()
-        )
-        val drawerItemShape = RoundedCornerShape(menuDadoDrawerItemCornerRadiusDp().dp)
-        Column(
-            modifier = Modifier
-                .fillMaxHeight()
-                .padding(horizontal = 12.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = stringResource(id = R.string.app_name),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black,
-                color = MenuDadoColors.DeepGreen
-            )
-            NavigationDrawerItem(
-                label = { Text(stringResource(id = R.string.nav_home)) },
-                selected = selectedDestination == MenuDadoDestination.HOME,
-                onClick = { onDestinationSelected(MenuDadoDestination.HOME) },
-                shape = drawerItemShape,
-                colors = drawerItemColors
-            )
-            NavigationDrawerItem(
-                label = { Text(stringResource(id = R.string.nav_dietary_profile)) },
-                selected = selectedDestination == MenuDadoDestination.PROFILE,
-                onClick = { onDestinationSelected(MenuDadoDestination.PROFILE) },
-                shape = drawerItemShape,
-                colors = drawerItemColors
-            )
-            NavigationDrawerItem(
-                label = { Text(stringResource(id = R.string.nav_about)) },
-                selected = selectedDestination == MenuDadoDestination.ABOUT,
-                onClick = { onDestinationSelected(MenuDadoDestination.ABOUT) },
-                shape = drawerItemShape,
-                colors = drawerItemColors
-            )
-            if (areAdsPrivacyOptionsRequired) {
-                NavigationDrawerItem(
-                    label = { Text(stringResource(id = R.string.nav_ads_privacy_options)) },
-                    selected = false,
-                    onClick = onAdsPrivacyOptionsSelected,
-                    shape = drawerItemShape,
-                    colors = drawerItemColors
-                )
             }
         }
     }
@@ -863,24 +775,138 @@ private fun AiGenerationLoadingOverlay() {
     }
 }
 
-private enum class MenuDadoDestination {
+internal enum class MenuDadoDestination {
     HOME,
     PROFILE,
-    ABOUT
+    ABOUT,
+    PRIVACY
 }
 
-internal fun menuDadoDrawerWidthDp(screenWidthDp: Int): Int =
-    maxOf(256, minOf(304, screenWidthDp - 72))
+@Composable
+private fun MenuDadoBottomNavigation(
+    selectedDestination: MenuDadoDestination,
+    areAdsPrivacyOptionsRequired: Boolean,
+    onDestinationSelected: (MenuDadoDestination) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(menuDadoBottomNavigationContainerColor())
+            .navigationBarsPadding()
+            .padding(
+                horizontal = menuDadoBottomNavigationHorizontalPaddingDp().dp,
+                vertical = menuDadoBottomNavigationVerticalPaddingDp().dp
+            ),
+        horizontalArrangement = Arrangement.SpaceAround,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        menuDadoBottomNavigationDestinations(areAdsPrivacyOptionsRequired).forEach { destination ->
+            MenuDadoBottomNavigationItem(
+                destination = destination,
+                selected = selectedDestination == destination,
+                onClick = { onDestinationSelected(destination) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
 
-internal fun menuDadoDrawerContainerColor(): Color = MenuDadoColors.Surface
+@Composable
+private fun MenuDadoBottomNavigationItem(
+    destination: MenuDadoDestination,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val contentColor = menuDadoBottomNavigationContentColor(selected)
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(menuDadoBottomNavigationItemCornerRadiusDp().dp))
+            .clickable(onClick = onClick)
+            .defaultMinSize(minHeight = menuDadoBottomNavigationMinHeightDp().dp)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Icon(
+            painter = painterResource(id = menuDadoBottomNavigationIconRes(destination)),
+            contentDescription = stringResource(id = menuDadoBottomNavigationLabelRes(destination)),
+            modifier = Modifier.size(menuDadoBottomNavigationIconSizeDp().dp),
+            tint = contentColor
+        )
+        Text(
+            text = stringResource(id = menuDadoBottomNavigationLabelRes(destination)),
+            color = contentColor,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (selected) FontWeight.Black else FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
+        Box(
+            modifier = Modifier
+                .size(
+                    width = menuDadoBottomNavigationIndicatorWidthDp(selected).dp,
+                    height = menuDadoBottomNavigationIndicatorHeightDp().dp
+                )
+                .clip(RoundedCornerShape(menuDadoBottomNavigationIndicatorHeightDp().dp))
+                .background(contentColor.copy(alpha = if (selected) 1f else 0f))
+        )
+    }
+}
 
-internal fun menuDadoDrawerSelectedContainerColor(): Color = MenuDadoColors.BrandGreen
+internal fun menuDadoBottomNavigationDestinations(
+    areAdsPrivacyOptionsRequired: Boolean
+): List<MenuDadoDestination> {
+    val baseDestinations = listOf(
+        MenuDadoDestination.HOME,
+        MenuDadoDestination.PROFILE,
+        MenuDadoDestination.ABOUT
+    )
+    return if (areAdsPrivacyOptionsRequired) {
+        baseDestinations + MenuDadoDestination.PRIVACY
+    } else {
+        baseDestinations
+    }
+}
 
-internal fun menuDadoDrawerSelectedTextColor(): Color = Color.White
+internal fun menuDadoBottomNavigationContainerColor(): Color = MenuDadoColors.HeaderGreen
 
-internal fun menuDadoDrawerUnselectedTextColor(): Color = MenuDadoColors.Ink
+internal fun menuDadoBottomNavigationContentColor(isSelected: Boolean): Color =
+    Color.White.copy(alpha = if (isSelected) 1f else 0.72f)
 
-internal fun menuDadoDrawerItemCornerRadiusDp(): Int = 8
+@StringRes
+internal fun menuDadoBottomNavigationLabelRes(destination: MenuDadoDestination): Int =
+    when (destination) {
+        MenuDadoDestination.HOME -> R.string.nav_home
+        MenuDadoDestination.PROFILE -> R.string.nav_dietary_profile
+        MenuDadoDestination.ABOUT -> R.string.nav_about
+        MenuDadoDestination.PRIVACY -> R.string.nav_ads_privacy_options
+    }
+
+internal fun menuDadoBottomNavigationIconRes(destination: MenuDadoDestination): Int =
+    when (destination) {
+        MenuDadoDestination.HOME -> R.drawable.ic_nav_home
+        MenuDadoDestination.PROFILE -> R.drawable.ic_nav_profile
+        MenuDadoDestination.ABOUT -> R.drawable.ic_nav_about
+        MenuDadoDestination.PRIVACY -> R.drawable.ic_nav_privacy
+    }
+
+internal fun menuDadoBottomNavigationHorizontalPaddingDp(): Int = 8
+
+internal fun menuDadoBottomNavigationVerticalPaddingDp(): Int = 8
+
+internal fun menuDadoBottomNavigationMinHeightDp(): Int = 58
+
+internal fun menuDadoBottomNavigationIconSizeDp(): Int = 24
+
+internal fun menuDadoBottomNavigationItemCornerRadiusDp(): Int = 8
+
+internal fun menuDadoBottomNavigationIndicatorWidthDp(isSelected: Boolean): Int =
+    if (isSelected) 6 else 0
+
+internal fun menuDadoBottomNavigationIndicatorHeightDp(): Int = 6
 
 internal fun aiGenerationLoadingImageRes(): Int = R.drawable.dado_loading
 
@@ -1274,7 +1300,7 @@ private fun shareMenu(context: Context, menu: FoodMenu) {
 }
 
 @Composable
-private fun Header(onMenuClick: () -> Unit) {
+private fun Header() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1284,15 +1310,6 @@ private fun Header(onMenuClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(menuDadoHeaderBrandStartGapDp().dp)
     ) {
-        IconButton(
-            onClick = onMenuClick
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_menu),
-                contentDescription = stringResource(id = R.string.nav_home),
-                tint = Color.White
-            )
-        }
         Image(
             painter = painterResource(id = R.drawable.menu_dado_symbol),
             contentDescription = stringResource(id = R.string.app_name),
@@ -1442,36 +1459,30 @@ private fun AnimatedDiceFace(
     manualRotation: DiceDragRotation,
     onDrag: (dragX: Float, dragY: Float) -> Unit
 ) {
-    val transition = rememberInfiniteTransition(label = "rollingDice")
-    val rollingRotation by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 720, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rollingRotation"
-    )
-    val rollingScale by transition.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 260),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "rollingScale"
-    )
-    val rollingLift by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = -10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 260),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "rollingLift"
-    )
+    val rollingProgress = remember { ComposeAnimatable(0f) }
+    LaunchedEffect(isRolling) {
+        if (isRolling) {
+            rollingProgress.snapTo(0f)
+            rollingProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = DICE_ROLL_DURATION_MILLIS.toInt(),
+                    easing = LinearEasing
+                )
+            )
+        } else {
+            rollingProgress.snapTo(0f)
+        }
+    }
+    val progress = rollingProgress.value
+    val rollingRotation = diceRollRemainingSpinDegrees(progress)
+    val rollingScale = diceRollScale(progress)
+    val rollingLift = diceRollLift(progress)
 
     val idlePose = DiceRestPoses[idleFaceIndex % DiceRestPoses.size]
+    val restingRotationX = idlePose.rotationX + manualRotation.x
+    val restingRotationY = idlePose.rotationY + manualRotation.y
+    val restingRotationZ = idlePose.rotationZ + idleRotation
 
     DiceCube3D(
         modifier = Modifier
@@ -1489,11 +1500,28 @@ private fun AnimatedDiceFace(
                 scaleY = if (isRolling) rollingScale else 1f
                 translationY = if (isRolling) rollingLift else 0f
             },
-        rotationX = if (isRolling) rollingRotation * 1.15f else idlePose.rotationX + manualRotation.x,
-        rotationY = if (isRolling) rollingRotation * 0.85f else idlePose.rotationY + manualRotation.y,
-        rotationZ = if (isRolling) rollingRotation * 0.35f else idlePose.rotationZ + idleRotation
+        rotationX = if (isRolling) restingRotationX + rollingRotation * 1.15f else restingRotationX,
+        rotationY = if (isRolling) restingRotationY + rollingRotation * 0.85f else restingRotationY,
+        rotationZ = if (isRolling) restingRotationZ + rollingRotation * 0.35f else restingRotationZ
     )
 }
+
+internal fun diceRollRemainingSpinDegrees(progress: Float): Float {
+    val boundedProgress = progress.coerceIn(0f, 1f)
+    if (boundedProgress >= 1f) return 0f
+    val easedProgress = FastOutSlowInEasing.transform(boundedProgress)
+    return (1f - easedProgress) * DICE_ROLL_SPIN_DEGREES
+}
+
+internal fun diceRollPulse(progress: Float): Float {
+    val boundedProgress = progress.coerceIn(0f, 1f)
+    if (boundedProgress >= 1f) return 0f
+    return abs(sin(boundedProgress * PI.toFloat() * 6f))
+}
+
+internal fun diceRollScale(progress: Float): Float = 1f + diceRollPulse(progress) * 0.12f
+
+internal fun diceRollLift(progress: Float): Float = -10f * diceRollPulse(progress)
 
 private val DiceRestPoses = listOf(
     DiceRestPose(rotationX = 18f, rotationY = -24f, rotationZ = 0f),
@@ -2535,6 +2563,10 @@ private fun FavoriteMenuCarouselSection(
     onOpenActions: (FoodMenu) -> Unit,
     onToggleFavorite: (FoodMenu) -> Unit
 ) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(menuCarouselScrollResetKey(menus)) {
+        listState.scrollToItem(0)
+    }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             text = stringResource(id = R.string.favorite_menus),
@@ -2544,6 +2576,7 @@ private fun FavoriteMenuCarouselSection(
             color = MenuDadoColors.Ink
         )
         LazyRow(
+            state = listState,
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -2569,6 +2602,10 @@ private fun MenuCarouselSection(
     onOpenActions: (FoodMenu) -> Unit,
     onToggleFavorite: (FoodMenu) -> Unit
 ) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(menuCarouselScrollResetKey(menus)) {
+        listState.scrollToItem(0)
+    }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             modifier = Modifier
@@ -2597,6 +2634,7 @@ private fun MenuCarouselSection(
             }
         }
         LazyRow(
+            state = listState,
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -2932,12 +2970,22 @@ private fun MenuPhotoSourceDialog(
                 ) {
                     Box(
                         modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .width(86.dp)
-                            .height(5.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(menuPhotoSourceContentColor().copy(alpha = 0.42f))
-                    )
+                            .fillMaxWidth()
+                            .height(menuSheetCloseActionButtonSizeDp().dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .width(86.dp)
+                                .height(5.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(menuPhotoSourceContentColor().copy(alpha = 0.42f))
+                        )
+                        MenuSheetCloseButton(
+                            onDismiss = onDismiss,
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        )
+                    }
                     Text(
                         text = stringResource(id = R.string.photo_source_title),
                         color = menuPhotoSourceContentColor(),
@@ -2971,18 +3019,6 @@ private fun MenuPhotoSourceDialog(
                         description = stringResource(id = R.string.photo_library_description),
                         onClick = onChooseFromLibrary
                     )
-
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.common_cancel),
-                            color = menuPhotoSourceContentColor(),
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
                 }
             }
         }
@@ -3084,12 +3120,22 @@ private fun MenuActionsSheet(
                 ) {
                     Box(
                         modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .width(86.dp)
-                            .height(5.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(menuActionSheetContentColor().copy(alpha = 0.42f))
-                    )
+                            .fillMaxWidth()
+                            .height(menuSheetCloseActionButtonSizeDp().dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .width(86.dp)
+                                .height(5.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(menuActionSheetContentColor().copy(alpha = 0.42f))
+                        )
+                        MenuSheetCloseButton(
+                            onDismiss = onDismiss,
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        )
+                    }
                     Text(
                         text = menu.name,
                         color = menuActionSheetContentColor(),
@@ -3113,6 +3159,24 @@ private fun MenuActionsSheet(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MenuSheetCloseButton(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    IconButton(
+        onClick = onDismiss,
+        modifier = modifier.size(menuSheetCloseActionButtonSizeDp().dp)
+    ) {
+        Icon(
+            painter = painterResource(id = menuSheetCloseActionIconRes()),
+            contentDescription = stringResource(id = menuSheetCloseActionContentDescriptionRes()),
+            modifier = Modifier.size(22.dp),
+            tint = menuSheetCloseActionIconTint()
+        )
     }
 }
 
@@ -3637,6 +3701,8 @@ internal fun menuFavoriteMenus(menus: List<FoodMenu>): List<FoodMenu> {
         .sortedByDescending { it.createdAt }
 }
 
+internal fun menuCarouselScrollResetKey(menus: List<FoodMenu>): Long? = menus.firstOrNull()?.id
+
 internal fun menuShouldShowFavoriteSection(menus: List<FoodMenu>): Boolean {
     return menus.any { it.isFavorite }
 }
@@ -3842,6 +3908,8 @@ internal fun menuOverflowActionContentDescriptionRes(): Int = R.string.menu_acti
 
 internal fun menuActionSheetShowsTitle(): Boolean = false
 
+internal fun menuActionSheetShowsCloseAction(): Boolean = true
+
 internal fun menuActionSheetContainerColor(): Color = MenuDadoColors.HeaderGreen
 
 internal fun menuActionSheetContentColor(): Color = Color.White
@@ -3879,6 +3947,15 @@ internal fun menuActionSheetActionIconRes(action: MenuActionSheetAction): Int {
 internal fun menuActionSheetActionTint(action: MenuActionSheetAction): Color {
     return menuActionSheetContentColor()
 }
+
+internal fun menuSheetCloseActionIconRes(): Int = R.drawable.ic_close
+
+@StringRes
+internal fun menuSheetCloseActionContentDescriptionRes(): Int = R.string.common_close
+
+internal fun menuSheetCloseActionButtonSizeDp(): Int = 34
+
+internal fun menuSheetCloseActionIconTint(): Color = menuActionSheetContentColor()
 
 internal fun menuDadoNavigationBarScrimColor(): Color = MenuDadoColors.HeaderGreen
 
@@ -3918,6 +3995,10 @@ internal fun menuPhotoSourceSheetContainerColor(): Color = menuActionSheetContai
 internal fun menuPhotoSourceContentColor(): Color = menuActionSheetContentColor()
 
 internal fun menuPhotoSourceDismissesOnOutsideTap(): Boolean = true
+
+internal fun menuPhotoSourceShowsCancelButton(): Boolean = false
+
+internal fun menuPhotoSourceShowsCloseAction(): Boolean = true
 
 internal fun menuPhotoSourceOptionIconTint(): Color = menuPhotoSourceContentColor()
 
@@ -4448,7 +4529,7 @@ private fun OnboardingDialog(
 }
 
 private const val ANALYTICS_SCREEN_HOME = "home"
-private const val ANALYTICS_SCREEN_DRAWER = "drawer"
+private const val ANALYTICS_SCREEN_BOTTOM_NAV = "bottom_nav"
 private const val ANALYTICS_SCREEN_DIALOG = "dialog"
 private const val ANALYTICS_SCREEN_ONBOARDING = "onboarding"
 private const val ANALYTICS_SCREEN_EDIT_MENU = "edit_menu"
@@ -4456,7 +4537,6 @@ private const val ANALYTICS_SCREEN_MENU_DETAIL = "menu_detail"
 private const val ANALYTICS_SCREEN_DELETE_CONFIRMATION = "delete_confirmation"
 private const val ANALYTICS_SCREEN_AUDIENCE_DETAIL = "audience_detail"
 
-private const val ANALYTICS_CTA_OPEN_DRAWER = "open_drawer"
 private const val ANALYTICS_CTA_NAV_HOME = "nav_home"
 private const val ANALYTICS_CTA_NAV_DIETARY_PROFILE = "nav_dietary_profile"
 private const val ANALYTICS_CTA_NAV_ABOUT = "nav_about"

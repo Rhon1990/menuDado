@@ -26,9 +26,9 @@
     <string name="common_skip">Ignorer</string>
     <string name="common_back">&lt; Retour</string>
     <string name="nav_home">Accueil</string>
-    <string name="nav_dietary_profile">Profil alimentaire</string>
+    <string name="nav_dietary_profile">Profil</string>
     <string name="nav_about">À propos</string>
-    <string name="nav_ads_privacy_options">Options de confidentialité</string>
+    <string name="nav_ads_privacy_options">Confidentialité</string>
     <string name="ads_privacy_options_unavailable">Les options de confidentialité ne peuvent pas être ouvertes pour le moment. Réessayez dans quelques minutes.</string>
     <string name="header_subtitle">Qu’est-ce qu’on mange ?</string>
     <string name="your_menus">Vos menus</string>
@@ -119,7 +119,7 @@
     <string name="ai_retry_ready_body">Fermez cet avis et touchez de nouveau l’option IA que vous vouliez utiliser.</string>
     <string name="ai_retry_wait_body">MenuDado ne fera qu’une seule tentative et bloquera les appuis répétés pendant l’attente. Quand la pause se termine, cet avis indiquera que vous pouvez réessayer.</string>
     <string name="onboarding_profile_title">Complétez votre profil</string>
-    <string name="onboarding_profile_body">Activez si vous cuisinez pour adultes, enfants ou bébés. Dans le profil alimentaire, vous pouvez indiquer grossesse, allergies et conditions de santé pour mieux adapter les idées.</string>
+    <string name="onboarding_profile_body">Ouvrez Profil depuis la barre inférieure pour activer adultes, enfants ou bébés et indiquer grossesse, allergies ou conditions de santé.</string>
     <string name="onboarding_menus_title">Enregistrez vos menus</string>
     <string name="onboarding_menus_body">Ajoutez petits-déjeuners, déjeuners et dîners avec ingrédients, notes et calories si vous voulez.</string>
     <string name="onboarding_ai_title">Personnalisez avec l’IA</string>

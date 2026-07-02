@@ -420,7 +420,7 @@ class MenuDadoViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isRolling = true, result = null, message = null, isAiRetryNoticeVisible = false) }
-            delay(850)
+            delay(DICE_ROLL_DURATION_MILLIS)
             val today = todayProvider()
             val currentState = _uiState.value
             val hasCandidates = DiceSelector.hasCandidates(
@@ -669,7 +669,8 @@ class MenuDadoViewModel(
             showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
             return
         }
-        if (!consumeAiDailyUseOrShowNotice(AI_SOURCE_GENERATE_MENU)) {
+
+        if (!canUseAiDailyOrShowNotice(AI_SOURCE_GENERATE_MENU)) {
             return
         }
         val avoidIdeas = state.buildAvoidIdeas(mealType, audience)
@@ -696,8 +697,11 @@ class MenuDadoViewModel(
                     )
                 }
                     .onSuccess { generated ->
+                        consumeAiDailyUse()
+
                         aiQuotaRetryStore.clearRetryState()
                         rememberGeneratedIdea(mealType, audience, generated.name, generated.description)
+
                         _uiState.update {
                             it.copy(
                                 name = generated.name,
@@ -708,6 +712,7 @@ class MenuDadoViewModel(
                                 isAiRetryNoticeVisible = false
                             )
                         }
+
                         runCatching {
                             analytics.trackAiMenuGenerationFinished(
                                 mealType = mealType,
@@ -733,6 +738,29 @@ class MenuDadoViewModel(
                 _uiState.update { it.copy(isGeneratingMenu = false) }
             }
         }
+    }
+
+    private fun canUseAiDailyOrShowNotice(source: String): Boolean {
+        val dateKey = currentPacificDateKey()
+        val usedCount = currentAiDailyUsedCount(dateKey)
+
+        if (usedCount >= AI_DAILY_FREE_REQUEST_LIMIT) {
+            val retryAtMillis = nextPacificMidnightMillis(clockMillisProvider())
+            _uiState.update {
+                it.copy(
+                    message = currentLanguage().aiRequestsPerDayMessage(),
+                    aiRetryAtMillis = retryAtMillis,
+                    isAiRequestThrottlePause = false,
+                    isAiRetryNoticeVisible = true,
+                    aiUsesRemainingToday = 0
+                )
+            }
+            scheduleAiRetryRefresh(retryAtMillis)
+            analytics.trackAiDailyLimitReached(source)
+            return false
+        }
+
+        return true
     }
 
     private fun MenuDadoUiState.buildAvoidIdeas(mealType: MealType, audience: MenuAudience): List<String> {
@@ -861,7 +889,7 @@ class MenuDadoViewModel(
             showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
             return
         }
-        if (!consumeAiDailyUseOrShowNotice(AI_SOURCE_ANALYZE_SINGLE)) {
+        if (!canUseAiDailyOrShowNotice(AI_SOURCE_ANALYZE_SINGLE)) {
             return
         }
         analytics.trackAiAnalysisStarted(AI_SCOPE_SINGLE, menu.mealType, menuCount = 1)
@@ -877,12 +905,14 @@ class MenuDadoViewModel(
         viewModelScope.launch {
             withAiRequestTimeout { repository.analyze(menu, AppLanguage.fromLocale()) }
                 .onSuccess { analysis ->
+                    consumeAiDailyUse()
                     repository.save(
                         menu.copy(
                             healthAnalysis = analysis,
                             calories = analysis.calories ?: menu.calories
                         )
                     )
+
                     aiQuotaRetryStore.clearRetryState()
                     _uiState.update { it.copy(isAiRetryNoticeVisible = false) }
                     analytics.trackAiAnalysisFinished(
@@ -939,7 +969,7 @@ class MenuDadoViewModel(
             showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
             return
         }
-        if (!consumeAiDailyUseOrShowNotice(AI_SOURCE_ANALYZE_BATCH)) {
+        if (!canUseAiDailyOrShowNotice(AI_SOURCE_ANALYZE_BATCH)) {
             return
         }
         analytics.trackAiAnalysisStarted(AI_SCOPE_BATCH, mealType = null, menuCount = pendingMenus.size)
@@ -955,6 +985,11 @@ class MenuDadoViewModel(
         viewModelScope.launch {
             withAiRequestTimeout { repository.analyzeBatch(pendingMenus, AppLanguage.fromLocale()) }
                 .onSuccess { analysesByMenuId ->
+
+                    if (analysesByMenuId.isNotEmpty()) {
+                        consumeAiDailyUse()
+                    }
+
                     pendingMenus.forEach { menu ->
                         analysesByMenuId[menu.id]?.let { analysis ->
                             repository.save(
@@ -965,6 +1000,7 @@ class MenuDadoViewModel(
                             )
                         }
                     }
+
                     aiQuotaRetryStore.clearRetryState()
                     _uiState.update {
                         it.copy(
@@ -1123,36 +1159,23 @@ class MenuDadoViewModel(
         return currentPacificDateKey(clockMillisProvider())
     }
 
-    private fun consumeAiDailyUseOrShowNotice(source: String): Boolean {
+    private fun consumeAiDailyUse() {
         val dateKey = currentPacificDateKey()
         val usedCount = currentAiDailyUsedCount(dateKey)
-        if (usedCount >= AI_DAILY_FREE_REQUEST_LIMIT) {
-            val retryAtMillis = nextPacificMidnightMillis(clockMillisProvider())
-            _uiState.update {
-                it.copy(
-                    message = currentLanguage().aiRequestsPerDayMessage(),
-                    aiRetryAtMillis = retryAtMillis,
-                    isAiRequestThrottlePause = false,
-                    isAiRetryNoticeVisible = true,
-                    aiUsesRemainingToday = 0
-                )
-            }
-            scheduleAiRetryRefresh(retryAtMillis)
-            analytics.trackAiDailyLimitReached(source)
-            return false
-        }
+        val newUsedCount = (usedCount + 1).coerceAtMost(AI_DAILY_FREE_REQUEST_LIMIT)
 
-        val newUsedCount = usedCount + 1
         aiDailyUsageStore.saveUsageState(
             AiDailyUsageState(
                 dateKey = dateKey,
                 usedCount = newUsedCount
             )
         )
+
         _uiState.update {
-            it.copy(aiUsesRemainingToday = (AI_DAILY_FREE_REQUEST_LIMIT - newUsedCount).coerceAtLeast(0))
+            it.copy(
+                aiUsesRemainingToday = (AI_DAILY_FREE_REQUEST_LIMIT - newUsedCount).coerceAtLeast(0)
+            )
         }
-        return true
     }
 
     private fun aiDailyUsesRemaining(): Int {
@@ -1660,6 +1683,8 @@ private const val ONBOARDING_ACTION_START = "start"
 private const val ONBOARDING_ACTION_SKIP = "skip"
 private const val CURRENT_ONBOARDING_VERSION = 2
 private const val ANALYTICS_SOURCE_DICE = "dice"
+internal const val DICE_ROLL_DURATION_MILLIS = 850L
+internal const val DICE_ROLL_SPIN_DEGREES = 720f
 private const val ANALYTICS_SOURCE_FORM = "form"
 private const val ANALYTICS_PROFILE_FIELD_ENABLED = "enabled"
 private const val ANALYTICS_PROFILE_FIELD_AGE_RANGE = "age_range"
@@ -1682,7 +1707,7 @@ private const val FIRST_QUOTA_BACKOFF_MILLIS = 0L
 private const val SECOND_QUOTA_BACKOFF_MILLIS = 2 * 60 * 1000L
 private const val MAX_QUOTA_BACKOFF_MILLIS = 30 * 60 * 1000L
 private const val AI_REQUEST_THROTTLE_MILLIS = 4 * 1000L
-private const val AI_REQUEST_TIMEOUT_MILLIS = 25 * 1000L
+private const val AI_REQUEST_TIMEOUT_MILLIS = 45 * 1000L
 private fun AiQuotaLimitType.message(language: AppLanguage): String {
     return when (this) {
         AiQuotaLimitType.REQUESTS_PER_MINUTE -> language.aiRequestsPerMinuteMessage()
