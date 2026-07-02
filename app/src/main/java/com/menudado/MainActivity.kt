@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,10 +31,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.menudado.analytics.AndroidDeviceInfoProvider
 import com.menudado.ads.MenuDadoAdsController
+import com.menudado.ads.MenuDadoAdsRemoteConfig
 import com.menudado.ui.MenuDadoScreen
 import com.menudado.ui.MenuDadoViewModel
 import com.menudado.ui.theme.MenuDadoColors
@@ -81,6 +86,7 @@ class MainActivity : ComponentActivity() {
             MenuDadoTheme {
                 val showSplash by showStartupSplash
                 var areAdsReady by remember { mutableStateOf(false) }
+                var areAdsEnabled by remember { mutableStateOf(false) }
                 var areAdsPrivacyOptionsRequired by remember { mutableStateOf(false) }
                 var adsPrivacyOptionsMessage by remember { mutableStateOf<String?>(null) }
                 val adsController = remember {
@@ -97,17 +103,51 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
-                LaunchedEffect(adsController) {
-                    adsController.requestConsentAndInitialize()
+                val adsRemoteConfig = remember {
+                    MenuDadoAdsRemoteConfig(
+                        onAdsEnabledChanged = { isEnabled ->
+                            areAdsEnabled = isEnabled
+                            if (!isEnabled) {
+                                areAdsReady = false
+                                areAdsPrivacyOptionsRequired = false
+                            }
+                        }
+                    )
+                }
+                val lifecycleOwner = LocalLifecycleOwner.current
+                LaunchedEffect(adsRemoteConfig) {
+                    adsRemoteConfig.fetchAdsEnabled()
+                }
+                DisposableEffect(lifecycleOwner, adsRemoteConfig) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (shouldRefreshAdsRemoteConfigOnLifecycleEvent(event)) {
+                            adsRemoteConfig.fetchAdsEnabled()
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose {
+                        lifecycleOwner.lifecycle.removeObserver(observer)
+                    }
+                }
+                LaunchedEffect(adsController, areAdsEnabled) {
+                    if (areAdsEnabled) {
+                        adsController.requestConsentAndInitialize()
+                    }
                 }
 
                 if (showSplash) {
                     MenuDadoSplashScreen()
                 } else {
+                    val shouldShowAds = MenuDadoAdsRemoteConfig.shouldShowAds(
+                        remoteAdsEnabled = areAdsEnabled,
+                        areAdsReady = areAdsReady
+                    )
                     MenuDadoScreen(
                         viewModel = viewModel,
-                        areAdsReady = areAdsReady,
+                        areAdsReady = shouldShowAds,
+                        areAdsEnabled = areAdsEnabled,
                         areAdsPrivacyOptionsRequired = shouldShowAdsPrivacyOptionsInNavigation(
+                            areAdsEnabled = areAdsEnabled,
                             buildType = BuildConfig.BUILD_TYPE,
                             areAdsPrivacyOptionsRequired = areAdsPrivacyOptionsRequired
                         ),
@@ -137,10 +177,15 @@ internal fun menuDadoStatusBarColor(): Int = MenuDadoColors.HeaderGreen.toArgb()
 internal fun menuDadoNavigationBarColor(): Int = MenuDadoColors.HeaderGreen.toArgb()
 
 internal fun shouldShowAdsPrivacyOptionsInNavigation(
+    areAdsEnabled: Boolean,
     buildType: String,
     areAdsPrivacyOptionsRequired: Boolean
 ): Boolean {
-    return areAdsPrivacyOptionsRequired && buildType != RELEASE_BUILD_TYPE
+    return areAdsEnabled && areAdsPrivacyOptionsRequired && buildType != RELEASE_BUILD_TYPE
+}
+
+internal fun shouldRefreshAdsRemoteConfigOnLifecycleEvent(event: Lifecycle.Event): Boolean {
+    return event == Lifecycle.Event.ON_RESUME
 }
 
 private const val RELEASE_BUILD_TYPE = "release"

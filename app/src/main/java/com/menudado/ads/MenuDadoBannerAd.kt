@@ -21,9 +21,10 @@ import com.google.android.gms.ads.AdView
 @Composable
 fun MenuDadoBannerAd(
     isReady: Boolean,
+    isEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
-    if (!MenuDadoAdsConfig.isEnabled || !isReady) {
+    if (!isEnabled || !isReady) {
         return
     }
 

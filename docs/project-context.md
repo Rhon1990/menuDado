@@ -178,6 +178,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - UI: Jetpack Compose.
 - Almacenamiento local: Room.
 - Backend: Firebase Auth anónimo y Firebase Firestore por usuario bajo `users/{uid}`; no hay login visible.
+- La app hidrata menús remotos desde Firestore al arrancar cuando no hay escrituras locales pendientes, usando el `uid` anónimo actual. Si se borra la app y Firebase crea un `uid` anónimo nuevo, los datos guardados bajo el `uid` anterior no se muestran por diseño de seguridad; recuperar datos entre reinstalaciones requiere conservar el mismo usuario anónimo o añadir un mecanismo de cuenta/login.
 - Arquitectura: MVVM con repositorios.
 - Estado y asincronía: Kotlin coroutines y Flow.
 - Integración IA: Firebase AI Logic con Gemini 2.5 Flash-Lite para análisis saludable y lote de pendientes.
@@ -211,6 +212,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - Los eventos no deben enviar nombres de menú, ingredientes, notas, recetas, correo de contacto, nombre del creador, IDs de documentos, UID de Firebase, URI de imagen, alérgenos específicos, embarazo, condiciones de salud ni texto libre del perfil.
 - Publicidad:
   - Integración inicial con Google Mobile Ads SDK y User Messaging Platform para consentimiento antes de solicitar anuncios.
+  - La visibilidad de publicidad se controla con Firebase Remote Config mediante la variable booleana `ads_enabled`; solo si vale `true` se solicita consentimiento, se inicializa AdMob y se muestra el banner. El valor por defecto local es `false`. En builds debug se usa fetch inmediato de Remote Config para probar cambios sin esperar la caché; en release se conserva intervalo mínimo de 1 hora.
   - El primer formato monetizable es un banner adaptativo no invasivo en Home, insertado en el contenido después del formulario `Agregar menu` y antes de `Tus menus`.
   - Durante desarrollo usa el App ID y ad unit ID demo de Google para evitar tráfico inválido en AdMob.
   - La app solicita anuncios no personalizados por defecto mientras el permiso de identificador publicitario se mantiene removido.

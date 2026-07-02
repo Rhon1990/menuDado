@@ -283,17 +283,17 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `carrusel cambia llave de scroll cuando entra un menu nuevo primero`() {
+    fun `carrusel mantiene llave de scroll cuando solo cambia el orden por favoritos`() {
         val previousMenus = listOf(
-            FoodMenu(id = 1L, name = "Menu anterior", mealType = MealType.LUNCH, audience = MenuAudience.ADULT, description = "A", createdAt = 1L)
+            FoodMenu(id = 1L, name = "Menu normal", mealType = MealType.LUNCH, audience = MenuAudience.CHILD, description = "A", createdAt = 1L),
+            FoodMenu(id = 2L, name = "Menu favorito", mealType = MealType.LUNCH, audience = MenuAudience.CHILD, description = "B", createdAt = 2L)
         )
         val currentMenus = listOf(
-            FoodMenu(id = 2L, name = "Menu IA nuevo", mealType = MealType.LUNCH, audience = MenuAudience.ADULT, description = "B", createdAt = 2L),
-            previousMenus.single()
+            previousMenus[1].copy(isFavorite = true),
+            previousMenus[0]
         )
 
-        assertEquals(1L, menuCarouselScrollResetKey(previousMenus))
-        assertEquals(2L, menuCarouselScrollResetKey(currentMenus))
+        assertEquals(menuCarouselScrollResetKey(previousMenus), menuCarouselScrollResetKey(currentMenus))
     }
 
     @Test

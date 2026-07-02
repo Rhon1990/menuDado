@@ -244,6 +244,7 @@ class MenuDadoViewModelTest {
         assertNull(saved.healthAnalysis)
         assertFalse(analyzer.wasCalled)
         assertEquals(MealType.BREAKFAST, viewModel.uiState.value.formMealType)
+        assertEquals(MenuAudience.ADULT, viewModel.uiState.value.formAudience)
         assertEquals(
             listOf(
                 "first_menu_created:BREAKFAST",

@@ -118,6 +118,30 @@ class MenuRepositorySyncTest {
         assertEquals("new-token", saved.remoteSyncToken)
     }
 
+    @Test
+    fun `remote menus hydrate a clean local store on startup`() = runTest {
+        val dao = FakeSyncMenuDao()
+        val remote = RecordingMenuRemoteDataSource().apply {
+            remoteMenus = listOf(
+                sampleMenu(id = 42L, name = "Menu remoto").copy(
+                    audience = MenuAudience.CHILD,
+                    isFavorite = true
+                )
+            )
+        }
+        val repository = MenuRepository(dao, NoOpHealthAnalyzer, remote)
+
+        repository.syncRemoteMenus()
+
+        val saved = dao.saved.single()
+        assertEquals(42L, saved.id)
+        assertEquals("Menu remoto", saved.name)
+        assertEquals(MenuAudience.CHILD.name, saved.audience)
+        assertEquals(true, saved.isFavorite)
+        assertEquals(RemoteSyncState.SYNCED.name, saved.remoteSyncState)
+        assertEquals(0, remote.upsertAttempts)
+    }
+
     private fun sampleMenu(id: Long, name: String): FoodMenu {
         return FoodMenu(
             id = id,
@@ -173,9 +197,9 @@ private class FakeSyncMenuDao : MenuDao {
     }
 
     override suspend fun insert(menu: MenuEntity): Long {
-        val nextId = (menus.value.maxOfOrNull { it.id } ?: 0L) + 1L
-        menus.value = listOf(menu.copy(id = nextId)) + menus.value
-        return nextId
+        val insertedId = menu.id.takeIf { it != 0L } ?: ((menus.value.maxOfOrNull { it.id } ?: 0L) + 1L)
+        menus.value = listOf(menu.copy(id = insertedId)) + menus.value.filterNot { it.id == insertedId }
+        return insertedId
     }
 
     override suspend fun update(menu: MenuEntity) {
@@ -192,11 +216,14 @@ private class FakeSyncMenuDao : MenuDao {
 private class RecordingMenuRemoteDataSource : MenuDadoRemoteDataSource {
     val upsertedMenus = mutableListOf<FoodMenu>()
     val deletedMenus = mutableListOf<FoodMenu>()
+    var remoteMenus = emptyList<FoodMenu>()
     var upsertAttempts = 0
     var failUpsert = false
     var failDelete = false
 
     override suspend fun upsertMetadata(metadata: com.menudado.backend.BackendAppMetadata) = Unit
+
+    override suspend fun fetchMenus(): List<FoodMenu> = remoteMenus
 
     override suspend fun upsertMenu(menu: FoodMenu) {
         upsertAttempts += 1

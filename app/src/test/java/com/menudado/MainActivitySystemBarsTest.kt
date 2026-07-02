@@ -1,6 +1,7 @@
 package com.menudado
 
 import androidx.compose.ui.graphics.toArgb
+import androidx.lifecycle.Lifecycle
 import com.menudado.ui.theme.MenuDadoColors
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -19,6 +20,7 @@ class MainActivitySystemBarsTest {
         assertEquals(
             false,
             shouldShowAdsPrivacyOptionsInNavigation(
+                areAdsEnabled = true,
                 buildType = "release",
                 areAdsPrivacyOptionsRequired = true
             )
@@ -26,6 +28,7 @@ class MainActivitySystemBarsTest {
         assertEquals(
             false,
             shouldShowAdsPrivacyOptionsInNavigation(
+                areAdsEnabled = true,
                 buildType = "release",
                 areAdsPrivacyOptionsRequired = false
             )
@@ -37,6 +40,7 @@ class MainActivitySystemBarsTest {
         assertEquals(
             true,
             shouldShowAdsPrivacyOptionsInNavigation(
+                areAdsEnabled = true,
                 buildType = "debug",
                 areAdsPrivacyOptionsRequired = true
             )
@@ -44,6 +48,7 @@ class MainActivitySystemBarsTest {
         assertEquals(
             true,
             shouldShowAdsPrivacyOptionsInNavigation(
+                areAdsEnabled = true,
                 buildType = "releaseDebuggable",
                 areAdsPrivacyOptionsRequired = true
             )
@@ -51,9 +56,25 @@ class MainActivitySystemBarsTest {
         assertEquals(
             false,
             shouldShowAdsPrivacyOptionsInNavigation(
+                areAdsEnabled = true,
                 buildType = "debug",
                 areAdsPrivacyOptionsRequired = false
             )
         )
+        assertEquals(
+            false,
+            shouldShowAdsPrivacyOptionsInNavigation(
+                areAdsEnabled = false,
+                buildType = "debug",
+                areAdsPrivacyOptionsRequired = true
+            )
+        )
+    }
+
+    @Test
+    fun `remote config de anuncios se refresca al volver la app a primer plano`() {
+        assertEquals(true, shouldRefreshAdsRemoteConfigOnLifecycleEvent(Lifecycle.Event.ON_RESUME))
+        assertEquals(false, shouldRefreshAdsRemoteConfigOnLifecycleEvent(Lifecycle.Event.ON_PAUSE))
+        assertEquals(false, shouldRefreshAdsRemoteConfigOnLifecycleEvent(Lifecycle.Event.ON_STOP))
     }
 }

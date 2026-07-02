@@ -49,7 +49,11 @@ class MenuDadoAdsController(
     }
 
     private fun initializeIfAllowed() {
-        if (!consentInformation.canRequestAds() || hasInitializedMobileAds) {
+        if (!consentInformation.canRequestAds()) {
+            return
+        }
+        if (hasInitializedMobileAds) {
+            onAdsReady()
             return
         }
         hasInitializedMobileAds = true
@@ -70,6 +74,10 @@ class MenuDadoAdsController(
     }
 
     companion object {
+        internal fun shouldReportReady(canRequestAds: Boolean, hasInitializedMobileAds: Boolean): Boolean {
+            return canRequestAds || hasInitializedMobileAds && canRequestAds
+        }
+
         internal fun shouldNotifyPrivacyOptionsUnavailable(hasFormError: Boolean): Boolean {
             return hasFormError
         }

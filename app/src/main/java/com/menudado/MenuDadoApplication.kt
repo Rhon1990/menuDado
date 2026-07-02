@@ -198,6 +198,7 @@ class MenuDadoApplication : Application() {
             val syncResult = runCatching {
                 remoteDataSource.upsertMetadata(BackendAppMetadata.current())
                 repository.syncPendingMenus()
+                repository.syncRemoteMenus()
                 backendStoredDataSyncer.syncPending()
             }
             analytics.trackBackendSyncFinished(

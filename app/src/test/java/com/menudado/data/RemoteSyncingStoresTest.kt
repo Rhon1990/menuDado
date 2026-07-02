@@ -150,6 +150,7 @@ private class RecordingStoresRemoteDataSource : MenuDadoRemoteDataSource {
     val onboardingVersions = mutableListOf<Int>()
 
     override suspend fun upsertMetadata(metadata: BackendAppMetadata) = Unit
+    override suspend fun fetchMenus(): List<FoodMenu> = emptyList()
     override suspend fun upsertMenu(menu: FoodMenu) = Unit
     override suspend fun deleteMenu(menu: FoodMenu) = Unit
 

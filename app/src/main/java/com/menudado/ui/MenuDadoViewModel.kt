@@ -1105,7 +1105,7 @@ class MenuDadoViewModel(
                 calories = null,
                 generatedHealthAnalysis = null,
                 formMealType = suggestedMealTypeForDeviceTime(clockMillisProvider()),
-                formAudience = null
+                formAudience = null.selectedOrSingleDefault(loadEnabledAudiences())
             )
         }
     }

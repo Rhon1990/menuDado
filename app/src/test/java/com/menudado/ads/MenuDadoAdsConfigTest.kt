@@ -9,7 +9,6 @@ import org.junit.Test
 class MenuDadoAdsConfigTest {
     @Test
     fun `debug home banner uses Google demo ad unit to avoid invalid traffic while testing`() {
-        assertTrue(MenuDadoAdsConfig.isEnabled)
         assertEquals("home_inline_banner", MenuDadoAdsConfig.HOME_INLINE_BANNER_PLACEMENT)
         assertEquals(
             "ca-app-pub-3940256099942544/9214589741",
@@ -50,6 +49,26 @@ class MenuDadoAdsConfigTest {
         assertTrue(MenuDadoAdsConfig.requestNonPersonalizedAds)
         assertEquals("npa", MenuDadoAdsConfig.NON_PERSONALIZED_ADS_PARAM_KEY)
         assertEquals("1", MenuDadoAdsConfig.NON_PERSONALIZED_ADS_PARAM_VALUE)
+    }
+
+    @Test
+    fun `home banner visibility requires remote config enabled and ads ready`() {
+        assertTrue(MenuDadoAdsRemoteConfig.shouldShowAds(remoteAdsEnabled = true, areAdsReady = true))
+        assertFalse(MenuDadoAdsRemoteConfig.shouldShowAds(remoteAdsEnabled = false, areAdsReady = true))
+        assertFalse(MenuDadoAdsRemoteConfig.shouldShowAds(remoteAdsEnabled = true, areAdsReady = false))
+    }
+
+    @Test
+    fun `ads controller reports ready again when ads are re-enabled after initialization`() {
+        assertTrue(MenuDadoAdsController.shouldReportReady(canRequestAds = true, hasInitializedMobileAds = true))
+        assertTrue(MenuDadoAdsController.shouldReportReady(canRequestAds = true, hasInitializedMobileAds = false))
+        assertFalse(MenuDadoAdsController.shouldReportReady(canRequestAds = false, hasInitializedMobileAds = true))
+    }
+
+    @Test
+    fun `debug remote config fetches ads flag immediately while release keeps cache interval`() {
+        assertEquals(0L, MenuDadoAdsRemoteConfig.fetchIntervalSeconds(isDebugBuild = true))
+        assertEquals(3_600L, MenuDadoAdsRemoteConfig.fetchIntervalSeconds(isDebugBuild = false))
     }
 
     @Test

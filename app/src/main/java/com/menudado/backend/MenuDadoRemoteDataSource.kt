@@ -9,6 +9,9 @@ import com.menudado.analytics.DeviceInfo
 import com.menudado.data.AiDailyUsageState
 import com.menudado.domain.DietaryProfile
 import com.menudado.domain.FoodMenu
+import com.menudado.domain.HealthAnalysis
+import com.menudado.domain.HealthStatus
+import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
 
 data class BackendAppMetadata(
@@ -49,6 +52,7 @@ data class BackendAppMetadata(
 
 interface MenuDadoRemoteDataSource {
     suspend fun upsertMetadata(metadata: BackendAppMetadata)
+    suspend fun fetchMenus(): List<FoodMenu>
     suspend fun upsertMenu(menu: FoodMenu)
     suspend fun deleteMenu(menu: FoodMenu)
     suspend fun upsertDietaryProfile(audience: MenuAudience, profile: DietaryProfile)
@@ -70,6 +74,21 @@ class FirebaseMenuDadoRemoteDataSource(
             .document("current")
             .set(document, SetOptions.merge())
             .awaitBackendTask()
+    }
+
+    override suspend fun fetchMenus(): List<FoodMenu> {
+        val userDocument = userDocument()
+        return userDocument
+            .collection("menus")
+            .get()
+            .awaitBackendTask()
+            .documents
+            .mapNotNull { snapshot ->
+                BackendFirestoreMapper.menuFromDocument(
+                    documentId = snapshot.id,
+                    document = snapshot.data.orEmpty()
+                )
+            }
     }
 
     override suspend fun upsertMenu(menu: FoodMenu) {
@@ -171,6 +190,45 @@ internal object BackendFirestoreMapper {
             "isFavorite" to menu.isFavorite,
             "lastPickedDate" to menu.lastPickedDate,
             "createdAt" to menu.createdAt
+        )
+    }
+
+    fun menuFromDocument(documentId: String, document: Map<String, Any?>): FoodMenu? {
+        if (document["deletedAt"] != null) return null
+        val id = documentId.toLongOrNull() ?: return null
+        val name = document["name"] as? String ?: return null
+        val mealType = (document["mealType"] as? String)
+            ?.let { runCatching { MealType.valueOf(it) }.getOrNull() }
+            ?: return null
+        val audience = (document["audience"] as? String)
+            ?.let { runCatching { MenuAudience.valueOf(it) }.getOrNull() }
+            ?: MenuAudience.ADULT
+        val calories = (document["calories"] as? Number)?.toInt()
+        val healthAnalysis = (document["healthStatus"] as? String)
+            ?.let { status ->
+                runCatching {
+                    HealthAnalysis(
+                        status = HealthStatus.valueOf(status),
+                        reason = (document["healthReason"] as? String).orEmpty(),
+                        suggestion = (document["healthSuggestion"] as? String).orEmpty(),
+                        calories = calories
+                    )
+                }.getOrNull()
+            }
+
+        return FoodMenu(
+            id = id,
+            name = name,
+            mealType = mealType,
+            audience = audience,
+            description = (document["description"] as? String).orEmpty(),
+            notes = (document["notes"] as? String).orEmpty(),
+            healthAnalysis = healthAnalysis,
+            calories = calories,
+            imageUri = document["imageUri"] as? String,
+            isFavorite = document["isFavorite"] as? Boolean ?: false,
+            lastPickedDate = document["lastPickedDate"] as? String,
+            createdAt = (document["createdAt"] as? Number)?.toLong() ?: 0L
         )
     }
 

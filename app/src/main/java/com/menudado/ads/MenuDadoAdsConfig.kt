@@ -10,7 +10,6 @@ object MenuDadoAdsConfig {
     const val HOME_INLINE_BANNER_HORIZONTAL_PADDING_DP = 20
     const val NON_PERSONALIZED_ADS_PARAM_KEY = "npa"
     const val NON_PERSONALIZED_ADS_PARAM_VALUE = "1"
-    const val isEnabled = true
     const val requestNonPersonalizedAds = true
 
     fun homeInlineBannerWidthDp(screenWidthDp: Int): Int {

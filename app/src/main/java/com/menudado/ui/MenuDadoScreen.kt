@@ -84,6 +84,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -152,6 +153,7 @@ import kotlin.math.sqrt
 fun MenuDadoScreen(
     viewModel: MenuDadoViewModel,
     areAdsReady: Boolean = false,
+    areAdsEnabled: Boolean = false,
     areAdsPrivacyOptionsRequired: Boolean = false,
     adsPrivacyOptionsMessage: String? = null,
     onAdsPrivacyOptionsMessageDismiss: () -> Unit = {},
@@ -585,7 +587,10 @@ fun MenuDadoScreen(
                             )
                         }
                         item {
-                            MenuDadoBannerAd(isReady = areAdsReady)
+                            MenuDadoBannerAd(
+                                isReady = areAdsReady,
+                                isEnabled = areAdsEnabled
+                            )
                         }
                         item {
                             Text(
@@ -2531,27 +2536,31 @@ private fun MenuCarouselSections(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
         if (menuShouldShowFavoriteSection(menus)) {
-            FavoriteMenuCarouselSection(
-                menus = menuFavoriteMenus(menus).take(MenuCarouselCollapsedLimit),
-                onOpenMenu = onOpenMenu,
-                onOpenActions = onOpenActions,
-                onToggleFavorite = onToggleFavorite
-            )
+            key("favorite_menus") {
+                FavoriteMenuCarouselSection(
+                    menus = menuFavoriteMenus(menus).take(MenuCarouselCollapsedLimit),
+                    onOpenMenu = onOpenMenu,
+                    onOpenActions = onOpenActions,
+                    onToggleFavorite = onToggleFavorite
+                )
+            }
         }
         menuCarouselAudiencesWithMenus(menus, enabledAudiences).forEach { audience ->
-            MenuCarouselSection(
-                audience = audience,
-                menus = menuCarouselVisibleMenus(
-                    menus = menus,
+            key(audience) {
+                MenuCarouselSection(
                     audience = audience,
-                    isExpanded = false
-                ),
-                showToggle = menuCarouselShowsToggle(menus, audience),
-                onViewMore = { onViewMore(audience) },
-                onOpenMenu = onOpenMenu,
-                onOpenActions = onOpenActions,
-                onToggleFavorite = onToggleFavorite
-            )
+                    menus = menuCarouselVisibleMenus(
+                        menus = menus,
+                        audience = audience,
+                        isExpanded = false
+                    ),
+                    showToggle = menuCarouselShowsToggle(menus, audience),
+                    onViewMore = { onViewMore(audience) },
+                    onOpenMenu = onOpenMenu,
+                    onOpenActions = onOpenActions,
+                    onToggleFavorite = onToggleFavorite
+                )
+            }
         }
     }
 }
@@ -2564,9 +2573,6 @@ private fun FavoriteMenuCarouselSection(
     onToggleFavorite: (FoodMenu) -> Unit
 ) {
     val listState = rememberLazyListState()
-    LaunchedEffect(menuCarouselScrollResetKey(menus)) {
-        listState.scrollToItem(0)
-    }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             text = stringResource(id = R.string.favorite_menus),
@@ -2603,9 +2609,6 @@ private fun MenuCarouselSection(
     onToggleFavorite: (FoodMenu) -> Unit
 ) {
     val listState = rememberLazyListState()
-    LaunchedEffect(menuCarouselScrollResetKey(menus)) {
-        listState.scrollToItem(0)
-    }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             modifier = Modifier
@@ -3701,7 +3704,7 @@ internal fun menuFavoriteMenus(menus: List<FoodMenu>): List<FoodMenu> {
         .sortedByDescending { it.createdAt }
 }
 
-internal fun menuCarouselScrollResetKey(menus: List<FoodMenu>): Long? = menus.firstOrNull()?.id
+internal fun menuCarouselScrollResetKey(menus: List<FoodMenu>): Set<Long> = menus.map { it.id }.toSet()
 
 internal fun menuShouldShowFavoriteSection(menus: List<FoodMenu>): Boolean {
     return menus.any { it.isFavorite }

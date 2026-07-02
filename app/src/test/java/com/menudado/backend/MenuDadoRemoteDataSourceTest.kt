@@ -84,6 +84,39 @@ class MenuDadoRemoteDataSourceTest {
     }
 
     @Test
+    fun `menu document deserializes remote menu and skips deleted documents`() {
+        val document = mapOf(
+            "name" to "Cena ligera",
+            "mealType" to "DINNER",
+            "audience" to "CHILD",
+            "description" to "Tortilla francesa con tomate.",
+            "notes" to "Sin picante.",
+            "healthStatus" to "HEALTHY",
+            "healthReason" to "Buena proteina y verduras.",
+            "healthSuggestion" to "Anade fruta si queda hambre.",
+            "calories" to 360L,
+            "imageUri" to "content://menu/42",
+            "isFavorite" to true,
+            "lastPickedDate" to "2026-06-22",
+            "createdAt" to 1_719_000_000_000L
+        )
+
+        val menu = BackendFirestoreMapper.menuFromDocument("42", document)
+
+        assertEquals(42L, menu?.id)
+        assertEquals("Cena ligera", menu?.name)
+        assertEquals(MealType.DINNER, menu?.mealType)
+        assertEquals(MenuAudience.CHILD, menu?.audience)
+        assertEquals(HealthStatus.HEALTHY, menu?.healthAnalysis?.status)
+        assertEquals(360, menu?.calories)
+        assertEquals(true, menu?.isFavorite)
+        assertEquals(
+            null,
+            BackendFirestoreMapper.menuFromDocument("42", document + ("deletedAt" to Any()))
+        )
+    }
+
+    @Test
     fun `dietary profile document serializes audience profile and allergens by enum name`() {
         val profile = DietaryProfile(
             isEnabled = true,

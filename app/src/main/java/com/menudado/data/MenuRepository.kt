@@ -101,6 +101,20 @@ class MenuRepository(
         }
     }
 
+    suspend fun syncRemoteMenus() {
+        val remote = remoteDataSource ?: return
+        if (menuDao.countPendingSyncMenus() > 0) return
+        remote.fetchMenus().forEach { menu ->
+            menuDao.insert(
+                menu.toEntity(
+                    remoteSyncState = RemoteSyncState.SYNCED,
+                    updatedAt = clockMillisProvider(),
+                    remoteSyncToken = null
+                )
+            )
+        }
+    }
+
     suspend fun pendingSyncMenuCount(): Int {
         return menuDao.countPendingSyncMenus()
     }
