@@ -71,7 +71,11 @@ android {
                 "\"ca-app-pub-2347852335093406/4295829613\""
             )
             signingConfig = signingConfigs.getByName("debug")
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -81,6 +85,8 @@ android {
         create("releaseDebuggable") {
             initWith(getByName("release"))
             isDebuggable = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
             manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"

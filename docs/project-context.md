@@ -241,8 +241,12 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Version visible: sincronizada con `versionName` del build Android.
 - Variantes Android:
   - `debug`: build depurable local con `applicationId` `com.menudado.debug`, nombre visible `MenuDado Debug`, Firebase debug y App ID/ad unit demo de AdMob.
-  - `release`: build productiva no depurable, usa App ID y ad unit reales de AdMob; queda firmada con debug para poder instalarla desde Android Studio en desarrollo local, no como firma final de tienda.
-  - `releaseDebuggable`: build depurable con configuración de release, `applicationId` `com.menudado`, Firebase producción y App ID/ad unit demo de AdMob, pensada para diagnosticar comportamiento productivo sin generar tráfico inválido con anuncios reales.
+  - `release`: build productiva no depurable, usa App ID y ad unit reales de AdMob, activa R8 y reducción de recursos para publicar en tienda, y genera `app/build/outputs/mapping/release/mapping.txt` como archivo de desofuscación para Play Console; queda firmada con debug para poder instalarla desde Android Studio en desarrollo local, no como firma final de tienda.
+  - `releaseDebuggable`: build depurable con configuración de release, `applicationId` `com.menudado`, Firebase producción y App ID/ad unit demo de AdMob, pensada para diagnosticar comportamiento productivo sin generar tráfico inválido con anuncios reales. Esta variante mantiene minificación y reducción de recursos desactivadas para facilitar depuración.
+- Publicación Play Store:
+  - El AAB productivo se genera en `app/build/outputs/bundle/release/app-release.aab`.
+  - Si Play Console muestra la advertencia de desofuscación, subir `app/build/outputs/mapping/release/mapping.txt` en el artefacto correspondiente para mejorar el diagnóstico de crashes y ANR.
+  - El build `release` configura `ndk.debugSymbolLevel = SYMBOL_TABLE`; las librerías nativas actuales vienen de dependencias AndroidX/DataStore y la tarea local `mergeReleaseNativeDebugMetadata` no genera símbolos externos porque no hay metadata nativa propia disponible.
 - Recursos públicos para tienda: GitHub Pages desde `docs/`, con política de privacidad en `https://rhon1990.github.io/menuDado/privacy-policy/` y solicitud de eliminacion de datos en `https://rhon1990.github.io/menuDado/data-deletion/`.
 
 ## Principios de UX
