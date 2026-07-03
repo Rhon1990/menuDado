@@ -300,6 +300,12 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `mi zona usa flecha lateral para enlaces y sin flecha para cerrar sesion`() {
+        assertEquals(R.drawable.ic_arrow_forward, myZoneNavigationActionIconRes())
+        assertNull(myZoneSignOutActionIconRes())
+    }
+
+    @Test
     fun `carrusel muestra los diez ultimos menus del publico cuando esta colapsado`() {
         val menus = (1L..12L).map { index ->
             FoodMenu(
@@ -495,10 +501,23 @@ class MenuCardUiStateTest {
         assertEquals(MenuDadoColors.HeaderGreen, menuDadoBottomNavigationContainerColor())
         assertEquals(Color.White, menuDadoBottomNavigationContentColor(isSelected = true))
         assertEquals(Color.White.copy(alpha = 0.72f), menuDadoBottomNavigationContentColor(isSelected = false))
+        assertEquals(false, menuDadoBottomNavigationPressOverlayEnabled())
         assertEquals(8, menuDadoBottomNavigationItemCornerRadiusDp())
         assertEquals(6, menuDadoBottomNavigationIndicatorWidthDp(isSelected = true))
         assertEquals(0, menuDadoBottomNavigationIndicatorWidthDp(isSelected = false))
         assertEquals(6, menuDadoBottomNavigationIndicatorHeightDp())
+    }
+
+    @Test
+    fun `ctas de mi zona y autenticacion usan nombres cerrados`() {
+        assertEquals("open_account_benefits", myZoneAccountBenefitsCta())
+        assertEquals("close_account_benefits", myZoneCloseAccountBenefitsCta())
+        assertEquals("start_register", myZoneStartRegisterCta())
+        assertEquals("start_sign_in", myZoneStartSignInCta())
+        assertEquals("submit_email_auth", authSubmitEmailCta())
+        assertEquals("submit_google_auth", authSubmitGoogleCta())
+        assertEquals("switch_auth_mode", authSwitchModeCta())
+        assertEquals("sign_out", authSignOutCta())
     }
 
     @Test
@@ -568,7 +587,7 @@ class MenuCardUiStateTest {
     fun `onboarding explica los usos principales y recuerda el perfil alimentario`() {
         val steps = onboardingSteps()
 
-        assertEquals(4, steps.size)
+        assertEquals(5, steps.size)
         assertEquals(R.string.onboarding_profile_title, steps[0].titleRes)
         assertEquals(R.string.onboarding_profile_body, steps[0].bodyRes)
         assertEquals(R.string.onboarding_menus_title, steps[1].titleRes)
@@ -577,15 +596,17 @@ class MenuCardUiStateTest {
         assertEquals(R.string.onboarding_ai_body, steps[2].bodyRes)
         assertEquals(R.string.onboarding_dice_title, steps[3].titleRes)
         assertEquals(R.string.onboarding_dice_body, steps[3].bodyRes)
+        assertEquals(R.string.onboarding_account_title, steps[4].titleRes)
+        assertEquals(R.string.onboarding_account_body, steps[4].bodyRes)
     }
 
     @Test
     fun `onboarding permite avanzar y retroceder con swipe horizontal`() {
-        assertEquals(1, onboardingStepAfterSwipe(currentStep = 0, stepCount = 4, dragAmount = -72f))
-        assertEquals(2, onboardingStepAfterSwipe(currentStep = 3, stepCount = 4, dragAmount = 72f))
-        assertEquals(0, onboardingStepAfterSwipe(currentStep = 0, stepCount = 4, dragAmount = 72f))
-        assertEquals(3, onboardingStepAfterSwipe(currentStep = 3, stepCount = 4, dragAmount = -72f))
-        assertEquals(1, onboardingStepAfterSwipe(currentStep = 1, stepCount = 4, dragAmount = 20f))
+        assertEquals(1, onboardingStepAfterSwipe(currentStep = 0, stepCount = 5, dragAmount = -72f))
+        assertEquals(3, onboardingStepAfterSwipe(currentStep = 4, stepCount = 5, dragAmount = 72f))
+        assertEquals(0, onboardingStepAfterSwipe(currentStep = 0, stepCount = 5, dragAmount = 72f))
+        assertEquals(4, onboardingStepAfterSwipe(currentStep = 4, stepCount = 5, dragAmount = -72f))
+        assertEquals(1, onboardingStepAfterSwipe(currentStep = 1, stepCount = 5, dragAmount = 20f))
     }
 
     @Test

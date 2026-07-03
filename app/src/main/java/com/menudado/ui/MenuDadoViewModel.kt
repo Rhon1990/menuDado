@@ -15,10 +15,13 @@ import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiQuotaRetryState
 import com.menudado.data.AiRequestThrottleStore
+import com.menudado.data.GuestDailyUsageState
+import com.menudado.data.GuestUsageStore
 import com.menudado.data.MenuRepository
 import com.menudado.data.NoOpAiDailyUsageStore
 import com.menudado.data.NoOpAiQuotaRetryStore
 import com.menudado.data.NoOpAiRequestThrottleStore
+import com.menudado.data.NoOpGuestUsageStore
 import com.menudado.data.NoOpOnboardingStore
 import com.menudado.data.OnboardingStore
 import com.menudado.domain.DiceSelector
@@ -27,6 +30,10 @@ import com.menudado.domain.DietaryProfile
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.AppLanguage
+import com.menudado.domain.GUEST_DAILY_AI_ANALYSIS_LIMIT
+import com.menudado.domain.GUEST_DAILY_AI_GENERATION_LIMIT
+import com.menudado.domain.GUEST_DAILY_MENU_SAVE_LIMIT
+import com.menudado.domain.GuestAccessPolicy
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import com.menudado.domain.AiQuotaLimitType
@@ -77,6 +84,8 @@ data class MenuDadoUiState(
     val isAiRequestThrottlePause: Boolean = false,
     val isAiRetryNoticeVisible: Boolean = false,
     val aiUsesRemainingToday: Int = AI_DAILY_FREE_REQUEST_LIMIT,
+    val aiGenerationUsesRemainingToday: Int = AI_DAILY_FREE_REQUEST_LIMIT,
+    val aiAnalysisUsesRemainingToday: Int = AI_DAILY_FREE_REQUEST_LIMIT,
     val enabledAudiences: List<MenuAudience> = MenuAudience.entries,
     val audienceAgeRanges: Map<MenuAudience, String> = MenuAudience.entries.associateWith { it.defaultAgeRange },
     val dietaryProfileAudience: MenuAudience = MenuAudience.ADULT,
@@ -92,6 +101,7 @@ class MenuDadoViewModel(
     private val aiQuotaRetryStore: AiQuotaRetryStore = NoOpAiQuotaRetryStore,
     private val aiRequestThrottleStore: AiRequestThrottleStore = NoOpAiRequestThrottleStore,
     private val aiDailyUsageStore: AiDailyUsageStore = NoOpAiDailyUsageStore,
+    private val guestUsageStore: GuestUsageStore = NoOpGuestUsageStore,
     private val dietaryProfileStore: DietaryProfileStore = NoOpDietaryProfileStore,
     private val onboardingStore: OnboardingStore = NoOpOnboardingStore
 ) : ViewModel() {
@@ -107,6 +117,10 @@ class MenuDadoViewModel(
     private var hasTrackedMenuFormStarted = false
     private var generatedIdeaDateKey: String? = null
     private val generatedIdeasToday = mutableListOf<GeneratedIdeaMemory>()
+    private var guestAccessPolicy = GuestAccessPolicy(
+        isGuest = false,
+        areLimitsEnabled = true
+    )
 
     init {
         refreshOnboarding()
@@ -128,6 +142,37 @@ class MenuDadoViewModel(
 
     fun trackCtaTapped(screen: String, cta: String) {
         analytics.trackCtaTapped(screen, cta)
+    }
+
+    fun trackMyZoneOpened() {
+        analytics.trackMyZoneOpened(
+            authMode = currentAuthMode(),
+            menuCount = _uiState.value.menus.size
+        )
+    }
+
+    fun trackAuthFlowStarted(mode: String) {
+        analytics.trackAuthFlowStarted(
+            mode = mode,
+            authMode = currentAuthMode(),
+            menuCount = _uiState.value.menus.size
+        )
+    }
+
+    fun trackAuthAction(action: String, method: String) {
+        analytics.trackAuthAction(
+            action = action,
+            method = method,
+            authMode = currentAuthMode()
+        )
+    }
+
+    fun updateGuestAccess(isGuest: Boolean, areLimitsEnabled: Boolean) {
+        guestAccessPolicy = GuestAccessPolicy(
+            isGuest = isGuest,
+            areLimitsEnabled = areLimitsEnabled
+        )
+        refreshAiUsageCounters()
     }
 
     fun setDiceAudienceFilter(filter: MenuAudience?) {
@@ -526,6 +571,10 @@ class MenuDadoViewModel(
             return
         }
 
+        if (!canGuestSaveMenuOrShowNotice()) {
+            return
+        }
+
         viewModelScope.launch {
             val menu = FoodMenu(
                 name = name,
@@ -538,6 +587,7 @@ class MenuDadoViewModel(
             )
 
             repository.save(menu)
+            consumeGuestMenuSave()
             if (state.menus.isEmpty()) {
                 analytics.trackFirstMenuCreated(menu.mealType)
             }
@@ -670,6 +720,9 @@ class MenuDadoViewModel(
             return
         }
 
+        if (!canGuestGenerateIdeaOrShowNotice()) {
+            return
+        }
         if (!canUseAiDailyOrShowNotice(AI_SOURCE_GENERATE_MENU)) {
             return
         }
@@ -698,6 +751,7 @@ class MenuDadoViewModel(
                 }
                     .onSuccess { generated ->
                         consumeAiDailyUse()
+                        consumeGuestGeneratedIdea()
 
                         aiQuotaRetryStore.clearRetryState()
                         rememberGeneratedIdea(mealType, audience, generated.name, generated.description)
@@ -752,7 +806,9 @@ class MenuDadoViewModel(
                     aiRetryAtMillis = retryAtMillis,
                     isAiRequestThrottlePause = false,
                     isAiRetryNoticeVisible = true,
-                    aiUsesRemainingToday = 0
+                    aiUsesRemainingToday = 0,
+                    aiGenerationUsesRemainingToday = 0,
+                    aiAnalysisUsesRemainingToday = 0
                 )
             }
             scheduleAiRetryRefresh(retryAtMillis)
@@ -889,6 +945,9 @@ class MenuDadoViewModel(
             showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
             return
         }
+        if (!canGuestAnalyzeOrShowNotice()) {
+            return
+        }
         if (!canUseAiDailyOrShowNotice(AI_SOURCE_ANALYZE_SINGLE)) {
             return
         }
@@ -906,6 +965,7 @@ class MenuDadoViewModel(
             withAiRequestTimeout { repository.analyze(menu, AppLanguage.fromLocale()) }
                 .onSuccess { analysis ->
                     consumeAiDailyUse()
+                    consumeGuestAnalysis()
                     repository.save(
                         menu.copy(
                             healthAnalysis = analysis,
@@ -969,6 +1029,9 @@ class MenuDadoViewModel(
             showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
             return
         }
+        if (!canGuestAnalyzeOrShowNotice()) {
+            return
+        }
         if (!canUseAiDailyOrShowNotice(AI_SOURCE_ANALYZE_BATCH)) {
             return
         }
@@ -988,6 +1051,7 @@ class MenuDadoViewModel(
 
                     if (analysesByMenuId.isNotEmpty()) {
                         consumeAiDailyUse()
+                        consumeGuestAnalysis()
                     }
 
                     pendingMenus.forEach { menu ->
@@ -1150,9 +1214,138 @@ class MenuDadoViewModel(
     }
 
     private fun refreshAiDailyUsage() {
+        refreshAiUsageCounters()
+    }
+
+    private fun refreshAiUsageCounters() {
         _uiState.update {
-            it.copy(aiUsesRemainingToday = aiDailyUsesRemaining())
+            val dailyUsesRemaining = aiDailyUsesRemaining()
+            it.copy(
+                aiUsesRemainingToday = dailyUsesRemaining,
+                aiGenerationUsesRemainingToday = aiGenerationUsesRemaining(dailyUsesRemaining),
+                aiAnalysisUsesRemainingToday = aiAnalysisUsesRemaining(dailyUsesRemaining)
+            )
         }
+    }
+
+    private fun canGuestSaveMenuOrShowNotice(): Boolean {
+        val dateKey = todayProvider()
+        val usedCount = currentGuestUsageState(dateKey).savedMenuCount
+        if (guestAccessPolicy.canUseAction(usedCount, GUEST_DAILY_MENU_SAVE_LIMIT)) {
+            return true
+        }
+        analytics.trackGuestLimitReached(GUEST_LIMIT_MENU_SAVE, usedCount)
+        _uiState.update {
+            it.copy(
+                message = currentLanguage().guestMenuSaveLimitMessage(),
+                isAiRetryNoticeVisible = false
+            )
+        }
+        return false
+    }
+
+    private fun canGuestGenerateIdeaOrShowNotice(): Boolean {
+        val dateKey = todayProvider()
+        val usedCount = currentGuestUsageState(dateKey).generatedIdeaCount
+        if (guestAccessPolicy.canUseAction(usedCount, GUEST_DAILY_AI_GENERATION_LIMIT)) {
+            return true
+        }
+        analytics.trackGuestLimitReached(GUEST_LIMIT_AI_GENERATION, usedCount)
+        _uiState.update {
+            it.copy(
+                message = currentLanguage().guestAiGenerationLimitMessage(),
+                isAiRetryNoticeVisible = false
+            )
+        }
+        return false
+    }
+
+    private fun canGuestAnalyzeOrShowNotice(): Boolean {
+        val dateKey = todayProvider()
+        val usedCount = currentGuestUsageState(dateKey).analysisCount
+        if (guestAccessPolicy.canUseAction(usedCount, GUEST_DAILY_AI_ANALYSIS_LIMIT)) {
+            return true
+        }
+        analytics.trackGuestLimitReached(GUEST_LIMIT_AI_ANALYSIS, usedCount)
+        _uiState.update {
+            it.copy(
+                message = currentLanguage().guestAiAnalysisLimitMessage(),
+                isAiRetryNoticeVisible = false
+            )
+        }
+        return false
+    }
+
+    private fun consumeGuestMenuSave() {
+        if (!guestAccessPolicy.isGuest || !guestAccessPolicy.areLimitsEnabled) {
+            return
+        }
+        saveGuestUsageState { state ->
+            state.copy(savedMenuCount = (state.savedMenuCount + 1).coerceAtMost(GUEST_DAILY_MENU_SAVE_LIMIT))
+        }
+    }
+
+    private fun consumeGuestGeneratedIdea() {
+        if (!guestAccessPolicy.isGuest || !guestAccessPolicy.areLimitsEnabled) {
+            return
+        }
+        saveGuestUsageState { state ->
+            state.copy(generatedIdeaCount = (state.generatedIdeaCount + 1).coerceAtMost(GUEST_DAILY_AI_GENERATION_LIMIT))
+        }
+        refreshAiUsageCounters()
+    }
+
+    private fun consumeGuestAnalysis() {
+        if (!guestAccessPolicy.isGuest || !guestAccessPolicy.areLimitsEnabled) {
+            return
+        }
+        saveGuestUsageState { state ->
+            state.copy(analysisCount = (state.analysisCount + 1).coerceAtMost(GUEST_DAILY_AI_ANALYSIS_LIMIT))
+        }
+        refreshAiUsageCounters()
+    }
+
+    private fun saveGuestUsageState(transform: (GuestDailyUsageState) -> GuestDailyUsageState) {
+        val dateKey = todayProvider()
+        guestUsageStore.saveUsageState(transform(currentGuestUsageState(dateKey)))
+    }
+
+    private fun aiGenerationUsesRemaining(dailyUsesRemaining: Int): Int {
+        if (!guestAccessPolicy.isGuest || !guestAccessPolicy.areLimitsEnabled) {
+            return dailyUsesRemaining
+        }
+        val usedCount = currentGuestUsageState(todayProvider()).generatedIdeaCount
+        return minOf(dailyUsesRemaining, (GUEST_DAILY_AI_GENERATION_LIMIT - usedCount).coerceAtLeast(0))
+    }
+
+    private fun aiAnalysisUsesRemaining(dailyUsesRemaining: Int): Int {
+        if (!guestAccessPolicy.isGuest || !guestAccessPolicy.areLimitsEnabled) {
+            return dailyUsesRemaining
+        }
+        val usedCount = currentGuestUsageState(todayProvider()).analysisCount
+        return minOf(dailyUsesRemaining, (GUEST_DAILY_AI_ANALYSIS_LIMIT - usedCount).coerceAtLeast(0))
+    }
+
+    private fun currentGuestUsageState(dateKey: String): GuestDailyUsageState {
+        val state = guestUsageStore.getUsageState()
+        if (state?.dateKey == dateKey) {
+            return GuestDailyUsageState(
+                dateKey = state.dateKey,
+                savedMenuCount = state.savedMenuCount.coerceIn(0, GUEST_DAILY_MENU_SAVE_LIMIT),
+                generatedIdeaCount = state.generatedIdeaCount.coerceIn(0, GUEST_DAILY_AI_GENERATION_LIMIT),
+                analysisCount = state.analysisCount.coerceIn(0, GUEST_DAILY_AI_ANALYSIS_LIMIT)
+            )
+        }
+        return GuestDailyUsageState(
+            dateKey = dateKey,
+            savedMenuCount = 0,
+            generatedIdeaCount = 0,
+            analysisCount = 0
+        )
+    }
+
+    private fun currentAuthMode(): String {
+        return if (guestAccessPolicy.isGuest) AUTH_MODE_GUEST else AUTH_MODE_SIGNED_IN
     }
 
     private fun currentPacificDateKey(): String {
@@ -1171,11 +1364,7 @@ class MenuDadoViewModel(
             )
         )
 
-        _uiState.update {
-            it.copy(
-                aiUsesRemainingToday = (AI_DAILY_FREE_REQUEST_LIMIT - newUsedCount).coerceAtLeast(0)
-            )
-        }
+        refreshAiUsageCounters()
     }
 
     private fun aiDailyUsesRemaining(): Int {
@@ -1244,11 +1433,14 @@ class MenuDadoViewModel(
         }
 
         _uiState.update {
+            val dailyUsesRemaining = aiDailyUsesRemaining()
             it.copy(
                 aiRetryAtMillis = null,
                 isAiRequestThrottlePause = false,
                 isAiRetryNoticeVisible = false,
-                aiUsesRemainingToday = aiDailyUsesRemaining()
+                aiUsesRemainingToday = dailyUsesRemaining,
+                aiGenerationUsesRemainingToday = aiGenerationUsesRemaining(dailyUsesRemaining),
+                aiAnalysisUsesRemainingToday = aiAnalysisUsesRemaining(dailyUsesRemaining)
             )
         }
         scheduleAiRetryRefresh(null)
@@ -1269,11 +1461,14 @@ class MenuDadoViewModel(
             if (!it.isAiRequestThrottlePause) {
                 it
             } else {
+                val dailyUsesRemaining = aiDailyUsesRemaining()
                 it.copy(
                     aiRetryAtMillis = null,
                     isAiRequestThrottlePause = false,
                     isAiRetryNoticeVisible = false,
-                    aiUsesRemainingToday = aiDailyUsesRemaining()
+                    aiUsesRemainingToday = dailyUsesRemaining,
+                    aiGenerationUsesRemainingToday = aiGenerationUsesRemaining(dailyUsesRemaining),
+                    aiAnalysisUsesRemainingToday = aiAnalysisUsesRemaining(dailyUsesRemaining)
                 )
             }
         }
@@ -1567,6 +1762,30 @@ private fun AppLanguage.aiRequestsPerDayMessage(): String {
     }
 }
 
+private fun AppLanguage.guestMenuSaveLimitMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "You have saved your 5 guest menus for today. Create a free account to keep saving and recover your menus later."
+        AppLanguage.FRENCH -> "Vous avez enregistré vos 5 menus invités aujourd'hui. Créez un compte gratuit pour continuer et retrouver vos menus plus tard."
+        AppLanguage.SPANISH -> "Has guardado tus 5 menús de invitado por hoy. Crea una cuenta gratis para seguir guardando y recuperar tus menús después."
+    }
+}
+
+private fun AppLanguage.guestAiGenerationLimitMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "You have used your 5 guest AI ideas for today. Create a free account to keep generating ideas."
+        AppLanguage.FRENCH -> "Vous avez utilisé vos 5 idées IA invitées aujourd'hui. Créez un compte gratuit pour continuer à générer des idées."
+        AppLanguage.SPANISH -> "Has usado tus 5 ideas con IA como invitado por hoy. Crea una cuenta gratis para seguir generando ideas."
+    }
+}
+
+private fun AppLanguage.guestAiAnalysisLimitMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "You have used your 5 guest AI analyses for today. Create a free account to keep analyzing your menus."
+        AppLanguage.FRENCH -> "Vous avez utilisé vos 5 analyses IA invitées aujourd'hui. Créez un compte gratuit pour continuer à analyser vos menus."
+        AppLanguage.SPANISH -> "Has usado tus 5 análisis con IA como invitado por hoy. Crea una cuenta gratis para seguir analizando tus menús."
+    }
+}
+
 private fun AppLanguage.generatedAnalysisManualEditMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "You changed the generated recipe. To see it as analyzed, save the menu and tap Analyze with AI."
@@ -1676,12 +1895,17 @@ private const val AI_SOURCE_ANALYZE_SINGLE = "analyze_single"
 private const val AI_SOURCE_ANALYZE_BATCH = "analyze_batch"
 private const val AI_SCOPE_SINGLE = "single"
 private const val AI_SCOPE_BATCH = "batch"
+private const val AUTH_MODE_GUEST = "guest"
+private const val AUTH_MODE_SIGNED_IN = "signed_in"
+private const val GUEST_LIMIT_MENU_SAVE = "menu_save"
+private const val GUEST_LIMIT_AI_GENERATION = "ai_generation"
+private const val GUEST_LIMIT_AI_ANALYSIS = "ai_analysis"
 private const val FORM_FIELD_NAME = "name"
 private const val FORM_FIELD_DESCRIPTION = "description"
 private const val FORM_FIELD_NOTES = "notes"
 private const val ONBOARDING_ACTION_START = "start"
 private const val ONBOARDING_ACTION_SKIP = "skip"
-private const val CURRENT_ONBOARDING_VERSION = 2
+private const val CURRENT_ONBOARDING_VERSION = 3
 private const val ANALYTICS_SOURCE_DICE = "dice"
 internal const val DICE_ROLL_DURATION_MILLIS = 850L
 internal const val DICE_ROLL_SPIN_DEGREES = 720f

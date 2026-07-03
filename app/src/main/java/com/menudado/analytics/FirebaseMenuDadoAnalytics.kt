@@ -37,6 +37,36 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
+    override fun trackMyZoneOpened(authMode: String, menuCount: Int) {
+        logEvent(EVENT_MY_ZONE_OPENED) {
+            putString(PARAM_AUTH_MODE, authMode.sanitized())
+            putLong(PARAM_MENU_COUNT, menuCount.toLong())
+        }
+    }
+
+    override fun trackAuthFlowStarted(mode: String, authMode: String, menuCount: Int) {
+        logEvent(EVENT_AUTH_FLOW_STARTED) {
+            putString(PARAM_MODE, mode.sanitized())
+            putString(PARAM_AUTH_MODE, authMode.sanitized())
+            putLong(PARAM_MENU_COUNT, menuCount.toLong())
+        }
+    }
+
+    override fun trackAuthAction(action: String, method: String, authMode: String) {
+        logEvent(EVENT_AUTH_ACTION) {
+            putString(PARAM_ACTION, action.sanitized())
+            putString(PARAM_METHOD, method.sanitized())
+            putString(PARAM_AUTH_MODE, authMode.sanitized())
+        }
+    }
+
+    override fun trackGuestLimitReached(limitType: String, usedCount: Int) {
+        logEvent(EVENT_GUEST_LIMIT_REACHED) {
+            putString(PARAM_LIMIT_TYPE, limitType.sanitized())
+            putLong(PARAM_USED_COUNT, usedCount.toLong())
+        }
+    }
+
     override fun trackMenuDeleted(mealType: MealType, hadAiAnalysis: Boolean) {
         logEvent(EVENT_MENU_DELETED) {
             putString(PARAM_MEAL_TYPE, mealType.analyticsName())
@@ -321,6 +351,10 @@ class FirebaseMenuDadoAnalytics(
         const val EVENT_APP_OPENED = "app_opened"
         const val EVENT_MENU_SAVED = "menu_saved"
         const val EVENT_CTA_TAPPED = "cta_tapped"
+        const val EVENT_MY_ZONE_OPENED = "my_zone_opened"
+        const val EVENT_AUTH_FLOW_STARTED = "auth_flow_started"
+        const val EVENT_AUTH_ACTION = "auth_action"
+        const val EVENT_GUEST_LIMIT_REACHED = "guest_limit_reached"
         const val EVENT_MENU_DELETED = "menu_deleted"
         const val EVENT_FIRST_MENU_CREATED = "first_menu_created"
         const val EVENT_MENU_INVENTORY_CHANGED = "menu_inventory_changed"
@@ -357,6 +391,11 @@ class FirebaseMenuDadoAnalytics(
         const val PARAM_TIME_ZONE = "time_zone"
         const val PARAM_SCREEN = "screen"
         const val PARAM_CTA = "cta"
+        const val PARAM_AUTH_MODE = "auth_mode"
+        const val PARAM_MODE = "mode"
+        const val PARAM_METHOD = "method"
+        const val PARAM_LIMIT_TYPE = "limit_type"
+        const val PARAM_USED_COUNT = "used_count"
         const val PARAM_MEAL_TYPE = "meal_type"
         const val PARAM_AUDIENCE = "audience"
         const val PARAM_HAS_AI_ANALYSIS = "has_ai_analysis"

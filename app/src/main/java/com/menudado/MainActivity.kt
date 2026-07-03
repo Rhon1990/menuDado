@@ -46,6 +46,7 @@ import com.menudado.ads.MenuDadoAdsRemoteConfig
 import com.menudado.about.MenuDadoAboutContent
 import com.menudado.about.MenuDadoAboutRemoteConfig
 import com.menudado.auth.shouldStartGuestModeByDefault
+import com.menudado.auth.MenuDadoGuestLimitsRemoteConfig
 import com.menudado.ui.MenuDadoScreen
 import com.menudado.ui.MenuDadoViewModel
 import com.menudado.ui.theme.MenuDadoColors
@@ -72,6 +73,7 @@ class MainActivity : ComponentActivity() {
                     aiQuotaRetryStore = app.aiQuotaRetryStore,
                     aiRequestThrottleStore = app.aiRequestThrottleStore,
                     aiDailyUsageStore = app.aiDailyUsageStore,
+                    guestUsageStore = app.guestUsageStore,
                     dietaryProfileStore = app.dietaryProfileStore,
                     onboardingStore = app.onboardingStore
                 ) as T
@@ -103,6 +105,7 @@ class MainActivity : ComponentActivity() {
                 var authErrorMessage by remember { mutableStateOf<String?>(null) }
                 var areAdsReady by remember { mutableStateOf(false) }
                 var areAdsEnabled by remember { mutableStateOf(false) }
+                var areGuestLimitsEnabled by remember { mutableStateOf(true) }
                 var areAdsPrivacyOptionsRequired by remember { mutableStateOf(false) }
                 var adsPrivacyOptionsMessage by remember { mutableStateOf<String?>(null) }
                 val defaultAboutContent = remember {
@@ -219,16 +222,25 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+                val guestLimitsRemoteConfig = remember {
+                    MenuDadoGuestLimitsRemoteConfig(
+                        onGuestLimitsEnabledChanged = { areEnabled ->
+                            areGuestLimitsEnabled = areEnabled
+                        }
+                    )
+                }
                 val lifecycleOwner = LocalLifecycleOwner.current
-                LaunchedEffect(adsRemoteConfig, aboutRemoteConfig) {
+                LaunchedEffect(adsRemoteConfig, aboutRemoteConfig, guestLimitsRemoteConfig) {
                     adsRemoteConfig.fetchAdsEnabled()
                     aboutRemoteConfig.fetchAboutContent()
+                    guestLimitsRemoteConfig.fetchGuestLimitsEnabled()
                 }
-                DisposableEffect(lifecycleOwner, adsRemoteConfig, aboutRemoteConfig) {
+                DisposableEffect(lifecycleOwner, adsRemoteConfig, aboutRemoteConfig, guestLimitsRemoteConfig) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (shouldRefreshAdsRemoteConfigOnLifecycleEvent(event)) {
                             adsRemoteConfig.fetchAdsEnabled()
                             aboutRemoteConfig.fetchAboutContent()
+                            guestLimitsRemoteConfig.fetchGuestLimitsEnabled()
                         }
                     }
                     lifecycleOwner.lifecycle.addObserver(observer)
@@ -264,6 +276,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onAdsPrivacyOptionsClick = adsController::showPrivacyOptionsForm,
                         authSession = authSession,
+                        areGuestLimitsEnabled = areGuestLimitsEnabled,
                         isAuthLoading = isAuthLoading,
                         authErrorMessage = authErrorMessage,
                         onAuthSignIn = { email, password ->

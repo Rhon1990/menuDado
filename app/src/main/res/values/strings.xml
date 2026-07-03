@@ -165,9 +165,11 @@
     <string name="onboarding_menus_title">Guarda tus menús</string>
     <string name="onboarding_menus_body">Agrega desayunos, almuerzos y cenas con ingredientes, notas y calorías si quieres.</string>
     <string name="onboarding_ai_title">Personaliza con IA</string>
-    <string name="onboarding_ai_body">Genera ideas según el tipo de comida y el perfil elegido, y revisa si son saludables. Tienes hasta 20 ayudas de IA al día y se renuevan cada mañana a las 9 am.</string>
+    <string name="onboarding_ai_body">Genera ideas según el tipo de comida y el perfil elegido, y revisa si son saludables. Si entras como invitado, tienes usos diarios limitados para probarla con calma.</string>
     <string name="onboarding_dice_title">Lanza el dado</string>
     <string name="onboarding_dice_body">Escoge desayuno, almuerzo o cena, selecciona para quién es y deja que MenuDado elija por ti.</string>
+    <string name="onboarding_account_title">Guarda tu cuenta</string>
+    <string name="onboarding_account_body">Puedes usar MenuDado como invitado desde el inicio. Cuando quieras conservar tus menús al reinstalar o cambiar de móvil, entra en Mi zona y crea tu cuenta o inicia sesión.</string>
     <string name="result_today">Hoy toca</string>
     <string name="result_option_today">Tu opción para hoy</string>
     <string name="result_chosen_menu">Menú elegido</string>

@@ -24,6 +24,14 @@ interface MenuDadoAnalytics {
 
     fun trackCtaTapped(screen: String, cta: String)
 
+    fun trackMyZoneOpened(authMode: String, menuCount: Int)
+
+    fun trackAuthFlowStarted(mode: String, authMode: String, menuCount: Int)
+
+    fun trackAuthAction(action: String, method: String, authMode: String)
+
+    fun trackGuestLimitReached(limitType: String, usedCount: Int)
+
     fun trackMenuDeleted(mealType: MealType, hadAiAnalysis: Boolean)
 
     fun trackFirstMenuCreated(mealType: MealType)
@@ -122,6 +130,14 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
     ) = Unit
 
     override fun trackCtaTapped(screen: String, cta: String) = Unit
+
+    override fun trackMyZoneOpened(authMode: String, menuCount: Int) = Unit
+
+    override fun trackAuthFlowStarted(mode: String, authMode: String, menuCount: Int) = Unit
+
+    override fun trackAuthAction(action: String, method: String, authMode: String) = Unit
+
+    override fun trackGuestLimitReached(limitType: String, usedCount: Int) = Unit
 
     override fun trackMenuDeleted(mealType: MealType, hadAiAnalysis: Boolean) = Unit
 

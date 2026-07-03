@@ -27,6 +27,7 @@ import com.menudado.data.BackendStoredDataSyncer
 import com.menudado.data.MenuDadoDatabase
 import com.menudado.data.MenuRepository
 import com.menudado.data.DietaryProfileStore
+import com.menudado.data.GuestUsageStore
 import com.menudado.data.OnboardingStore
 import com.menudado.data.RemoteSyncingAiDailyUsageStore
 import com.menudado.data.RemoteSyncingDietaryProfileStore
@@ -36,6 +37,7 @@ import com.menudado.data.SharedPreferencesAiDailyUsageStore
 import com.menudado.data.SharedPreferencesAiQuotaRetryStore
 import com.menudado.data.SharedPreferencesAiRequestThrottleStore
 import com.menudado.data.SharedPreferencesDietaryProfileStore
+import com.menudado.data.SharedPreferencesGuestUsageStore
 import com.menudado.data.SharedPreferencesOnboardingStore
 import com.menudado.domain.MenuAudience
 import kotlinx.coroutines.CoroutineScope
@@ -160,6 +162,10 @@ class MenuDadoApplication : Application() {
 
     private val localOnboardingStore: OnboardingStore by lazy {
         SharedPreferencesOnboardingStore(applicationContext)
+    }
+
+    val guestUsageStore: GuestUsageStore by lazy {
+        SharedPreferencesGuestUsageStore(applicationContext)
     }
 
     private val pendingSyncStore: BackendPendingSyncStore by lazy {

@@ -9,6 +9,8 @@ import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiQuotaRetryState
 import com.menudado.data.AiRequestThrottleStore
+import com.menudado.data.GuestDailyUsageState
+import com.menudado.data.GuestUsageStore
 import com.menudado.data.MenuDao
 import com.menudado.data.MenuEntity
 import com.menudado.data.MenuRepository
@@ -57,6 +59,7 @@ class MenuDadoViewModelTest {
     private lateinit var aiQuotaRetryStore: FakeAiQuotaRetryStore
     private lateinit var aiRequestThrottleStore: FakeAiRequestThrottleStore
     private lateinit var aiDailyUsageStore: FakeAiDailyUsageStore
+    private lateinit var guestUsageStore: FakeGuestUsageStore
     private lateinit var dietaryProfileStore: FakeDietaryProfileStore
     private lateinit var onboardingStore: FakeOnboardingStore
     private lateinit var analytics: RecordingMenuDadoAnalytics
@@ -73,16 +76,19 @@ class MenuDadoViewModelTest {
         aiQuotaRetryStore = FakeAiQuotaRetryStore()
         aiRequestThrottleStore = FakeAiRequestThrottleStore()
         aiDailyUsageStore = FakeAiDailyUsageStore()
+        guestUsageStore = FakeGuestUsageStore()
         dietaryProfileStore = FakeDietaryProfileStore()
         onboardingStore = FakeOnboardingStore(completed = true)
         analytics = RecordingMenuDadoAnalytics()
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
+            todayProvider = { "2026-06-11" },
             clockMillisProvider = { localMillisAtHour(8) },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiRequestThrottleStore = aiRequestThrottleStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            guestUsageStore = guestUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -183,6 +189,27 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `account and my zone analytics use closed values without personal data`() {
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
+
+        viewModel.trackMyZoneOpened()
+        viewModel.trackAuthFlowStarted("register")
+        viewModel.trackAuthAction("register", "email")
+        viewModel.updateGuestAccess(isGuest = false, areLimitsEnabled = true)
+        viewModel.trackAuthAction("sign_out", "account")
+
+        assertEquals(
+            listOf(
+                "my_zone_opened:guest:0",
+                "auth_flow_started:register:guest:0",
+                "auth_action:register:email:guest",
+                "auth_action:sign_out:account:signed_in"
+            ),
+            analytics.events
+        )
+    }
+
+    @Test
     fun `save menu requires selecting an audience`() = runTest(dispatcher) {
         val freshViewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
@@ -252,6 +279,156 @@ class MenuDadoViewModelTest {
                 "menu_inventory_changed:1:0:1"
             ),
             analytics.events
+        )
+    }
+
+    @Test
+    fun `guest cannot save more than five menus per day when limits are enabled`() = runTest(dispatcher) {
+        guestUsageStore.state = GuestDailyUsageState(
+            dateKey = "2026-06-11",
+            savedMenuCount = 5,
+            generatedIdeaCount = 0,
+            analysisCount = 0
+        )
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
+        viewModel.updateName("Tostadas")
+        viewModel.updateDescription("Pan, tomate y aguacate")
+
+        viewModel.saveMenu()
+        advanceUntilIdle()
+
+        assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
+        assertTrue(viewModel.uiState.value.message.orEmpty().contains("5 menús"))
+        assertTrue(analytics.events.contains("guest_limit_reached:menu_save:5"))
+    }
+
+    @Test
+    fun `guest save limit can be disabled remotely`() = runTest(dispatcher) {
+        guestUsageStore.state = GuestDailyUsageState(
+            dateKey = "2026-06-11",
+            savedMenuCount = 5,
+            generatedIdeaCount = 0,
+            analysisCount = 0
+        )
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = false)
+        viewModel.updateName("Tostadas")
+        viewModel.updateDescription("Pan, tomate y aguacate")
+
+        viewModel.saveMenu()
+        advanceUntilIdle()
+
+        assertEquals("Tostadas", dao.saved.single().name)
+    }
+
+    @Test
+    fun `guest cannot generate more than five AI ideas per day when limits are enabled`() = runTest(dispatcher) {
+        guestUsageStore.state = GuestDailyUsageState(
+            dateKey = "2026-06-11",
+            savedMenuCount = 0,
+            generatedIdeaCount = 5,
+            analysisCount = 0
+        )
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertTrue(viewModel.uiState.value.message.orEmpty().contains("5 ideas"))
+    }
+
+    @Test
+    fun `guest sees guest AI counters instead of project daily counter when limits are enabled`() = runTest(dispatcher) {
+        guestUsageStore.state = GuestDailyUsageState(
+            dateKey = "2026-06-11",
+            savedMenuCount = 0,
+            generatedIdeaCount = 0,
+            analysisCount = 2
+        )
+
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
+
+        assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(5, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+        assertEquals(3, viewModel.uiState.value.aiAnalysisUsesRemainingToday)
+    }
+
+    @Test
+    fun `guest sees project AI counter when guest limits are disabled`() = runTest(dispatcher) {
+        guestUsageStore.state = GuestDailyUsageState(
+            dateKey = "2026-06-11",
+            savedMenuCount = 0,
+            generatedIdeaCount = 5,
+            analysisCount = 5
+        )
+
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = false)
+
+        assertEquals(20, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+        assertEquals(20, viewModel.uiState.value.aiAnalysisUsesRemainingToday)
+    }
+
+    @Test
+    fun `guest cannot analyze more than five menus per day when limits are enabled`() = runTest(dispatcher) {
+        guestUsageStore.state = GuestDailyUsageState(
+            dateKey = "2026-06-11",
+            savedMenuCount = 0,
+            generatedIdeaCount = 0,
+            analysisCount = 5
+        )
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
+
+        viewModel.analyzeExisting(
+            FoodMenu(
+                id = 1,
+                name = "Tostadas",
+                mealType = MealType.BREAKFAST,
+                audience = MenuAudience.ADULT,
+                description = "Pan, tomate y aguacate"
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.analysisCalls)
+        assertTrue(viewModel.uiState.value.message.orEmpty().contains("5 análisis"))
+    }
+
+    @Test
+    fun `guest successful actions consume separate daily counters`() = runTest(dispatcher) {
+        guestUsageStore.state = GuestDailyUsageState(
+            dateKey = "2026-06-11",
+            savedMenuCount = 4,
+            generatedIdeaCount = 4,
+            analysisCount = 4
+        )
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
+        viewModel.updateName("Tostadas")
+        viewModel.updateDescription("Pan, tomate y aguacate")
+
+        viewModel.saveMenu()
+        advanceUntilIdle()
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        aiRequestThrottleStore.clearLastRequest()
+        viewModel.analyzeExisting(
+            FoodMenu(
+                id = 1,
+                name = "Tostadas",
+                mealType = MealType.BREAKFAST,
+                audience = MenuAudience.ADULT,
+                description = "Pan, tomate y aguacate"
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            GuestDailyUsageState(
+                dateKey = "2026-06-11",
+                savedMenuCount = 5,
+                generatedIdeaCount = 5,
+                analysisCount = 5
+            ),
+            guestUsageStore.state
         )
     }
 
@@ -408,7 +585,7 @@ class MenuDadoViewModelTest {
     @Test
     fun `shows onboarding again when stored completion is from older content version`() = runTest(dispatcher) {
         analytics.events.clear()
-        val previousContentStore = FakeOnboardingStore(completed = true, completedVersion = 1)
+        val previousContentStore = FakeOnboardingStore(completed = true, completedVersion = 2)
         val updatedViewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
@@ -424,7 +601,7 @@ class MenuDadoViewModelTest {
         updatedViewModel.completeOnboarding()
 
         assertEquals(false, updatedViewModel.uiState.value.showOnboarding)
-        assertEquals(2, previousContentStore.completedVersion)
+        assertEquals(3, previousContentStore.completedVersion)
     }
 
     @Test
@@ -2294,7 +2471,7 @@ private class FakeDietaryProfileStore : DietaryProfileStore {
 
 private class FakeOnboardingStore(
     var completed: Boolean = false,
-    var completedVersion: Int = if (completed) 2 else 0
+    var completedVersion: Int = if (completed) 3 else 0
 ) : OnboardingStore {
     override fun isOnboardingCompleted(requiredVersion: Int): Boolean =
         completed && completedVersion >= requiredVersion
@@ -2360,6 +2537,16 @@ private class FakeAiDailyUsageStore : AiDailyUsageStore {
     }
 }
 
+private class FakeGuestUsageStore : GuestUsageStore {
+    var state: GuestDailyUsageState? = null
+
+    override fun getUsageState(): GuestDailyUsageState? = state
+
+    override fun saveUsageState(state: GuestDailyUsageState) {
+        this.state = state
+    }
+}
+
 private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
     val events = mutableListOf<String>()
     var throwOnAiMenuGenerationFinished = false
@@ -2379,6 +2566,22 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
 
     override fun trackCtaTapped(screen: String, cta: String) {
         events += "cta_tapped:$screen:$cta"
+    }
+
+    override fun trackMyZoneOpened(authMode: String, menuCount: Int) {
+        events += "my_zone_opened:$authMode:$menuCount"
+    }
+
+    override fun trackAuthFlowStarted(mode: String, authMode: String, menuCount: Int) {
+        events += "auth_flow_started:$mode:$authMode:$menuCount"
+    }
+
+    override fun trackAuthAction(action: String, method: String, authMode: String) {
+        events += "auth_action:$action:$method:$authMode"
+    }
+
+    override fun trackGuestLimitReached(limitType: String, usedCount: Int) {
+        events += "guest_limit_reached:$limitType:$usedCount"
     }
 
     override fun trackMenuDeleted(mealType: MealType, hadAiAnalysis: Boolean) {

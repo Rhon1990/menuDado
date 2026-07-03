@@ -163,6 +163,7 @@ fun MenuDadoScreen(
     onAdsPrivacyOptionsMessageDismiss: () -> Unit = {},
     onAdsPrivacyOptionsClick: () -> Unit = {},
     authSession: MenuDadoAuthSession? = null,
+    areGuestLimitsEnabled: Boolean = true,
     isAuthLoading: Boolean = false,
     authErrorMessage: String? = null,
     onAuthSignIn: (String, String) -> Unit = { _, _ -> },
@@ -416,6 +417,13 @@ fun MenuDadoScreen(
         }
     }
 
+    LaunchedEffect(authSession?.userId, authSession?.isAnonymous, areGuestLimitsEnabled) {
+        viewModel.updateGuestAccess(
+            isGuest = authSession?.isAnonymous != false,
+            areLimitsEnabled = areGuestLimitsEnabled
+        )
+    }
+
     if (isPhotoSourceDialogVisible) {
         MenuPhotoSourceDialog(
             onTakePhoto = {
@@ -516,7 +524,7 @@ fun MenuDadoScreen(
         MenuDetailDialog(
             menu = menu,
             isAnalyzing = state.isAnalyzing,
-            aiUsesRemainingToday = state.aiUsesRemainingToday,
+            aiUsesRemainingToday = state.aiAnalysisUsesRemainingToday,
             isAiPaused = state.aiRetryAtMillis != null,
             onAnalyze = {
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_ANALYZE_MENU)
@@ -592,26 +600,44 @@ fun MenuDadoScreen(
                                 isLoading = isAuthLoading,
                                 errorMessage = authErrorMessage,
                                 onSubmit = { email, password ->
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUTH, authSubmitEmailCta())
+                                    viewModel.trackAuthAction(mode.name.lowercase(), AUTH_METHOD_EMAIL)
                                     when (mode) {
                                         MenuDadoAuthFormMode.REGISTER -> onAuthRegister(email, password)
                                         MenuDadoAuthFormMode.SIGN_IN -> onAuthSignIn(email, password)
                                     }
                                 },
-                                onGoogleSignIn = onAuthGoogleSignIn,
+                                onGoogleSignIn = {
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUTH, authSubmitGoogleCta())
+                                    viewModel.trackAuthAction(mode.name.lowercase(), AUTH_METHOD_GOOGLE)
+                                    onAuthGoogleSignIn()
+                                },
                                 onSwitchMode = { nextMode ->
                                     onAuthErrorDismiss()
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUTH, authSwitchModeCta())
+                                    viewModel.trackAuthFlowStarted(nextMode.name.lowercase())
                                     authFormMode = nextMode.name
                                 }
                             )
                         } ?: MyZoneSection(
                             authSession = authSession,
                             shouldShowPrivacyOption = shouldShowMyZonePrivacyOption(BuildConfig.BUILD_TYPE),
+                            onBenefitsClick = {
+                                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MY_ZONE, myZoneAccountBenefitsCta())
+                            },
+                            onBenefitsDismiss = {
+                                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, myZoneCloseAccountBenefitsCta())
+                            },
                             onRegisterClick = {
                                 onAuthErrorDismiss()
+                                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MY_ZONE, myZoneStartRegisterCta())
+                                viewModel.trackAuthFlowStarted(MenuDadoAuthFormMode.REGISTER.name.lowercase())
                                 authFormMode = MenuDadoAuthFormMode.REGISTER.name
                             },
                             onSignInClick = {
                                 onAuthErrorDismiss()
+                                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MY_ZONE, myZoneStartSignInCta())
+                                viewModel.trackAuthFlowStarted(MenuDadoAuthFormMode.SIGN_IN.name.lowercase())
                                 authFormMode = MenuDadoAuthFormMode.SIGN_IN.name
                             },
                             onAboutClick = {
@@ -623,6 +649,8 @@ fun MenuDadoScreen(
                                 onAdsPrivacyOptionsClick()
                             },
                             onSignOutClick = {
+                                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MY_ZONE, authSignOutCta())
+                                viewModel.trackAuthAction(AUTH_ACTION_SIGN_OUT, AUTH_METHOD_ACCOUNT)
                                 onAuthSignOut()
                             }
                         )
@@ -705,7 +733,7 @@ fun MenuDadoScreen(
                                 PendingAnalysisButton(
                                     isAnalyzing = state.isAnalyzing,
                                     isAiPaused = state.aiRetryAtMillis != null,
-                                    usesRemaining = state.aiUsesRemainingToday,
+                                    usesRemaining = state.aiAnalysisUsesRemainingToday,
                                     onAnalyzePending = {
                                         viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_ANALYZE_PENDING)
                                         viewModel.analyzePendingMenus()
@@ -780,6 +808,7 @@ fun MenuDadoScreen(
                         audienceDetailRoute = null
                     }
                     MenuDadoDestination.MY_ZONE -> {
+                        viewModel.trackMyZoneOpened()
                         viewModel.trackCtaTapped(ANALYTICS_SCREEN_BOTTOM_NAV, ANALYTICS_CTA_NAV_MY_ZONE)
                         selectedDestination = MenuDadoDestination.MY_ZONE.name
                         audienceDetailRoute = null
@@ -934,7 +963,15 @@ private fun MenuDadoBottomNavigationItem(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(menuDadoBottomNavigationItemCornerRadiusDp().dp))
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = if (menuDadoBottomNavigationPressOverlayEnabled()) {
+                    androidx.compose.foundation.LocalIndication.current
+                } else {
+                    null
+                },
+                onClick = onClick
+            )
             .defaultMinSize(minHeight = menuDadoBottomNavigationMinHeightDp().dp)
             .padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -981,6 +1018,8 @@ internal fun menuDadoBottomNavigationContainerColor(): Color = MenuDadoColors.He
 
 internal fun menuDadoBottomNavigationContentColor(isSelected: Boolean): Color =
     Color.White.copy(alpha = if (isSelected) 1f else 0.72f)
+
+internal fun menuDadoBottomNavigationPressOverlayEnabled(): Boolean = false
 
 @StringRes
 internal fun menuDadoBottomNavigationLabelRes(destination: MenuDadoDestination): Int =
@@ -1080,6 +1119,10 @@ internal fun onboardingSteps(): List<OnboardingStep> = listOf(
     OnboardingStep(
         titleRes = R.string.onboarding_dice_title,
         bodyRes = R.string.onboarding_dice_body
+    ),
+    OnboardingStep(
+        titleRes = R.string.onboarding_account_title,
+        bodyRes = R.string.onboarding_account_body
     )
 )
 
@@ -1168,6 +1211,8 @@ private fun AboutAppSection(aboutContent: MenuDadoAboutContent) {
 private fun MyZoneSection(
     authSession: MenuDadoAuthSession?,
     shouldShowPrivacyOption: Boolean,
+    onBenefitsClick: () -> Unit,
+    onBenefitsDismiss: () -> Unit,
     onRegisterClick: () -> Unit,
     onSignInClick: () -> Unit,
     onAboutClick: () -> Unit,
@@ -1184,12 +1229,14 @@ private fun MyZoneSection(
         if (!isSignedIn) {
             MyZoneBenefitsButton(
                 onClick = {
+                    onBenefitsClick()
                     isBenefitsDialogVisible = true
                 }
             )
             if (isBenefitsDialogVisible) {
                 MyZoneBenefitsDialog(
                     onDismiss = {
+                        onBenefitsDismiss()
                         isBenefitsDialogVisible = false
                     }
                 )
@@ -1440,6 +1487,7 @@ private fun MyZoneSignedInData(
         MyZoneActionRow(
             label = stringResource(id = R.string.my_zone_sign_out),
             color = MenuDadoColors.Tomato,
+            trailingIconRes = myZoneSignOutActionIconRes(),
             onClick = onSignOutClick
         )
     }
@@ -1476,6 +1524,7 @@ private fun MyZoneDataRow(label: String, value: String) {
 private fun MyZoneActionRow(
     label: String,
     color: Color = MenuDadoColors.Ink,
+    trailingIconRes: Int? = myZoneNavigationActionIconRes(),
     onClick: () -> Unit
 ) {
     Row(
@@ -1492,12 +1541,14 @@ private fun MyZoneActionRow(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
-        Icon(
-            painter = painterResource(id = R.drawable.ic_expand_more),
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(20.dp)
-        )
+        if (trailingIconRes != null) {
+            Icon(
+                painter = painterResource(id = trailingIconRes),
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
     Box(
         modifier = Modifier
@@ -1510,6 +1561,10 @@ private fun MyZoneActionRow(
 internal fun shouldShowMyZonePrivacyOption(buildType: String): Boolean {
     return buildType == "debug"
 }
+
+internal fun myZoneNavigationActionIconRes(): Int = R.drawable.ic_arrow_forward
+
+internal fun myZoneSignOutActionIconRes(): Int? = null
 
 @StringRes
 internal fun myZoneSyncedAccountValueRes(): Int = R.string.my_zone_synced_account_value
@@ -2381,12 +2436,12 @@ private fun MenuForm(
                             text = generateAiButtonText(
                                 isGenerating = state.isGeneratingMenu,
                                 isAiPaused = state.aiRetryAtMillis != null,
-                                usesRemaining = state.aiUsesRemainingToday,
+                                usesRemaining = state.aiGenerationUsesRemainingToday,
                                 generatingText = stringResource(id = R.string.ai_generating),
                                 restingText = stringResource(id = R.string.ai_resting),
                                 availableText = stringResource(
                                     id = R.string.ai_generate_with_count,
-                                    state.aiUsesRemainingToday
+                                    state.aiGenerationUsesRemainingToday
                                 )
                             ),
                             modifier = Modifier.padding(vertical = 6.dp),
@@ -5007,6 +5062,8 @@ private const val ANALYTICS_SCREEN_EDIT_MENU = "edit_menu"
 private const val ANALYTICS_SCREEN_MENU_DETAIL = "menu_detail"
 private const val ANALYTICS_SCREEN_DELETE_CONFIRMATION = "delete_confirmation"
 private const val ANALYTICS_SCREEN_AUDIENCE_DETAIL = "audience_detail"
+private const val ANALYTICS_SCREEN_MY_ZONE = "my_zone"
+private const val ANALYTICS_SCREEN_AUTH = "auth"
 
 private const val ANALYTICS_CTA_NAV_HOME = "nav_home"
 private const val ANALYTICS_CTA_NAV_DIETARY_PROFILE = "nav_dietary_profile"
@@ -5042,3 +5099,23 @@ private const val ANALYTICS_CTA_UNDERSTOOD = "understood"
 private const val ANALYTICS_CTA_SKIP_ONBOARDING = "skip_onboarding"
 private const val ANALYTICS_CTA_NEXT_ONBOARDING = "next_onboarding"
 private const val ANALYTICS_CTA_START_ONBOARDING = "start_onboarding"
+private const val AUTH_METHOD_EMAIL = "email"
+private const val AUTH_METHOD_GOOGLE = "google"
+private const val AUTH_METHOD_ACCOUNT = "account"
+private const val AUTH_ACTION_SIGN_OUT = "sign_out"
+
+internal fun myZoneAccountBenefitsCta(): String = "open_account_benefits"
+
+internal fun myZoneCloseAccountBenefitsCta(): String = "close_account_benefits"
+
+internal fun myZoneStartRegisterCta(): String = "start_register"
+
+internal fun myZoneStartSignInCta(): String = "start_sign_in"
+
+internal fun authSubmitEmailCta(): String = "submit_email_auth"
+
+internal fun authSubmitGoogleCta(): String = "submit_google_auth"
+
+internal fun authSwitchModeCta(): String = "switch_auth_mode"
+
+internal fun authSignOutCta(): String = AUTH_ACTION_SIGN_OUT

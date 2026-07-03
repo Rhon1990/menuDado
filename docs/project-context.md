@@ -126,7 +126,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - En tarjetas sin análisis, la fila de acciones debe mostrar `Analizar IA` ancho y una papelera compacta solo con icono rojo. En tarjetas ya analizadas, debe mostrarse un botón `Eliminar` de ancho completo con icono de papelera rojo y texto.
    - Cuando existan menús pendientes de análisis, la lista debe ofrecer una acción general `Analizar pendientes con IA` para evaluar un lote pequeño de menús en una sola llamada a Gemini y reducir consumo de requests. El análisis individual por tarjeta debe mantenerse para cuando el usuario quiera evaluar un único menú.
    - El análisis por lote debe enviar menús con `id` y guardar solo los resultados válidos devueltos para cada `id`, conservando los menús que ya estaban analizados.
-   - Los botones visibles de IA deben mostrar entre paréntesis los usos locales restantes del día solo cuando la IA esta disponible, por ejemplo `Generar idea saludable con IA (19)` y `Analizar IA (19)`. Si hay una pausa de cuota activa, no deben mostrar el contador diario; deben mostrar `IA descansando` en una sola línea, recortado con puntos suspensivos si el ancho no alcanza, para evitar comunicar que los usos restantes estan disponibles en ese momento.
+   - Los botones visibles de IA deben mostrar entre paréntesis los usos locales restantes del día solo cuando la IA esta disponible, por ejemplo `Generar idea saludable con IA (19)` y `Analizar IA (19)`. En modo invitado con `guest_limits_enabled=true`, el contador visible debe corresponder al límite de invitado de esa acción: generación de ideas y análisis muestran sus propios restantes sobre 5, aunque la cuota técnica del proyecto siga siendo 20. Si hay una pausa de cuota activa, no deben mostrar el contador diario; deben mostrar `IA descansando` en una sola línea, recortado con puntos suspensivos si el ancho no alcanza, para evitar comunicar que los usos restantes estan disponibles en ese momento.
    - El contador diario local usa 20 usos como referencia del free tier observado en Firebase/Gemini para este proyecto. Debe decrementar solo cuando la app realiza un intento real de llamada a Gemini y debe reiniciarse con el día de cuota de Gemini, a medianoche Pacific Time. La documentación oficial indica que los límites se aplican por proyecto, que pueden variar por tier/modelo y que los RPD se reinician a medianoche Pacific Time; el valor real debe seguir monitoreándose en AI Studio/Firebase.
    - Si se agota la cuota gratuita de IA, la app debe explicar que la IA esta en pausa y evitar un contador visible que prometa una reactivacion exacta. Si el proveedor devuelve `retry in`, usar ese valor internamente; si no, usar el siguiente reset diario de Gemini API a medianoche Pacific Time.
    - El mensaje de cuota debe diferenciar el tipo de límite cuando Firebase/Gemini lo expone: demasiadas solicitudes seguidas, demasiados tokens/contexto, límite diario gratuito o límite temporal genérico.
@@ -139,6 +139,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Los menús siguen disponibles sin conexión.
    - Los menús, perfil alimentario, uso diario de IA y onboarding se guardan localmente primero y se sincronizan en Firestore bajo el usuario Firebase actual.
    - En una instalación sin sesión resuelta, MenuDado entra por defecto como invitado y conserva el comportamiento anterior con usuario anónimo; no muestra una pantalla de acceso antes de Inicio.
+   - En modo invitado, MenuDado permite usar el dado sin límite, editar y borrar menús, y marcar favoritos. Para incentivar la cuenta sin bloquear el uso básico, limita por día local a 5 menús guardados, 5 ideas con IA y 5 análisis con IA; al alcanzar un límite muestra un aviso simple invitando a crear cuenta. Estos límites solo aplican al usuario invitado y se pueden desactivar remotamente con `guest_limits_enabled=false`.
    - La barra inferior incluye `Mi zona`, una sección de cuenta inspirada en el patrón de zona de usuario: saludo, franja/botón de ventajas que abre un modal con beneficios ampliados y acciones `Registrarme gratis` e `Iniciar sesión` cuando el usuario sigue como invitado.
    - Los formularios de `Registrarme gratis` e `Iniciar sesión` son pantallas internas reutilizables dentro de `Mi zona`, no modales bloqueantes ni pantallas previas al uso de la app. Ambas permiten continuar con Google además de correo y contraseña.
    - Si un invitado crea cuenta con correo, MenuDado vincula el usuario anónimo actual con la credencial de email para conservar el mismo `uid`; así los datos existentes bajo `users/{uid}` quedan asociados a la cuenta sin copiar documentos.
@@ -153,9 +154,9 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 6. Onboarding de primera apertura.
    - La primera vez que el usuario entra a la app, MenuDado muestra un onboarding breve en modal sin reemplazar la pantalla principal.
-   - El onboarding explica cuatro pasos básicos en este orden: completar el perfil alimentario, guardar menús, usar IA y lanzar el dado.
+   - El onboarding explica cinco pasos básicos en este orden: completar el perfil alimentario, guardar menús, usar IA, lanzar el dado y crear cuenta desde `Mi zona` para conservar datos entre reinstalaciones o cambios de móvil.
    - El paso de perfil debe recordar que el usuario puede activar persona adulta, peques o bebé e indicar embarazo, alergias y condiciones de salud para adaptar mejor las ideas generadas.
-   - El paso de IA debe comunicar en lenguaje simple que el usuario tiene hasta 20 ayudas de IA al día y que vuelven a estar disponibles cada mañana a las 9 am.
+   - El paso de IA debe comunicar en lenguaje simple que la IA ayuda a generar y revisar ideas, y que en modo invitado los usos diarios están limitados para probar la app sin bloquear el uso básico.
    - El usuario puede avanzar o retroceder por los pasos con swipe horizontal, empezar u omitir.
    - Al empezar u omitir, el onboarding se marca como completado en almacenamiento local y no vuelve a mostrarse en siguientes aperturas hasta que exista una nueva versión de contenido relevante.
 
@@ -199,6 +200,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Remote Config:
   - La visibilidad de publicidad se controla con la variable booleana `ads_enabled`; solo si vale `true` se solicita consentimiento, se inicializa AdMob y se muestra el banner. El valor por defecto local es `false`.
   - El contenido de `Acerca de la app` se controla con las variables string `about_description`, `about_created_by` y `about_contact`; sus valores por defecto locales conservan la descripción actual, el creador `Rhonal A. Delgado Padilla` y el contacto `rhonal.delgado@gmail.com`.
+  - Los límites de uso para invitado se controlan con la variable booleana `guest_limits_enabled`; por defecto local vale `true`. Si se cambia a `false`, el invitado puede guardar menús y usar IA sin las restricciones locales de invitado, manteniendo igualmente las cuotas técnicas del proveedor de IA.
   - En builds con `BuildConfig.DEBUG = true` se usa fetch inmediato para probar cambios sin esperar caché; en builds no debug se conserva intervalo mínimo de 1 hora.
 - App Check:
   - MenuDado inicializa Firebase App Check al arrancar la aplicación antes de usar Analytics, Firestore o Firebase AI Logic.
@@ -208,7 +210,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Analítica:
   - Firebase Analytics anónimo para métricas automáticas de dispositivos/usuarios, modelo de móvil, ubicación agregada de Firebase y eventos de producto sin contenido personal del menú.
   - Implementación central: contrato `MenuDadoAnalytics`, implementación real `FirebaseMenuDadoAnalytics` y `NoOpMenuDadoAnalytics` para contextos sin Firebase.
-  - Evento genérico de interacción `cta_tapped` con parámetros cerrados `screen` y `cta` para marcar botones y llamadas a la acción visibles sin enviar contenido del usuario.
+  - Evento genérico de interacción `cta_tapped` con parámetros cerrados `screen` y `cta` para marcar botones y llamadas a la acción visibles sin enviar contenido del usuario, incluyendo navegación, onboarding, acciones de menú y CTAs de cuenta en `Mi zona` y autenticación.
   - MenuDado añade al evento de apertura fabricante/modelo, versión Android, país de la configuración regional y zona horaria; no solicita GPS ni permisos de ubicación.
   - Eventos propios de activación e inventario: `first_menu_created`, `menu_inventory_changed`.
   - Eventos propios de formulario: `menu_form_started`, `menu_save_blocked`, `meal_type_selected`.
@@ -219,6 +221,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - Eventos propios de perfil alimentario: `dietary_profile_opened`, `dietary_profile_audience_selected`, `dietary_profile_updated`, sin enviar alérgenos, embarazo, condiciones ni texto libre.
   - Eventos propios de onboarding: `onboarding_shown`, `onboarding_completed` con parámetro `action` limitado a `start` o `skip`.
   - Eventos propios de IA: inicio/fin de generación y análisis, estado saludable (`health_status`), tipo de fallo (`failure_type`) y límite diario local (`ai_daily_limit_reached`).
+  - Eventos propios de cuenta y zona de usuario: `my_zone_opened`, `auth_flow_started`, `auth_action` y `guest_limit_reached`, usando solo valores cerrados como modo de cuenta, acción, método, tipo de límite y contadores; no envían correo ni datos personales.
   - Eventos propios de backend: `backend_sync_retried`, `backend_sync_finished`, usando solo fuente, estado y conteos pendientes.
   - Los eventos no deben enviar nombres de menú, ingredientes, notas, recetas, correo de contacto, nombre del creador, IDs de documentos, UID de Firebase, URI de imagen, alérgenos específicos, embarazo, condiciones de salud ni texto libre del perfil.
 - Publicidad:
