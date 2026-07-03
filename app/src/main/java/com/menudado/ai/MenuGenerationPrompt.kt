@@ -40,7 +40,8 @@ internal object MenuGenerationPrompt {
             - Debe ser distinta de los platos previos.
             - No repitas el mismo plato ni una variante muy parecida.
             - Cambia base, proteína, preparación o estilo cuando sea posible.
-            - La evaluación saludable debe ser breve y práctica.
+            - Variedad saludable: cremas, sopas, ensaladas completas, ensalada cesar saludable, bowls, salteados simples, tortillas, legumbres, wraps, tostas, pasta integral o arroz integral.
+            - La evaluacion saludable debe ser breve, practica y sin tono de juicio.
             
             $audienceGuidance
             
@@ -66,7 +67,7 @@ internal object MenuGenerationPrompt {
             saludable, intermedio, no_saludable.
             
             Las calorías deben ser una estimación numérica realista para una ración adecuada al público.
-            Escribe name, description, notes, health_reason y health_suggestion en ${language.promptLanguageName}.
+            Write name, description, notes, reason and suggestion in ${language.promptLanguageName}.
             """.trimIndent()
     }
 

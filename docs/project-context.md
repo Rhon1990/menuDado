@@ -276,3 +276,21 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Validar que las reglas Firestore impiden leer o escribir datos de otro `uid`.
 - Validar que el manifest final no declare permisos de ubicación, contactos ni identificador publicitario.
 - Validar que crear, editar y eliminar menús sincroniza Firestore cuando hay conexión y mantiene pendientes locales cuando falla la red.
+
+## Auditoría QA prepublicación 2026-07-03
+
+- Veredicto actual: visto bueno técnico automatizado para preparar candidato de publicación. El visto bueno final de tienda queda condicionado a prueba manual en dispositivo real con Firebase producción y a generar el artefacto firmado final de Play.
+- Versión con visto bueno técnico automatizado: `1.0.2` (`versionCode` 3).
+- Validación automatizada ejecutada:
+  - `./gradlew :app:testDebugUnitTest`: correcto tras corregir contratos de prompt IA compacto, timeout local y bloqueo/contador inmediato para evitar dobles llamadas de IA.
+  - `./gradlew :app:compileDebugKotlin :app:compileReleaseKotlin :app:compileReleaseDebuggableKotlin`: correcto.
+  - `./gradlew :app:assembleRelease`: correcto; genera APK release y pasa `lintVitalRelease`.
+  - `git diff --check`: sin errores de whitespace.
+  - Comparación de strings base contra `values-en` y `values-fr`: sin claves translatables faltantes.
+  - Búsqueda de secretos accidentales en diff: sin coincidencias sensibles.
+  - Revisión de permisos manifiesto: no se declaran permisos de ubicación/contactos y `AD_ID` se mantiene removido.
+- Riesgos detectados antes de tienda:
+  - Gradle mantiene warnings de compatibilidad: Android Gradle Plugin 8.5.1 no declara soporte oficial para `compileSdk=35` y KAPT avisa fallback de lenguaje; no bloquean el build, pero deben monitorearse.
+  - La firma `release` documentada es debug para instalación local; para tienda se requiere generar artefacto firmado con la configuración final de Play.
+  - La QA automatizada cubre primera instalación como invitado, onboarding, guardado local, límites de invitado, sesión persistente por email/Google a nivel de contrato, sincronización remota, hidratación remota y mezcla de menús locales al iniciar sesión.
+  - Falta evidencia reciente de QA táctil completa en un dispositivo real con Firebase producción: registro/inicio con Google y correo, persistencia tras reinstalar, sincronización Firestore, Remote Config, anuncios, App Check y reglas Firestore. En la última auditoría ADB no detectó dispositivos conectados.

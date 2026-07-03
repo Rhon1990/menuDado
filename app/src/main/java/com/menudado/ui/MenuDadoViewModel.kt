@@ -729,6 +729,8 @@ class MenuDadoViewModel(
         val avoidIdeas = state.buildAvoidIdeas(mealType, audience)
         analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
         startAiRequestThrottle()
+        consumeAiDailyUse()
+        consumeGuestGeneratedIdea()
         _uiState.update {
             it.copy(
                 isGeneratingMenu = true,
@@ -750,9 +752,6 @@ class MenuDadoViewModel(
                     )
                 }
                     .onSuccess { generated ->
-                        consumeAiDailyUse()
-                        consumeGuestGeneratedIdea()
-
                         aiQuotaRetryStore.clearRetryState()
                         rememberGeneratedIdea(mealType, audience, generated.name, generated.description)
 
@@ -953,6 +952,8 @@ class MenuDadoViewModel(
         }
         analytics.trackAiAnalysisStarted(AI_SCOPE_SINGLE, menu.mealType, menuCount = 1)
         startAiRequestThrottle()
+        consumeAiDailyUse()
+        consumeGuestAnalysis()
         _uiState.update {
             it.copy(
                 isAnalyzing = true,
@@ -964,8 +965,6 @@ class MenuDadoViewModel(
         viewModelScope.launch {
             withAiRequestTimeout { repository.analyze(menu, AppLanguage.fromLocale()) }
                 .onSuccess { analysis ->
-                    consumeAiDailyUse()
-                    consumeGuestAnalysis()
                     repository.save(
                         menu.copy(
                             healthAnalysis = analysis,
@@ -1037,6 +1036,8 @@ class MenuDadoViewModel(
         }
         analytics.trackAiAnalysisStarted(AI_SCOPE_BATCH, mealType = null, menuCount = pendingMenus.size)
         startAiRequestThrottle()
+        consumeAiDailyUse()
+        consumeGuestAnalysis()
         _uiState.update {
             it.copy(
                 isAnalyzing = true,
@@ -1048,11 +1049,6 @@ class MenuDadoViewModel(
         viewModelScope.launch {
             withAiRequestTimeout { repository.analyzeBatch(pendingMenus, AppLanguage.fromLocale()) }
                 .onSuccess { analysesByMenuId ->
-
-                    if (analysesByMenuId.isNotEmpty()) {
-                        consumeAiDailyUse()
-                        consumeGuestAnalysis()
-                    }
 
                     pendingMenus.forEach { menu ->
                         analysesByMenuId[menu.id]?.let { analysis ->
@@ -1931,7 +1927,7 @@ private const val FIRST_QUOTA_BACKOFF_MILLIS = 0L
 private const val SECOND_QUOTA_BACKOFF_MILLIS = 2 * 60 * 1000L
 private const val MAX_QUOTA_BACKOFF_MILLIS = 30 * 60 * 1000L
 private const val AI_REQUEST_THROTTLE_MILLIS = 4 * 1000L
-private const val AI_REQUEST_TIMEOUT_MILLIS = 45 * 1000L
+private const val AI_REQUEST_TIMEOUT_MILLIS = 25 * 1000L
 private fun AiQuotaLimitType.message(language: AppLanguage): String {
     return when (this) {
         AiQuotaLimitType.REQUESTS_PER_MINUTE -> language.aiRequestsPerMinuteMessage()
