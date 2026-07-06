@@ -126,7 +126,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - En tarjetas sin análisis, la fila de acciones debe mostrar `Analizar IA` ancho y una papelera compacta solo con icono rojo. En tarjetas ya analizadas, debe mostrarse un botón `Eliminar` de ancho completo con icono de papelera rojo y texto.
    - Cuando existan menús pendientes de análisis, la lista debe ofrecer una acción general `Analizar pendientes con IA` para evaluar un lote pequeño de menús en una sola llamada a Gemini y reducir consumo de requests. El análisis individual por tarjeta debe mantenerse para cuando el usuario quiera evaluar un único menú.
    - El análisis por lote debe enviar menús con `id` y guardar solo los resultados válidos devueltos para cada `id`, conservando los menús que ya estaban analizados.
-   - Los botones visibles de IA deben mostrar entre paréntesis los usos locales restantes del día solo cuando la IA esta disponible, por ejemplo `Generar idea saludable con IA (19)` y `Analizar IA (19)`. En modo invitado con `guest_limits_enabled=true`, el contador visible debe corresponder al límite de invitado de esa acción: generación de ideas y análisis muestran sus propios restantes sobre 5, aunque la cuota técnica del proyecto siga siendo 20. Si hay una pausa de cuota activa, no deben mostrar el contador diario; deben mostrar `IA descansando` en una sola línea, recortado con puntos suspensivos si el ancho no alcanza, para evitar comunicar que los usos restantes estan disponibles en ese momento.
+   - Los botones visibles de IA deben mostrar entre paréntesis los usos locales restantes del día solo cuando la IA esta disponible, por ejemplo `Generar idea con IA (19)` y `Analizar IA (19)`. En modo invitado con `guest_limits_enabled=true`, el contador visible debe corresponder al límite de invitado de esa acción: generación de ideas y análisis muestran sus propios restantes sobre 5, aunque la cuota técnica del proyecto siga siendo 20. Si hay una pausa de cuota activa, no deben mostrar el contador diario; deben mostrar `IA descansando` en una sola línea, recortado con puntos suspensivos si el ancho no alcanza, para evitar comunicar que los usos restantes estan disponibles en ese momento.
    - El contador diario local usa 20 usos como referencia del free tier observado en Firebase/Gemini para este proyecto. Debe decrementar solo cuando la app realiza un intento real de llamada a Gemini y debe reiniciarse con el día de cuota de Gemini, a medianoche Pacific Time. La documentación oficial indica que los límites se aplican por proyecto, que pueden variar por tier/modelo y que los RPD se reinician a medianoche Pacific Time; el valor real debe seguir monitoreándose en AI Studio/Firebase.
    - Si se agota la cuota gratuita de IA, la app debe explicar que la IA esta en pausa y evitar un contador visible que prometa una reactivacion exacta. Si el proveedor devuelve `retry in`, usar ese valor internamente; si no, usar el siguiente reset diario de Gemini API a medianoche Pacific Time.
    - El mensaje de cuota debe diferenciar el tipo de límite cuando Firebase/Gemini lo expone: demasiadas solicitudes seguidas, demasiados tokens/contexto, límite diario gratuito o límite temporal genérico.
@@ -176,7 +176,9 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 8. Acerca de la app.
    - `Acerca de la app` se abre desde `Mi zona`.
    - La descripción, el creador y el contacto visibles vienen de Firebase Remote Config mediante las variables string `about_description`, `about_created_by` y `about_contact`; si no existen o están vacías, la app usa textos locales de respaldo.
-   - Muestra al final la versión visible de la app desde `BuildConfig.VERSION_NAME` en texto pequeño.
+   - Muestra siempre un aviso de salud independiente de Remote Config indicando que MenuDado ofrece ideas informativas, no es un dispositivo médico y no diagnostica, trata, cura ni previene condiciones médicas; también recuerda consultar con un profesional sanitario para asesoramiento, diagnóstico o tratamiento.
+   - Muestra un acceso a la política de privacidad pública `https://rhon1990.github.io/menuDado/privacy-policy/`.
+   - Muestra al final la versión visible de la app desde `BuildConfig.VERSION_NAME` y `BuildConfig.VERSION_CODE` en formato `versionName (versionCode)` en texto pequeño.
 
 ## Dirección Técnica
 
@@ -238,12 +240,14 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Package/namespace Android: `com.menudado`.
 - Application ID: `com.menudado`.
 - Nombre visible de la app: `MenuDado`.
-- Version visible: sincronizada con `versionName` del build Android.
+- Version visible: sincronizada con `versionName` y `versionCode` del build Android.
 - Variantes Android:
   - `debug`: build depurable local con `applicationId` `com.menudado.debug`, nombre visible `MenuDado Debug`, Firebase debug y App ID/ad unit demo de AdMob.
   - `release`: build productiva no depurable, usa App ID y ad unit reales de AdMob, activa R8 y reducción de recursos para publicar en tienda, y genera `app/build/outputs/mapping/release/mapping.txt` como archivo de desofuscación para Play Console; queda firmada con debug para poder instalarla desde Android Studio en desarrollo local, no como firma final de tienda.
   - `releaseDebuggable`: build depurable con configuración de release, `applicationId` `com.menudado`, Firebase producción y App ID/ad unit demo de AdMob, pensada para diagnosticar comportamiento productivo sin generar tráfico inválido con anuncios reales. Esta variante mantiene minificación y reducción de recursos desactivadas para facilitar depuración.
 - Publicación Play Store:
+  - La declaración de apps de salud en Play Console debe mantenerse alineada con las funciones reales de MenuDado. Dado que la app planifica menús, usa perfil alimentario, alérgenos, embarazo, condiciones de salud, calorías y análisis saludable con IA, debe declarar al menos `Nutrition and Weight Management` / `Nutrición y control del peso`.
+  - La descripción pública de Play Store debe incluir el aviso de que MenuDado no es un dispositivo médico y no diagnostica, trata, cura ni previene ninguna condición médica, además de recomendar consultar con un profesional sanitario para asesoramiento, diagnóstico o tratamiento.
   - El AAB productivo se genera en `app/build/outputs/bundle/release/app-release.aab`.
   - Si Play Console muestra la advertencia de desofuscación, subir `app/build/outputs/mapping/release/mapping.txt` en el artefacto correspondiente para mejorar el diagnóstico de crashes y ANR.
   - El build `release` configura `ndk.debugSymbolLevel = SYMBOL_TABLE`; las librerías nativas actuales vienen de dependencias AndroidX/DataStore y la tarea local `mergeReleaseNativeDebugMetadata` no genera símbolos externos porque no hay metadata nativa propia disponible.
@@ -284,7 +288,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 ## Auditoría QA prepublicación 2026-07-03
 
 - Veredicto actual: visto bueno técnico automatizado para preparar candidato de publicación. El visto bueno final de tienda queda condicionado a prueba manual en dispositivo real con Firebase producción y a generar el artefacto firmado final de Play.
-- Versión con visto bueno técnico automatizado: `1.0.2` (`versionCode` 4).
+- Versión con visto bueno técnico automatizado: `1.0.2` (`versionCode` 5).
 - Validación automatizada ejecutada:
   - `./gradlew :app:testDebugUnitTest`: correcto tras corregir contratos de prompt IA compacto, timeout local y bloqueo/contador inmediato para evitar dobles llamadas de IA.
   - `./gradlew :app:compileDebugKotlin :app:compileReleaseKotlin :app:compileReleaseDebuggableKotlin`: correcto.

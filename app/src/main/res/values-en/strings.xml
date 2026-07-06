@@ -85,7 +85,10 @@
     <string name="allergen_shellfish">Shellfish</string>
     <string name="allergen_sesame">Sesame</string>
     <string name="about_title">About the app</string>
-    <string name="about_reason">MenuDado was made to help in those moments when you do not know what to eat. The app lets you save menus, choose an option with the dice and use AI to find healthier ideas without overcomplicating things.</string>
+    <string name="about_reason">MenuDado was made to help in those moments when you do not know what to eat. The app lets you save menus, choose an option with the dice and use AI to find practical ideas without overcomplicating things.</string>
+    <string name="about_health_disclaimer_title">Health notice</string>
+    <string name="about_health_disclaimer_body">MenuDado provides meal ideas for informational purposes. It is not a medical device and does not diagnose, treat, cure, or prevent any medical condition. Consult a healthcare professional for medical advice, diagnosis, or treatment.</string>
+    <string name="about_privacy_policy">Privacy policy</string>
     <string name="about_created_by">Created by</string>
     <string name="about_contact">Contact</string>
     <string name="about_version">Version %1$s</string>
@@ -116,7 +119,7 @@
     <string name="dice_action">Choose what to eat today</string>
     <string name="dice_mixing">Mixing your menus</string>
     <string name="form_add_menu">Add menu</string>
-    <string name="form_add_subtitle">Choose whether to write it yourself or generate a healthy idea.</string>
+    <string name="form_add_subtitle">Choose whether to write it yourself or generate a meal idea.</string>
     <string name="form_select_meal">Choose breakfast, lunch or dinner.</string>
     <string name="form_select_audience">Choose who this menu is for.</string>
     <string name="form_mode_manual">Write menu</string>
@@ -144,10 +147,10 @@
     <string name="analysis_ai">AI analysis</string>
     <string name="analysis_suggestion">Suggestion</string>
     <string name="ai_generating">Generating idea...</string>
-    <string name="ai_generation_loading_title">Generating a healthy idea</string>
+    <string name="ai_generation_loading_title">Generating a meal idea</string>
     <string name="ai_generation_loading_message">The dice is preparing a menu suggestion for you.</string>
     <string name="ai_resting">AI resting</string>
-    <string name="ai_generate_with_count">Generate healthy idea with AI (%1$d)</string>
+    <string name="ai_generate_with_count">Generate idea with AI (%1$d)</string>
     <string name="ai_analyzing">Analyzing</string>
     <string name="ai_analyze_with_count">Analyze with AI (%1$d)</string>
     <string name="ai_analyzing_pending">Analyzing pending menus</string>
@@ -163,7 +166,7 @@
     <string name="onboarding_menus_title">Save your menus</string>
     <string name="onboarding_menus_body">Add breakfasts, lunches and dinners with ingredients, notes and calories if you want.</string>
     <string name="onboarding_ai_title">Personalize with AI</string>
-    <string name="onboarding_ai_body">Generate ideas based on meal type and the selected profile, and check whether they are healthy. If you enter as a guest, daily uses are limited so you can try it calmly.</string>
+    <string name="onboarding_ai_body">Generate ideas based on meal type and the selected profile, and get an informational assessment. If you enter as a guest, daily uses are limited so you can try it calmly.</string>
     <string name="onboarding_dice_title">Roll the dice</string>
     <string name="onboarding_dice_body">Choose breakfast, lunch or dinner, select who it is for and let MenuDado choose for you.</string>
     <string name="onboarding_account_title">Save your account</string>

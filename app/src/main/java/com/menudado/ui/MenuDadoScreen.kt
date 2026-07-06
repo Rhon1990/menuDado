@@ -1139,9 +1139,24 @@ internal fun onboardingStepAfterSwipe(
 }
 
 private const val ONBOARDING_SWIPE_THRESHOLD = 56f
+private const val MENU_DADO_PRIVACY_POLICY_URL = "https://rhon1990.github.io/menuDado/privacy-policy/"
+
+@StringRes
+internal fun aboutHealthDisclaimerTitleRes(): Int = R.string.about_health_disclaimer_title
+
+@StringRes
+internal fun aboutHealthDisclaimerBodyRes(): Int = R.string.about_health_disclaimer_body
+
+@StringRes
+internal fun aboutPrivacyPolicyLabelRes(): Int = R.string.about_privacy_policy
+
+internal fun aboutPrivacyPolicyUrl(): String = MENU_DADO_PRIVACY_POLICY_URL
+
+internal fun aboutVersionLabel(versionName: String, versionCode: Int): String = "$versionName ($versionCode)"
 
 @Composable
 private fun AboutAppSection(aboutContent: MenuDadoAboutContent) {
+    val context = LocalContext.current
     val fallbackDescription = stringResource(id = R.string.about_reason)
     val fallbackCreatedBy = stringResource(id = R.string.about_created_by_value)
     val fallbackContact = stringResource(id = R.string.about_contact_value)
@@ -1173,6 +1188,31 @@ private fun AboutAppSection(aboutContent: MenuDadoAboutContent) {
             )
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
+                    text = stringResource(id = aboutHealthDisclaimerTitleRes()),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MenuDadoColors.DeepGreen
+                )
+                Text(
+                    text = stringResource(id = aboutHealthDisclaimerBodyRes()),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MenuDadoColors.MutedInk
+                )
+            }
+            TextButton(
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse(aboutPrivacyPolicyUrl()))
+                        )
+                    }
+                },
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+            ) {
+                Text(text = stringResource(id = aboutPrivacyPolicyLabelRes()))
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
                     text = stringResource(id = R.string.about_created_by),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Black,
@@ -1198,7 +1238,10 @@ private fun AboutAppSection(aboutContent: MenuDadoAboutContent) {
                 )
             }
             Text(
-                text = stringResource(id = R.string.about_version, BuildConfig.VERSION_NAME),
+                text = stringResource(
+                    id = R.string.about_version,
+                    aboutVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+                ),
                 modifier = Modifier.align(Alignment.End),
                 style = MaterialTheme.typography.labelSmall,
                 color = MenuDadoColors.MutedInk

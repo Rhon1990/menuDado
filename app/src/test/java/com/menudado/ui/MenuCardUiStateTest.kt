@@ -620,5 +620,14 @@ class MenuCardUiStateTest {
         assertEquals("MenuDado ayuda a decidir que comer.", info.description)
         assertEquals("Rhonal A. Delgado Padilla", info.createdBy)
         assertEquals("rhonal.delgado@gmail.com", info.contact)
+        assertEquals("1.0.2 (5)", aboutVersionLabel(versionName = "1.0.2", versionCode = 5))
+    }
+
+    @Test
+    fun `acerca de la app expone aviso de salud y politica de privacidad`() {
+        assertEquals(R.string.about_health_disclaimer_title, aboutHealthDisclaimerTitleRes())
+        assertEquals(R.string.about_health_disclaimer_body, aboutHealthDisclaimerBodyRes())
+        assertEquals(R.string.about_privacy_policy, aboutPrivacyPolicyLabelRes())
+        assertEquals("https://rhon1990.github.io/menuDado/privacy-policy/", aboutPrivacyPolicyUrl())
     }
 }
