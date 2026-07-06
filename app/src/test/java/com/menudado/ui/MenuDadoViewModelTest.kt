@@ -601,7 +601,7 @@ class MenuDadoViewModelTest {
         updatedViewModel.completeOnboarding()
 
         assertEquals(false, updatedViewModel.uiState.value.showOnboarding)
-        assertEquals(4, previousContentStore.completedVersion)
+        assertEquals(5, previousContentStore.completedVersion)
     }
 
     @Test
@@ -2548,7 +2548,7 @@ private class FakeDietaryProfileStore : DietaryProfileStore {
 
 private class FakeOnboardingStore(
     var completed: Boolean = false,
-    var completedVersion: Int = if (completed) 4 else 0
+    var completedVersion: Int = if (completed) 5 else 0
 ) : OnboardingStore {
     override fun isOnboardingCompleted(requiredVersion: Int): Boolean =
         completed && completedVersion >= requiredVersion
@@ -2741,6 +2741,10 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
 
     override fun trackOnboardingCompleted(action: String) {
         events += "onboarding_completed:$action"
+    }
+
+    override fun trackAppUpdatePrompt(action: String) {
+        events += "app_update_prompt:$action"
     }
 
     override fun trackAboutAppOpened() {

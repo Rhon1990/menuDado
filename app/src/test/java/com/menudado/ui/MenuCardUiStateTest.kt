@@ -564,7 +564,11 @@ class MenuCardUiStateTest {
                 isAiPaused = false
             )
         )
-        assertEquals(MenuDadoColors.Tomato, contextualDiceDisabledReasonTextColor())
+        assertEquals(R.string.dice_ai_blocked_notice_title, contextualDiceDisabledReasonTitleRes())
+        assertEquals(MenuDadoColors.Tomato, contextualDiceDisabledReasonTitleColor())
+        assertEquals(MenuDadoColors.Ink, contextualDiceDisabledReasonBodyColor())
+        assertEquals(MenuDadoColors.EggYellow.copy(alpha = 0.24f), contextualDiceDisabledReasonContainerColor())
+        assertEquals(MenuDadoColors.OutlineBrown.copy(alpha = 0.24f), contextualDiceDisabledReasonBorderColor())
     }
 
     @Test
@@ -601,9 +605,9 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `boton de dado deshabilitado usa color neutral visible distinto del naranja activo`() {
+    fun `boton de dado deshabilitado usa color calido de marca distinto del naranja activo`() {
         assertEquals(MenuDadoColors.Tomato, contextualDiceEnabledContainerColor())
-        assertEquals(Color(0xFFE4E6E0), contextualDiceDisabledContainerColor())
+        assertEquals(MenuDadoColors.SoftSand, contextualDiceDisabledContainerColor())
         assertFalse(contextualDiceDisabledContainerColor() == MenuDadoColors.Tomato.copy(alpha = 0.72f))
         assertEquals(MenuDadoColors.Ink, contextualDiceContentColor(enabled = false))
     }

@@ -208,6 +208,12 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
+    override fun trackAppUpdatePrompt(action: String) {
+        logEvent(EVENT_APP_UPDATE_PROMPT) {
+            putString(PARAM_ACTION, action.sanitized())
+        }
+    }
+
     override fun trackAboutAppOpened() {
         logEvent(EVENT_ABOUT_APP_OPENED)
     }
@@ -371,6 +377,7 @@ class FirebaseMenuDadoAnalytics(
         const val EVENT_MENU_CARD_OPENED = "menu_card_opened"
         const val EVENT_ONBOARDING_SHOWN = "onboarding_shown"
         const val EVENT_ONBOARDING_COMPLETED = "onboarding_completed"
+        const val EVENT_APP_UPDATE_PROMPT = "app_update_prompt"
         const val EVENT_ABOUT_APP_OPENED = "about_app_opened"
         const val EVENT_DIETARY_PROFILE_OPENED = "dietary_profile_opened"
         const val EVENT_DIETARY_PROFILE_AUDIENCE_SELECTED = "dietary_profile_audience_selected"

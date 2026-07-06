@@ -1,5 +1,8 @@
 package com.menudado
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Build
 import android.os.Handler
@@ -10,6 +13,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.core.view.WindowCompat
@@ -18,6 +23,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +43,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -55,6 +66,13 @@ import com.menudado.ui.theme.MenuDadoColors
 import com.menudado.ui.theme.MenuDadoTheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.play.core.appupdate.AppUpdateInfo
+import com.google.android.play.core.appupdate.AppUpdateManager
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.InstallStatus
+import com.google.android.play.core.install.model.UpdateAvailability
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -107,6 +125,9 @@ class MainActivity : ComponentActivity() {
                 var areGuestLimitsEnabled by remember { mutableStateOf(true) }
                 var areAdsPrivacyOptionsRequired by remember { mutableStateOf(false) }
                 var adsPrivacyOptionsMessage by remember { mutableStateOf<String?>(null) }
+                var pendingAppUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
+                var isAppUpdateDialogDismissed by remember { mutableStateOf(false) }
+                var isAppUpdateDownloaded by remember { mutableStateOf(false) }
                 val defaultAboutContent = remember {
                     MenuDadoAboutContent(
                         description = getString(R.string.about_reason),
@@ -181,6 +202,52 @@ class MainActivity : ComponentActivity() {
                         app.authService.signInWithGoogleIdToken(idToken)
                     }
                 }
+                val appUpdateManager = remember {
+                    AppUpdateManagerFactory.create(this@MainActivity)
+                }
+                fun refreshAvailableUpdate() {
+                    refreshPlayStoreUpdateState(
+                        appUpdateManager = appUpdateManager,
+                        onUpdateAvailable = { updateInfo ->
+                            pendingAppUpdateInfo = updateInfo
+                        },
+                        onDownloadedUpdateAvailable = { isDownloaded ->
+                            isAppUpdateDownloaded = isDownloaded
+                        },
+                        onNoUpdateAvailable = {
+                            pendingAppUpdateInfo = null
+                            isAppUpdateDownloaded = false
+                        }
+                    )
+                }
+                val appUpdateLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.StartIntentSenderForResult()
+                ) {
+                    pendingAppUpdateInfo = null
+                    refreshAvailableUpdate()
+                }
+                fun startMenuDadoUpdate() {
+                    app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionUpdate())
+                    val updateInfo = pendingAppUpdateInfo
+                    pendingAppUpdateInfo = null
+                    isAppUpdateDialogDismissed = true
+                    if (updateInfo == null) {
+                        openMenuDadoPlayStore()
+                        return
+                    }
+                    val didStartUpdate = runCatching {
+                        val appUpdateOptions = appUpdateOptionsFor(updateInfo)
+                            ?: return@runCatching false
+                        appUpdateManager.startUpdateFlowForResult(
+                            updateInfo,
+                            appUpdateLauncher,
+                            appUpdateOptions
+                        )
+                    }.getOrDefault(false)
+                    if (!didStartUpdate) {
+                        openMenuDadoPlayStore()
+                    }
+                }
                 LaunchedEffect(showSplash, authSession?.userId, authSession?.isAnonymous, isGuestModeSelected) {
                     if (!showSplash && shouldStartGuestModeByDefault(authSession, isGuestModeSelected)) {
                         runAuthAction {
@@ -234,12 +301,16 @@ class MainActivity : ComponentActivity() {
                     aboutRemoteConfig.fetchAboutContent()
                     guestLimitsRemoteConfig.fetchGuestLimitsEnabled()
                 }
-                DisposableEffect(lifecycleOwner, adsRemoteConfig, aboutRemoteConfig, guestLimitsRemoteConfig) {
+                LaunchedEffect(appUpdateManager) {
+                    refreshAvailableUpdate()
+                }
+                DisposableEffect(lifecycleOwner, adsRemoteConfig, aboutRemoteConfig, guestLimitsRemoteConfig, appUpdateManager) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (shouldRefreshAdsRemoteConfigOnLifecycleEvent(event)) {
                             adsRemoteConfig.fetchAdsEnabled()
                             aboutRemoteConfig.fetchAboutContent()
                             guestLimitsRemoteConfig.fetchGuestLimitsEnabled()
+                            refreshAvailableUpdate()
                         }
                     }
                     lifecycleOwner.lifecycle.addObserver(observer)
@@ -256,6 +327,37 @@ class MainActivity : ComponentActivity() {
                 if (showSplash) {
                     MenuDadoSplashScreen()
                 } else {
+                    if (shouldShowDownloadedAppUpdateDialog(isAppUpdateDownloaded)) {
+                        LaunchedEffect("downloaded_app_update_prompt") {
+                            app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionShown())
+                        }
+                        MenuDadoDownloadedAppUpdateDialog(
+                            onInstall = {
+                                app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionInstall())
+                                appUpdateManager.completeUpdate()
+                            },
+                            onDismiss = {
+                                app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionLater())
+                                isAppUpdateDownloaded = false
+                            }
+                        )
+                    } else if (
+                        shouldShowAppUpdateDialog(
+                            isUpdateAvailable = pendingAppUpdateInfo != null,
+                            wasDismissed = isAppUpdateDialogDismissed
+                        )
+                    ) {
+                        LaunchedEffect("app_update_prompt") {
+                            app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionShown())
+                        }
+                        MenuDadoAppUpdateDialog(
+                            onUpdate = ::startMenuDadoUpdate,
+                            onDismiss = {
+                                app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionLater())
+                                isAppUpdateDialogDismissed = true
+                            }
+                        )
+                    }
                     val shouldShowAds = MenuDadoAdsRemoteConfig.shouldShowAds(
                         remoteAdsEnabled = areAdsEnabled,
                         areAdsReady = areAdsReady
@@ -311,9 +413,104 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    private fun openMenuDadoPlayStore() {
+        val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse(menuDadoPlayStoreMarketUri()))
+            .setPackage("com.android.vending")
+        runCatching {
+            startActivity(marketIntent)
+        }.recoverCatching { error ->
+            if (error is ActivityNotFoundException) {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(menuDadoPlayStoreWebUrl())))
+            } else {
+                throw error
+            }
+        }
+    }
+
     private companion object {
         const val SPLASH_DURATION_MILLIS = 1_100L
     }
+}
+
+private fun refreshPlayStoreUpdateState(
+    appUpdateManager: AppUpdateManager,
+    onUpdateAvailable: (AppUpdateInfo) -> Unit,
+    onDownloadedUpdateAvailable: (Boolean) -> Unit,
+    onNoUpdateAvailable: () -> Unit
+) {
+    appUpdateManager.appUpdateInfo
+        .addOnSuccessListener { appUpdateInfo ->
+            if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
+                onDownloadedUpdateAvailable(true)
+                return@addOnSuccessListener
+            }
+            if (shouldOfferAppUpdate(appUpdateInfo)) {
+                onUpdateAvailable(appUpdateInfo)
+            } else {
+                onNoUpdateAvailable()
+            }
+        }
+        .addOnFailureListener {
+            onNoUpdateAvailable()
+        }
+}
+
+@Composable
+private fun MenuDadoAppUpdateDialog(
+    onUpdate: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(
+                onClick = onUpdate,
+                colors = ButtonDefaults.buttonColors(containerColor = MenuDadoColors.BrandGreen)
+            ) {
+                Text(stringResource(id = R.string.app_update_action))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(id = R.string.app_update_later))
+            }
+        },
+        title = {
+            Text(stringResource(id = R.string.app_update_title))
+        },
+        text = {
+            Text(stringResource(id = R.string.app_update_body))
+        }
+    )
+}
+
+@Composable
+private fun MenuDadoDownloadedAppUpdateDialog(
+    onInstall: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(
+                onClick = onInstall,
+                colors = ButtonDefaults.buttonColors(containerColor = MenuDadoColors.BrandGreen)
+            ) {
+                Text(stringResource(id = R.string.app_update_install_action))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(id = R.string.app_update_later))
+            }
+        },
+        title = {
+            Text(stringResource(id = R.string.app_update_downloaded_title))
+        },
+        text = {
+            Text(stringResource(id = R.string.app_update_downloaded_body))
+        }
+    )
 }
 
 internal fun menuDadoStatusBarColor(): Int = MenuDadoColors.HeaderGreen.toArgb()
@@ -354,6 +551,51 @@ internal fun shouldShowAdsPrivacyOptionsInNavigation(
 
 internal fun shouldRefreshAdsRemoteConfigOnLifecycleEvent(event: Lifecycle.Event): Boolean {
     return event == Lifecycle.Event.ON_RESUME
+}
+
+internal fun shouldShowAppUpdateDialog(
+    isUpdateAvailable: Boolean,
+    wasDismissed: Boolean
+): Boolean {
+    return isUpdateAvailable && !wasDismissed
+}
+
+internal fun shouldShowDownloadedAppUpdateDialog(isUpdateDownloaded: Boolean): Boolean {
+    return isUpdateDownloaded
+}
+
+internal fun appUpdateAnalyticsScreen(): String = "app_update_prompt"
+
+internal fun appUpdateAnalyticsActionShown(): String = "shown"
+
+internal fun appUpdateAnalyticsActionUpdate(): String = "update"
+
+internal fun appUpdateAnalyticsActionLater(): String = "later"
+
+internal fun appUpdateAnalyticsActionInstall(): String = "install"
+
+internal fun menuDadoPlayStorePackageName(): String = "com.menudado"
+
+internal fun menuDadoPlayStoreMarketUri(): String {
+    return "market://details?id=${menuDadoPlayStorePackageName()}"
+}
+
+internal fun menuDadoPlayStoreWebUrl(): String {
+    return "https://play.google.com/store/apps/details?id=${menuDadoPlayStorePackageName()}"
+}
+
+private fun shouldOfferAppUpdate(appUpdateInfo: AppUpdateInfo): Boolean {
+    return appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
+        appUpdateOptionsFor(appUpdateInfo) != null
+}
+
+private fun appUpdateOptionsFor(appUpdateInfo: AppUpdateInfo): AppUpdateOptions? {
+    val appUpdateType = when {
+        appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE) -> AppUpdateType.FLEXIBLE
+        appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE) -> AppUpdateType.IMMEDIATE
+        else -> return null
+    }
+    return AppUpdateOptions.newBuilder(appUpdateType).build()
 }
 
 private const val RELEASE_BUILD_TYPE = "release"

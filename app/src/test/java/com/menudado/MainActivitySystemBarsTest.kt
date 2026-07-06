@@ -71,4 +71,48 @@ class MainActivitySystemBarsTest {
         assertEquals(false, shouldRefreshAdsRemoteConfigOnLifecycleEvent(Lifecycle.Event.ON_PAUSE))
         assertEquals(false, shouldRefreshAdsRemoteConfigOnLifecycleEvent(Lifecycle.Event.ON_STOP))
     }
+
+    @Test
+    fun `modal de actualizacion se muestra solo si Play indica update disponible y no fue pospuesto`() {
+        assertEquals(
+            true,
+            shouldShowAppUpdateDialog(isUpdateAvailable = true, wasDismissed = false)
+        )
+        assertEquals(
+            false,
+            shouldShowAppUpdateDialog(isUpdateAvailable = true, wasDismissed = true)
+        )
+        assertEquals(
+            false,
+            shouldShowAppUpdateDialog(isUpdateAvailable = false, wasDismissed = false)
+        )
+    }
+
+    @Test
+    fun `modal de instalacion se muestra si update flexible ya fue descargado`() {
+        assertEquals(true, shouldShowDownloadedAppUpdateDialog(isUpdateDownloaded = true))
+        assertEquals(false, shouldShowDownloadedAppUpdateDialog(isUpdateDownloaded = false))
+    }
+
+    @Test
+    fun `analitica de actualizacion usa acciones cerradas sin datos personales`() {
+        assertEquals("app_update_prompt", appUpdateAnalyticsScreen())
+        assertEquals("shown", appUpdateAnalyticsActionShown())
+        assertEquals("update", appUpdateAnalyticsActionUpdate())
+        assertEquals("later", appUpdateAnalyticsActionLater())
+        assertEquals("install", appUpdateAnalyticsActionInstall())
+    }
+
+    @Test
+    fun `fallback de actualizacion apunta a la ficha productiva de MenuDado en Play Store`() {
+        assertEquals("com.menudado", menuDadoPlayStorePackageName())
+        assertEquals(
+            "market://details?id=com.menudado",
+            menuDadoPlayStoreMarketUri()
+        )
+        assertEquals(
+            "https://play.google.com/store/apps/details?id=com.menudado",
+            menuDadoPlayStoreWebUrl()
+        )
+    }
 }

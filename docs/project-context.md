@@ -57,7 +57,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - El público objetivo también es obligatorio y no viene seleccionado por defecto; el usuario debe elegir persona adulta, peques o bebé entre los públicos activos del perfil alimentario.
    - Si solo hay un público activo, el selector de público se muestra ya seleccionado con ese público. Si hay dos o más públicos activos, el selector queda vacío y obliga al usuario a elegir para quién es el menú.
    - En modo `Generar con IA` se muestra la selección de tipo y público, un campo opcional de ingredientes base y el dado como acción principal. Al lanzarlo, MenuDado genera una idea saludable con IA usando perfil alimentario, tipo de comida, público objetivo e ingredientes base.
-   - Si el dado de IA está bloqueado por falta de tipo de comida, público objetivo o pausa de IA, el propio bloque del dado debe explicar el motivo fuera del botón del dado, usar un color de alerta legible dentro del bloque amarillo, mantener el botón en un color neutral claramente distinto del naranja activo y recordar que el usuario puede cambiar a `Escribir menú`.
+   - Si el dado de IA está bloqueado por falta de tipo de comida, público objetivo o pausa de IA, el propio bloque del dado debe explicar el motivo fuera del botón del dado, usar un aviso cálido alineado con la paleta de MenuDado dentro del bloque amarillo, mantener el botón en un color neutral de marca claramente distinto del naranja activo y recordar que el usuario puede cambiar a `Escribir menú`. El aviso usa el naranja del dado solo como acento/título y deja el motivo en texto oscuro para mejorar legibilidad. En pausa de IA por límite, el aviso debe explicar de forma muy corta que el uso gratuito de IA es limitado y que se puede esperar un poco o seguir con `Escribir menú`.
    - Cuando la IA completa la idea, se abre un modal de detalle de idea generada con nombre, descripción, notas, calorías, análisis saludable y sugerencia. El usuario decide entre `Guardar menú` o `Descartar`.
    - En modo `Escribir menu` se muestran los campos de nombre del plato o menú, ingredientes o descripción y notas opcionales, además de la acción `Guardar menú`.
    - Si el usuario cambia el tipo de comida o el público objetivo del formulario, se limpia el borrador actual del menú para evitar mezclar contenido de contextos distintos; editar los campos de texto conserva el resto del formulario.
@@ -163,7 +163,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - El paso de perfil debe recordar que el usuario puede activar persona adulta, peques o bebé e indicar embarazo, alergias y condiciones de salud para adaptar mejor las ideas generadas.
    - El paso de IA debe comunicar en lenguaje simple que la IA ayuda a generar y revisar ideas, y que en modo invitado los usos diarios están limitados para probar la app sin bloquear el uso básico.
    - El usuario puede avanzar o retroceder por los pasos con swipe horizontal, empezar u omitir.
-   - Al empezar u omitir, el onboarding se marca como completado en almacenamiento local y no vuelve a mostrarse en siguientes aperturas hasta que exista una nueva versión de contenido relevante.
+   - Al empezar u omitir, el onboarding se marca como completado en almacenamiento local y no vuelve a mostrarse en siguientes aperturas hasta que exista una nueva versión de contenido relevante. La versión vigente del contenido de onboarding es 5.
 
 7. Perfil alimentario.
    - La app ofrece una barra inferior verde con acceso a `Perfil`.
@@ -227,6 +227,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - Eventos propios de consulta de contenido: `menu_card_opened`, `about_app_opened`.
   - Eventos propios de perfil alimentario: `dietary_profile_opened`, `dietary_profile_audience_selected`, `dietary_profile_updated`, sin enviar alérgenos, embarazo, condiciones ni texto libre.
   - Eventos propios de onboarding: `onboarding_shown`, `onboarding_completed` con parámetro `action` limitado a `start` o `skip`.
+  - Eventos propios de actualización de app: `app_update_prompt` con parámetro `action` limitado a `shown`, `update`, `later` o `install`; no envía versión instalada, versión de tienda ni identificadores de usuario.
   - Eventos propios de IA: inicio/fin de generación y análisis, estado saludable (`health_status`), tipo de fallo (`failure_type`) y límite diario local (`ai_daily_limit_reached`).
   - Eventos propios de cuenta y zona de usuario: `my_zone_opened`, `auth_flow_started`, `auth_action` y `guest_limit_reached`, usando solo valores cerrados como modo de cuenta, acción, método, tipo de límite y contadores; no envían correo ni datos personales.
   - Eventos propios de backend: `backend_sync_retried`, `backend_sync_finished`, usando solo fuente, estado y conteos pendientes.
@@ -253,6 +254,8 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Publicación Play Store:
   - La declaración de apps de salud en Play Console debe mantenerse alineada con las funciones reales de MenuDado. Dado que la app planifica menús, usa perfil alimentario, alérgenos, embarazo, condiciones de salud, calorías y análisis saludable con IA, debe declarar al menos `Nutrition and Weight Management` / `Nutrición y control del peso`.
   - La descripción pública de Play Store debe incluir el aviso de que MenuDado no es un dispositivo médico y no diagnostica, trata, cura ni previene ninguna condición médica, además de recomendar consultar con un profesional sanitario para asesoramiento, diagnóstico o tratamiento.
+  - La app usa Google Play In-App Updates para detectar actualizaciones pendientes desde Play Store. No debe comparar versiones mediante scraping de la página pública ni depender de Remote Config para saber si hay una actualización disponible. Si Play informa una actualización permitida, MenuDado muestra un modal propio con acción `Actualizar`; al aceptar, inicia el flujo oficial de Google Play, prefiriendo update flexible y usando immediate solo si flexible no está permitido. Si el update flexible ya se descargó, ofrece instalarlo.
+  - El modal de actualización solo agrega analítica de acciones cerradas y no requiere migración Room ni cambios de esquema local porque no persiste nuevos datos estructurales.
   - Para Android 15/API 35, `MainActivity` habilita edge-to-edge con `androidx.activity` actualizado y fuerza `LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS`; las fotos de menús se decodifican con `BitmapFactory.Options.inSampleSize` para evitar cargar bitmaps completos en portadas.
   - El AAB productivo se genera en `app/build/outputs/bundle/release/app-release.aab`.
   - Si Play Console muestra la advertencia de desofuscación, subir `app/build/outputs/mapping/release/mapping.txt` en el artefacto correspondiente para mejorar el diagnóstico de crashes y ANR.
@@ -287,6 +290,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Mantener la interfaz usable en pantallas Android pequeñas.
 - Validar que el marcado de analytics no envíe nombres, ingredientes, notas, recetas, correo de contacto, nombre del creador, IDs, URI de imagen ni datos sensibles del perfil alimentario; solo estados, tipos de comida, públicos objetivo, filtros, acciones cerradas y contadores agregables.
 - Validar que el onboarding emita `onboarding_shown` solo cuando corresponde y `onboarding_completed` diferenciando `start`/`skip`.
+- Validar que el contenido actual del onboarding use versión 5 para volver a mostrarse una vez tras la actualización de textos de IA gratuita limitada y dado contextual.
 - Validar que abrir `Acerca de la app` emita `about_app_opened` sin parámetros personales.
 - Validar que las reglas Firestore impiden leer o escribir datos de otro `uid`.
 - Validar que el manifest final no declare permisos de ubicación, contactos ni identificador publicitario.

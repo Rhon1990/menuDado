@@ -1166,7 +1166,7 @@ internal fun contextualDicePrimaryTextSoftWrap(): Boolean = true
 
 internal fun contextualDiceEnabledContainerColor(): Color = MenuDadoColors.Tomato
 
-internal fun contextualDiceDisabledContainerColor(): Color = Color(0xFFE4E6E0)
+internal fun contextualDiceDisabledContainerColor(): Color = MenuDadoColors.SoftSand
 
 internal fun contextualDiceContentColor(enabled: Boolean): Color {
     return if (enabled) Color.White else MenuDadoColors.Ink
@@ -1176,7 +1176,16 @@ internal fun contextualDiceSecondaryTextColor(enabled: Boolean): Color {
     return contextualDiceContentColor(enabled).copy(alpha = if (enabled) 0.86f else 0.78f)
 }
 
-internal fun contextualDiceDisabledReasonTextColor(): Color = MenuDadoColors.Tomato
+@StringRes
+internal fun contextualDiceDisabledReasonTitleRes(): Int = R.string.dice_ai_blocked_notice_title
+
+internal fun contextualDiceDisabledReasonTitleColor(): Color = MenuDadoColors.Tomato
+
+internal fun contextualDiceDisabledReasonBodyColor(): Color = MenuDadoColors.Ink
+
+internal fun contextualDiceDisabledReasonContainerColor(): Color = MenuDadoColors.EggYellow.copy(alpha = 0.24f)
+
+internal fun contextualDiceDisabledReasonBorderColor(): Color = MenuDadoColors.OutlineBrown.copy(alpha = 0.24f)
 
 @StringRes
 internal fun aiGenerationLoadingTitleRes(): Int = R.string.ai_generation_loading_title
@@ -2914,13 +2923,42 @@ private fun ContextualDiceButton(
 
 @Composable
 private fun ContextualDiceDisabledReason(text: String) {
-    Text(
-        text = text,
-        modifier = Modifier.fillMaxWidth(),
-        color = contextualDiceDisabledReasonTextColor(),
-        style = MaterialTheme.typography.bodyMedium,
-        fontWeight = FontWeight.Bold
-    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(contextualDiceDisabledReasonContainerColor())
+            .border(
+                BorderStroke(1.dp, contextualDiceDisabledReasonBorderColor()),
+                RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(MenuDadoColors.EggYellow, CircleShape)
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = stringResource(id = contextualDiceDisabledReasonTitleRes()),
+                color = contextualDiceDisabledReasonTitleColor(),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                text = text,
+                color = contextualDiceDisabledReasonBodyColor(),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
 }
 
 @Composable

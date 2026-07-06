@@ -82,6 +82,8 @@ interface MenuDadoAnalytics {
 
     fun trackOnboardingCompleted(action: String)
 
+    fun trackAppUpdatePrompt(action: String)
+
     fun trackAboutAppOpened()
 
     fun trackDietaryProfileOpened(activeAudienceCount: Int)
@@ -188,6 +190,8 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
     override fun trackOnboardingShown() = Unit
 
     override fun trackOnboardingCompleted(action: String) = Unit
+
+    override fun trackAppUpdatePrompt(action: String) = Unit
 
     override fun trackAboutAppOpened() = Unit
 
