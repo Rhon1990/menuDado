@@ -9,6 +9,7 @@ import com.menudado.domain.HealthStatus
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
 import com.menudado.ui.theme.MenuDadoColors
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
@@ -658,6 +659,12 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `contenido del boton del dado queda centrado en pantallas anchas`() {
+        assertEquals(Alignment.Center, contextualDiceButtonContentAlignment())
+        assertEquals(280, contextualDiceButtonTextMaxWidthDp())
+    }
+
+    @Test
     fun `eliminar menu requiere confirmacion antes de borrar`() {
         val menu = FoodMenu(
             id = 12L,
@@ -709,7 +716,7 @@ class MenuCardUiStateTest {
         assertEquals("MenuDado ayuda a decidir que comer.", info.description)
         assertEquals("Rhonal A. Delgado Padilla", info.createdBy)
         assertEquals("rhonal.delgado@gmail.com", info.contact)
-        assertEquals("1.1.0 (6)", aboutVersionLabel(versionName = "1.1.0", versionCode = 6))
+        assertEquals("1.1.0 (7)", aboutVersionLabel(versionName = "1.1.0", versionCode = 7))
     }
 
     @Test

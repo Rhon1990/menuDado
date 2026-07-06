@@ -52,6 +52,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -2881,45 +2882,56 @@ private fun ContextualDiceButton(
                 disabledContentColor = contextualDiceContentColor(enabled = false)
             )
         ) {
-            AnimatedDiceFace(
-                isRolling = isBusy,
-                idleRotation = idleRotation,
-                idleFaceIndex = diceFaceIndex,
-                manualRotation = manualRotation,
-                rollProgress = if (isBusy && diceContinuousRollCycles == null) diceRollProgress else null,
-                continuousRollCycles = if (isBusy) diceContinuousRollCycles else null,
-                onDrag = onDrag
-            )
-            Spacer(modifier = Modifier.size(12.dp))
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(1.dp)
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = contextualDiceButtonContentAlignment()
             ) {
-                Text(
-                    text = primaryText,
-                    modifier = Modifier.fillMaxWidth(),
-                    color = contextualDiceContentColor(enabled),
-                    fontWeight = FontWeight.Black,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = contextualDicePrimaryTextMaxLines(),
-                    overflow = TextOverflow.Ellipsis,
-                    softWrap = contextualDicePrimaryTextSoftWrap()
-                )
-                Text(
-                    text = secondaryText,
-                    modifier = Modifier.fillMaxWidth(),
-                    color = contextualDiceSecondaryTextColor(enabled),
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    softWrap = false
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AnimatedDiceFace(
+                        isRolling = isBusy,
+                        idleRotation = idleRotation,
+                        idleFaceIndex = diceFaceIndex,
+                        manualRotation = manualRotation,
+                        rollProgress = if (isBusy && diceContinuousRollCycles == null) diceRollProgress else null,
+                        continuousRollCycles = if (isBusy) diceContinuousRollCycles else null,
+                        onDrag = onDrag
+                    )
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = contextualDiceButtonTextMaxWidthDp().dp)
+                            .padding(vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(1.dp)
+                    ) {
+                        Text(
+                            text = primaryText,
+                            color = contextualDiceContentColor(enabled),
+                            fontWeight = FontWeight.Black,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = contextualDicePrimaryTextMaxLines(),
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = contextualDicePrimaryTextSoftWrap()
+                        )
+                        Text(
+                            text = secondaryText,
+                            color = contextualDiceSecondaryTextColor(enabled),
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false
+                        )
+                    }
+                }
             }
         }
     }
 }
+
+internal fun contextualDiceButtonContentAlignment(): Alignment = Alignment.Center
+
+internal fun contextualDiceButtonTextMaxWidthDp(): Int = 280
 
 @Composable
 private fun ContextualDiceDisabledReason(text: String) {

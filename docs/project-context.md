@@ -299,7 +299,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 ## Auditoría QA prepublicación 2026-07-03
 
 - Veredicto actual: visto bueno técnico automatizado para preparar candidato de publicación. El visto bueno final de tienda queda condicionado a prueba manual en dispositivo real con Firebase producción y a generar el artefacto firmado final de Play.
-- Versión objetivo actual: `1.1.0` (`versionCode` 6).
+- Versión objetivo actual: `1.1.0` (`versionCode` 7).
 - Validación automatizada ejecutada:
   - `./gradlew :app:testDebugUnitTest`: correcto tras corregir contratos de prompt IA compacto, timeout local y bloqueo/contador inmediato para evitar dobles llamadas de IA.
   - `./gradlew :app:compileDebugKotlin :app:compileReleaseKotlin :app:compileReleaseDebuggableKotlin`: correcto.
