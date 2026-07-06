@@ -585,7 +585,7 @@ class MenuDadoViewModelTest {
     @Test
     fun `shows onboarding again when stored completion is from older content version`() = runTest(dispatcher) {
         analytics.events.clear()
-        val previousContentStore = FakeOnboardingStore(completed = true, completedVersion = 2)
+        val previousContentStore = FakeOnboardingStore(completed = true, completedVersion = 3)
         val updatedViewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
@@ -601,7 +601,7 @@ class MenuDadoViewModelTest {
         updatedViewModel.completeOnboarding()
 
         assertEquals(false, updatedViewModel.uiState.value.showOnboarding)
-        assertEquals(3, previousContentStore.completedVersion)
+        assertEquals(4, previousContentStore.completedVersion)
     }
 
     @Test
@@ -708,6 +708,83 @@ class MenuDadoViewModelTest {
             ),
             analytics.events
         )
+    }
+
+    @Test
+    fun `home starts in IA mode so the dice creates a new idea by default`() = runTest(dispatcher) {
+        assertEquals(HomeMenuMode.Ai, viewModel.uiState.value.homeMenuMode)
+    }
+
+    @Test
+    fun `generated IA idea is marked as pending detail before saving`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Bowl de lentejas",
+            description = "Lentejas, arroz integral, tomate y aguacate.",
+            notes = "Puedes usar lentejas cocidas.",
+            calories = 540,
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Aporta fibra y proteina vegetal.",
+                suggestion = "Ajusta la sal.",
+                calories = 540
+            )
+        )
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+        assertEquals("Bowl de lentejas", viewModel.uiState.value.name)
+        assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
+    }
+
+    @Test
+    fun `discard generated IA idea clears pending detail and draft`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Bowl de lentejas",
+            description = "Lentejas, arroz integral, tomate y aguacate.",
+            notes = "Puedes usar lentejas cocidas.",
+            calories = 540
+        )
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        viewModel.discardGeneratedMenuIdea()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.showGeneratedMenuDetail)
+        assertEquals("", state.name)
+        assertEquals("", state.description)
+        assertEquals("", state.notes)
+        assertNull(state.calories)
+        assertNull(state.generatedHealthAnalysis)
+    }
+
+    @Test
+    fun `save generated IA idea from pending detail stores menu and closes detail`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Bowl de lentejas",
+            description = "Lentejas, arroz integral, tomate y aguacate.",
+            notes = "Puedes usar lentejas cocidas.",
+            calories = 540,
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Aporta fibra y proteina vegetal.",
+                suggestion = "Ajusta la sal.",
+                calories = 540
+            )
+        )
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        viewModel.saveGeneratedMenuIdea()
+        advanceUntilIdle()
+
+        val saved = dao.saved.single().toDomain()
+        assertFalse(viewModel.uiState.value.showGeneratedMenuDetail)
+        assertEquals("Bowl de lentejas", saved.name)
+        assertEquals(HealthStatus.HEALTHY, saved.healthAnalysis?.status)
+        assertEquals(540, saved.calories)
     }
 
     @Test
@@ -1004,7 +1081,7 @@ class MenuDadoViewModelTest {
 
     @Test
     fun `generate menu idea stops loading and shows timeout message when IA takes too long`() = runTest(dispatcher) {
-        analyzer.generateDelayMillis = 26_000L
+        analyzer.generateDelayMillis = 46_000L
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             clockMillisProvider = { currentTime },
@@ -1017,7 +1094,7 @@ class MenuDadoViewModelTest {
 
         viewModel.generateMenuIdea()
         runCurrent()
-        advanceTimeBy(25_000L)
+        advanceTimeBy(45_001L)
         runCurrent()
 
         assertFalse(viewModel.uiState.value.isGeneratingMenu)
@@ -2471,7 +2548,7 @@ private class FakeDietaryProfileStore : DietaryProfileStore {
 
 private class FakeOnboardingStore(
     var completed: Boolean = false,
-    var completedVersion: Int = if (completed) 3 else 0
+    var completedVersion: Int = if (completed) 4 else 0
 ) : OnboardingStore {
     override fun isOnboardingCompleted(requiredVersion: Int): Boolean =
         completed && completedVersion >= requiredVersion

@@ -58,6 +58,7 @@ import kotlin.math.ceil
 
 data class MenuDadoUiState(
     val menus: List<FoodMenu> = emptyList(),
+    val homeMenuMode: HomeMenuMode = HomeMenuMode.Ai,
     val diceFilter: MealType? = null,
     val diceAudienceFilter: MenuAudience? = null,
     val editingMenuId: Long? = null,
@@ -90,8 +91,14 @@ data class MenuDadoUiState(
     val audienceAgeRanges: Map<MenuAudience, String> = MenuAudience.entries.associateWith { it.defaultAgeRange },
     val dietaryProfileAudience: MenuAudience = MenuAudience.ADULT,
     val dietaryProfile: DietaryProfile = DietaryProfile(),
-    val showOnboarding: Boolean = false
+    val showOnboarding: Boolean = false,
+    val showGeneratedMenuDetail: Boolean = false
 )
+
+enum class HomeMenuMode {
+    Ai,
+    Manual
+}
 
 class MenuDadoViewModel(
     private val repository: MenuRepository,
@@ -138,6 +145,10 @@ class MenuDadoViewModel(
     fun setDiceFilter(filter: MealType?) {
         analytics.trackDiceFilterSelected(filter, _uiState.value.menus.size)
         _uiState.update { it.copy(diceFilter = filter) }
+    }
+
+    fun setHomeMenuMode(mode: HomeMenuMode) {
+        _uiState.update { it.copy(homeMenuMode = mode) }
     }
 
     fun trackCtaTapped(screen: String, cta: String) {
@@ -394,6 +405,14 @@ class MenuDadoViewModel(
 
     fun clearResult() {
         _uiState.update { it.copy(result = null) }
+    }
+
+    fun discardGeneratedMenuIdea() {
+        _uiState.update { it.withoutMenuFormDraft().copy(showGeneratedMenuDetail = false) }
+    }
+
+    fun saveGeneratedMenuIdea() {
+        saveMenu()
     }
 
     fun trackMenuCardOpened(menu: FoodMenu) {
@@ -762,7 +781,8 @@ class MenuDadoViewModel(
                                 notes = generated.notes,
                                 calories = generated.calories,
                                 generatedHealthAnalysis = generated.healthAnalysis,
-                                isAiRetryNoticeVisible = false
+                                isAiRetryNoticeVisible = false,
+                                showGeneratedMenuDetail = true
                             )
                         }
 
@@ -1137,7 +1157,8 @@ class MenuDadoViewModel(
             calories = null,
             generatedHealthAnalysis = null,
             message = null,
-            isAiRetryNoticeVisible = false
+            isAiRetryNoticeVisible = false,
+            showGeneratedMenuDetail = false
         )
     }
 
@@ -1164,6 +1185,7 @@ class MenuDadoViewModel(
                 aiBaseIngredients = "",
                 calories = null,
                 generatedHealthAnalysis = null,
+                showGeneratedMenuDetail = false,
                 formMealType = suggestedMealTypeForDeviceTime(clockMillisProvider()),
                 formAudience = null.selectedOrSingleDefault(loadEnabledAudiences())
             )
@@ -1901,7 +1923,7 @@ private const val FORM_FIELD_DESCRIPTION = "description"
 private const val FORM_FIELD_NOTES = "notes"
 private const val ONBOARDING_ACTION_START = "start"
 private const val ONBOARDING_ACTION_SKIP = "skip"
-private const val CURRENT_ONBOARDING_VERSION = 3
+private const val CURRENT_ONBOARDING_VERSION = 4
 private const val ANALYTICS_SOURCE_DICE = "dice"
 internal const val DICE_ROLL_DURATION_MILLIS = 850L
 internal const val DICE_ROLL_SPIN_DEGREES = 720f

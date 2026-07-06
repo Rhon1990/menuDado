@@ -544,13 +544,75 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `generacion IA muestra overlay bloqueante con dado de carga`() {
-        assertEquals(R.drawable.dado_loading, aiGenerationLoadingImageRes())
+    fun `generacion IA muestra overlay bloqueante con dado 3D de MenuDado`() {
+        assertTrue(aiGenerationLoadingUsesMenuDadoDiceCube())
+        assertEquals(4, aiGenerationLoadingDiceFaceIndex(buttonDiceFaceIndex = 4))
         assertEquals(R.string.ai_generation_loading_title, aiGenerationLoadingTitleRes())
         assertEquals(R.string.ai_generation_loading_message, aiGenerationLoadingMessageRes())
         assertEquals(MenuDadoColors.DeepGreen.copy(alpha = 0.72f), aiGenerationLoadingOverlayColor())
         assertEquals(MenuDadoColors.Surface, aiGenerationLoadingCardColor())
         assertEquals(true, aiGenerationLoadingBlocksTouches())
+    }
+
+    @Test
+    fun `dado IA bloqueado explica que falta seleccionar publico y ofrece escribir menu`() {
+        assertEquals(
+            R.string.dice_ai_blocked_missing_audience,
+            aiDiceDisabledReasonRes(
+                hasMealType = true,
+                hasAudience = false,
+                isAiPaused = false
+            )
+        )
+        assertEquals(MenuDadoColors.Tomato, contextualDiceDisabledReasonTextColor())
+    }
+
+    @Test
+    fun `dado IA bloqueado explica que faltan selecciones antes de generar`() {
+        assertEquals(
+            R.string.dice_ai_blocked_missing_meal_and_audience,
+            aiDiceDisabledReasonRes(
+                hasMealType = false,
+                hasAudience = false,
+                isAiPaused = false
+            )
+        )
+        assertEquals(
+            R.string.dice_ai_blocked_missing_meal,
+            aiDiceDisabledReasonRes(
+                hasMealType = false,
+                hasAudience = true,
+                isAiPaused = false
+            )
+        )
+        assertNull(
+            aiDiceDisabledReasonRes(
+                hasMealType = true,
+                hasAudience = true,
+                isAiPaused = false
+            )
+        )
+    }
+
+    @Test
+    fun `texto principal del boton de dado permite dos lineas para no recortar contador IA`() {
+        assertEquals(2, contextualDicePrimaryTextMaxLines())
+        assertTrue(contextualDicePrimaryTextSoftWrap())
+    }
+
+    @Test
+    fun `boton de dado deshabilitado usa color neutral visible distinto del naranja activo`() {
+        assertEquals(MenuDadoColors.Tomato, contextualDiceEnabledContainerColor())
+        assertEquals(Color(0xFFE4E6E0), contextualDiceDisabledContainerColor())
+        assertFalse(contextualDiceDisabledContainerColor() == MenuDadoColors.Tomato.copy(alpha = 0.72f))
+        assertEquals(MenuDadoColors.Ink, contextualDiceContentColor(enabled = false))
+    }
+
+    @Test
+    fun `animacion IA del dado sigue girando y desacelera sin detenerse`() {
+        assertTrue(aiDiceRollingSpeedMultiplier(elapsedMillis = 0L) > aiDiceRollingSpeedMultiplier(elapsedMillis = 8_000L))
+        assertTrue(aiDiceRollingSpeedMultiplier(elapsedMillis = 30_000L) > 0f)
+        assertTrue(aiDiceRollingCycles(elapsedMillis = 12_000L) > aiDiceRollingCycles(elapsedMillis = 3_000L))
     }
 
     @Test
@@ -643,7 +705,7 @@ class MenuCardUiStateTest {
         assertEquals("MenuDado ayuda a decidir que comer.", info.description)
         assertEquals("Rhonal A. Delgado Padilla", info.createdBy)
         assertEquals("rhonal.delgado@gmail.com", info.contact)
-        assertEquals("1.0.2 (5)", aboutVersionLabel(versionName = "1.0.2", versionCode = 5))
+        assertEquals("1.1.0 (6)", aboutVersionLabel(versionName = "1.1.0", versionCode = 6))
     }
 
     @Test

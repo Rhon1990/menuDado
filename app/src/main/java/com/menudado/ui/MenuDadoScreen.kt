@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.drawable.Animatable
 import android.graphics.Paint as AndroidPaint
 import android.net.Uri
 import android.os.Environment
@@ -81,6 +80,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -88,6 +88,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.key
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -123,8 +124,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
@@ -145,11 +146,12 @@ import com.menudado.domain.MealType
 import com.menudado.ui.theme.MenuDadoColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import android.widget.ImageView
 import java.io.File
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.floor
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -187,6 +189,9 @@ fun MenuDadoScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     var previousRolling by remember { mutableStateOf(state.isRolling) }
     var diceFaceIndex by remember { mutableIntStateOf(0) }
+    var manualDiceRotation by remember { mutableStateOf(DiceDragRotation()) }
+    val contextualDiceRollProgress = remember { ComposeAnimatable(0f) }
+    var aiDiceRollCycles by remember { mutableFloatStateOf(0f) }
     var audienceDetailRoute by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedDetailMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var pendingDeleteMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -215,6 +220,7 @@ fun MenuDadoScreen(
     val actionSheetMenu = actionSheetMenuId?.let { actionMenuId ->
         state.menus.firstOrNull { it.id == actionMenuId }
     }
+    val generatedDetailMenu = generatedMenuDetailPreview(state)
     fun saveSelectedPhoto(uriString: String) {
         val menuId = photoPickerMenuId
         if (menuId == null) {
@@ -311,6 +317,34 @@ fun MenuDadoScreen(
             diceFaceIndex = (diceFaceIndex + 1) % DiceRestPoses.size
         }
         previousRolling = state.isRolling
+    }
+
+    LaunchedEffect(state.isRolling) {
+        if (state.isRolling) {
+            contextualDiceRollProgress.snapTo(0f)
+            contextualDiceRollProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = DICE_ROLL_DURATION_MILLIS.toInt(),
+                    easing = LinearEasing
+                )
+            )
+        } else {
+            contextualDiceRollProgress.snapTo(0f)
+        }
+    }
+
+    LaunchedEffect(state.isGeneratingMenu) {
+        if (state.isGeneratingMenu) {
+            val startNanos = withFrameNanos { frameTimeNanos -> frameTimeNanos }
+            while (true) {
+                val frameNanos = withFrameNanos { frameTimeNanos -> frameTimeNanos }
+                val elapsedMillis = (frameNanos - startNanos) / 1_000_000L
+                aiDiceRollCycles = aiDiceRollingCycles(elapsedMillis)
+            }
+        } else {
+            aiDiceRollCycles = 0f
+        }
     }
 
     LaunchedEffect(state.menus) {
@@ -546,6 +580,20 @@ fun MenuDadoScreen(
         )
     }
 
+    generatedDetailMenu?.let { menu ->
+        GeneratedMenuDetailDialog(
+            menu = menu,
+            onSave = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_SAVE_MENU)
+                viewModel.saveGeneratedMenuIdea()
+            },
+            onDiscard = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_DISCARD_GENERATED_MENU)
+                viewModel.discardGeneratedMenuIdea()
+            }
+        )
+    }
+
     BoxWithConstraints(
         modifier = Modifier.hideKeyboardOnTouch(focusManager, keyboardController)
     ) {
@@ -681,26 +729,25 @@ fun MenuDadoScreen(
                         }
                     } else {
                         item {
-                            DiceSection(
-                                filter = state.diceFilter,
-                                audienceFilter = state.diceAudienceFilter,
-                                enabledAudiences = state.enabledAudiences,
-                                isRolling = state.isRolling,
-                                diceFaceIndex = diceFaceIndex,
-                                onFilterChanged = viewModel::setDiceFilter,
-                                onAudienceFilterChanged = viewModel::setDiceAudienceFilter,
-                                onRoll = {
-                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_ROLL_DICE)
-                                    viewModel.rollDice()
-                                }
-                            )
-                        }
-                        item {
-                            MenuForm(
+                            TodayMenuSection(
                                 state = state,
                                 enabledAudiences = state.enabledAudiences,
-                                onMealTypeChanged = viewModel::setFormMealType,
-                                onAudienceChanged = viewModel::setFormAudience,
+                                diceFaceIndex = diceFaceIndex,
+                                diceRollProgress = contextualDiceRollProgress.value,
+                                diceContinuousRollCycles = if (state.isGeneratingMenu) aiDiceRollCycles else null,
+                                manualDiceRotation = manualDiceRotation,
+                                onDiceDrag = { dragX, dragY ->
+                                    manualDiceRotation = manualDiceRotation.afterDrag(dragX, dragY)
+                                },
+                                onModeChanged = viewModel::setHomeMenuMode,
+                                onMealTypeChanged = { mealType ->
+                                    viewModel.setFormMealType(mealType)
+                                    viewModel.setDiceFilter(mealType)
+                                },
+                                onAudienceChanged = { audience ->
+                                    viewModel.setFormAudience(audience)
+                                    viewModel.setDiceAudienceFilter(audience)
+                                },
                                 onNameChanged = viewModel::updateName,
                                 onDescriptionChanged = viewModel::updateDescription,
                                 onNotesChanged = viewModel::updateNotes,
@@ -708,6 +755,10 @@ fun MenuDadoScreen(
                                 onGenerate = {
                                     viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_GENERATE_AI_MENU)
                                     viewModel.generateMenuIdea()
+                                },
+                                onRollSavedMenu = {
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_ROLL_DICE)
+                                    viewModel.rollDice()
                                 },
                                 onSave = {
                                     viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_SAVE_MENU)
@@ -832,7 +883,12 @@ fun MenuDadoScreen(
                 .align(Alignment.BottomCenter)
         )
         if (state.isGeneratingMenu) {
-            AiGenerationLoadingOverlay()
+            AiGenerationLoadingOverlay(
+                diceFaceIndex = diceFaceIndex,
+                diceRollProgress = contextualDiceRollProgress.value,
+                diceContinuousRollCycles = aiDiceRollCycles,
+                manualDiceRotation = manualDiceRotation
+            )
         }
     }
 }
@@ -856,7 +912,12 @@ private fun Modifier.hideKeyboardOnTouch(
 }
 
 @Composable
-private fun AiGenerationLoadingOverlay() {
+private fun AiGenerationLoadingOverlay(
+    diceFaceIndex: Int,
+    diceRollProgress: Float,
+    diceContinuousRollCycles: Float,
+    manualDiceRotation: DiceDragRotation
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -883,19 +944,11 @@ private fun AiGenerationLoadingOverlay() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                AndroidView(
-                    factory = { context ->
-                        ImageView(context).apply {
-                            adjustViewBounds = true
-                            scaleType = ImageView.ScaleType.FIT_CENTER
-                            setImageResource(aiGenerationLoadingImageRes())
-                            (drawable as? Animatable)?.start()
-                        }
-                    },
-                    update = { imageView ->
-                        (imageView.drawable as? Animatable)?.start()
-                    },
-                    modifier = Modifier.size(138.dp)
+                AiGenerationLoadingDice(
+                    diceFaceIndex = aiGenerationLoadingDiceFaceIndex(diceFaceIndex),
+                    diceRollProgress = diceRollProgress,
+                    diceContinuousRollCycles = diceContinuousRollCycles,
+                    manualDiceRotation = manualDiceRotation
                 )
                 Text(
                     text = stringResource(id = aiGenerationLoadingTitleRes()),
@@ -913,6 +966,25 @@ private fun AiGenerationLoadingOverlay() {
             }
         }
     }
+}
+
+@Composable
+private fun AiGenerationLoadingDice(
+    diceFaceIndex: Int,
+    diceRollProgress: Float,
+    diceContinuousRollCycles: Float,
+    manualDiceRotation: DiceDragRotation
+) {
+    AnimatedDiceFace(
+        isRolling = true,
+        idleRotation = 0f,
+        idleFaceIndex = diceFaceIndex,
+        manualRotation = manualDiceRotation,
+        rollProgress = diceRollProgress,
+        continuousRollCycles = diceContinuousRollCycles,
+        size = 138.dp,
+        onDrag = { _, _ -> }
+    )
 }
 
 internal enum class MenuDadoDestination {
@@ -1069,7 +1141,42 @@ internal fun menuDadoHeaderBackIconRes(): Int = R.drawable.ic_arrow_back
 @StringRes
 internal fun menuDadoHeaderBackContentDescriptionRes(): Int = R.string.common_back
 
-internal fun aiGenerationLoadingImageRes(): Int = R.drawable.dado_loading
+internal fun aiGenerationLoadingUsesMenuDadoDiceCube(): Boolean = true
+
+internal fun aiGenerationLoadingDiceFaceIndex(buttonDiceFaceIndex: Int): Int = buttonDiceFaceIndex
+
+@StringRes
+internal fun aiDiceDisabledReasonRes(
+    hasMealType: Boolean,
+    hasAudience: Boolean,
+    isAiPaused: Boolean
+): Int? {
+    return when {
+        !hasMealType && !hasAudience -> R.string.dice_ai_blocked_missing_meal_and_audience
+        !hasMealType -> R.string.dice_ai_blocked_missing_meal
+        !hasAudience -> R.string.dice_ai_blocked_missing_audience
+        isAiPaused -> R.string.dice_ai_blocked_ai_paused
+        else -> null
+    }
+}
+
+internal fun contextualDicePrimaryTextMaxLines(): Int = 2
+
+internal fun contextualDicePrimaryTextSoftWrap(): Boolean = true
+
+internal fun contextualDiceEnabledContainerColor(): Color = MenuDadoColors.Tomato
+
+internal fun contextualDiceDisabledContainerColor(): Color = Color(0xFFE4E6E0)
+
+internal fun contextualDiceContentColor(enabled: Boolean): Color {
+    return if (enabled) Color.White else MenuDadoColors.Ink
+}
+
+internal fun contextualDiceSecondaryTextColor(enabled: Boolean): Color {
+    return contextualDiceContentColor(enabled).copy(alpha = if (enabled) 0.86f else 0.78f)
+}
+
+internal fun contextualDiceDisabledReasonTextColor(): Color = MenuDadoColors.Tomato
 
 @StringRes
 internal fun aiGenerationLoadingTitleRes(): Int = R.string.ai_generation_loading_title
@@ -1141,6 +1248,9 @@ internal fun onboardingStepAfterSwipe(
 
 private const val ONBOARDING_SWIPE_THRESHOLD = 56f
 private const val MENU_DADO_PRIVACY_POLICY_URL = "https://rhon1990.github.io/menuDado/privacy-policy/"
+private const val AI_DICE_BASE_CYCLE_MILLIS = 850.0
+private const val AI_DICE_DECELERATION_MILLIS = 6_000.0
+private const val AI_DICE_MIN_SPEED_MULTIPLIER = 0.28
 
 @StringRes
 internal fun aboutHealthDisclaimerTitleRes(): Int = R.string.about_health_disclaimer_title
@@ -2040,11 +2150,19 @@ private fun AnimatedDiceFace(
     idleRotation: Float,
     idleFaceIndex: Int,
     manualRotation: DiceDragRotation,
+    rollProgress: Float? = null,
+    continuousRollCycles: Float? = null,
+    size: Dp = 66.dp,
     onDrag: (dragX: Float, dragY: Float) -> Unit
 ) {
     val rollingProgress = remember { ComposeAnimatable(0f) }
-    LaunchedEffect(isRolling) {
-        if (isRolling) {
+    val hasContinuousRoll = continuousRollCycles != null
+    LaunchedEffect(isRolling, rollProgress, hasContinuousRoll) {
+        if (hasContinuousRoll) {
+            rollingProgress.snapTo(0f)
+        } else if (rollProgress != null) {
+            rollingProgress.snapTo(rollProgress.coerceIn(0f, 1f))
+        } else if (isRolling) {
             rollingProgress.snapTo(0f)
             rollingProgress.animateTo(
                 targetValue = 1f,
@@ -2058,9 +2176,19 @@ private fun AnimatedDiceFace(
         }
     }
     val progress = rollingProgress.value
-    val rollingRotation = diceRollRemainingSpinDegrees(progress)
-    val rollingScale = diceRollScale(progress)
-    val rollingLift = diceRollLift(progress)
+    val continuousCycles = continuousRollCycles
+    val rollingCycleProgress = continuousCycles?.let(::diceRollCycleProgress) ?: progress
+    val rollingRotation = continuousCycles?.let(::diceContinuousSpinDegrees) ?: diceRollRemainingSpinDegrees(progress)
+    val rollingScale = if (continuousCycles != null) {
+        1f + diceRollPulse(rollingCycleProgress) * 0.08f
+    } else {
+        diceRollScale(progress)
+    }
+    val rollingLift = if (continuousCycles != null) {
+        -6f * diceRollPulse(rollingCycleProgress)
+    } else {
+        diceRollLift(progress)
+    }
 
     val idlePose = DiceRestPoses[idleFaceIndex % DiceRestPoses.size]
     val restingRotationX = idlePose.rotationX + manualRotation.x
@@ -2069,7 +2197,7 @@ private fun AnimatedDiceFace(
 
     DiceCube3D(
         modifier = Modifier
-            .size(66.dp)
+            .size(size)
             .pointerInput(isRolling) {
                 if (!isRolling) {
                     detectDragGestures { change, dragAmount ->
@@ -2105,6 +2233,29 @@ internal fun diceRollPulse(progress: Float): Float {
 internal fun diceRollScale(progress: Float): Float = 1f + diceRollPulse(progress) * 0.12f
 
 internal fun diceRollLift(progress: Float): Float = -10f * diceRollPulse(progress)
+
+internal fun aiDiceRollingSpeedMultiplier(elapsedMillis: Long): Float {
+    val elapsed = elapsedMillis.coerceAtLeast(0L).toDouble()
+    val minimumSpeed = AI_DICE_MIN_SPEED_MULTIPLIER
+    val slowdown = exp(-elapsed / AI_DICE_DECELERATION_MILLIS)
+    return (minimumSpeed + (1.0 - minimumSpeed) * slowdown).toFloat()
+}
+
+internal fun aiDiceRollingCycles(elapsedMillis: Long): Float {
+    val elapsed = elapsedMillis.coerceAtLeast(0L).toDouble()
+    val minimumSpeed = AI_DICE_MIN_SPEED_MULTIPLIER
+    val decelerationMillis = AI_DICE_DECELERATION_MILLIS
+    val integratedSpeed = minimumSpeed * elapsed +
+        (1.0 - minimumSpeed) * decelerationMillis * (1.0 - exp(-elapsed / decelerationMillis))
+    return (integratedSpeed / AI_DICE_BASE_CYCLE_MILLIS).toFloat()
+}
+
+internal fun diceRollCycleProgress(cycles: Float): Float {
+    val safeCycles = cycles.coerceAtLeast(0f)
+    return safeCycles - floor(safeCycles.toDouble()).toFloat()
+}
+
+internal fun diceContinuousSpinDegrees(cycles: Float): Float = cycles * DICE_ROLL_SPIN_DEGREES
 
 private val DiceRestPoses = listOf(
     DiceRestPose(rotationX = 18f, rotationY = -24f, rotationZ = 0f),
@@ -2373,9 +2524,15 @@ private fun Color.shade(factor: Float): Color {
 }
 
 @Composable
-private fun MenuForm(
+private fun TodayMenuSection(
     state: MenuDadoUiState,
     enabledAudiences: List<MenuAudience>,
+    diceFaceIndex: Int,
+    diceRollProgress: Float,
+    diceContinuousRollCycles: Float?,
+    manualDiceRotation: DiceDragRotation,
+    onDiceDrag: (Float, Float) -> Unit,
+    onModeChanged: (HomeMenuMode) -> Unit,
     onMealTypeChanged: (MealType) -> Unit,
     onAudienceChanged: (MenuAudience) -> Unit,
     onNameChanged: (String) -> Unit,
@@ -2383,16 +2540,28 @@ private fun MenuForm(
     onNotesChanged: (String) -> Unit,
     onAiBaseIngredientsChanged: (String) -> Unit,
     onGenerate: () -> Unit,
+    onRollSavedMenu: () -> Unit,
     onSave: () -> Unit
 ) {
-    var selectedModeName by rememberSaveable { mutableStateOf(MenuFormMode.Manual.name) }
-    val selectedMode = MenuFormMode.valueOf(selectedModeName)
-    val hasAiDraft = selectedMode == MenuFormMode.Ai && (state.calories != null || state.isGeneratingMenu)
+    val selectedMode = state.homeMenuMode
+    val isAiMode = selectedMode == HomeMenuMode.Ai
+    val isDiceBusy = if (isAiMode) state.isGeneratingMenu else state.isRolling
+    val idleRotation by animateFloatAsState(
+        targetValue = if (isDiceBusy) 0f else -4f,
+        animationSpec = tween(durationMillis = 300),
+        label = "todayMenuDiceIdleRotation"
+    )
     val canUseFormActions = state.formMealType != null &&
         state.formAudience != null &&
         !state.isAnalyzing &&
         !state.isGeneratingMenu
     val canUseAiActions = canUseFormActions && state.aiRetryAtMillis == null
+    val canRollSavedMenu = canUseFormActions && !state.isRolling
+    val aiDiceDisabledReason = aiDiceDisabledReasonRes(
+        hasMealType = state.formMealType != null,
+        hasAudience = state.formAudience != null,
+        isAiPaused = state.aiRetryAtMillis != null
+    )?.let { reasonRes -> stringResource(id = reasonRes) }
 
     Card(
         modifier = Modifier
@@ -2408,19 +2577,19 @@ private fun MenuForm(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = stringResource(id = R.string.form_add_menu),
+                    text = stringResource(id = R.string.home_today_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    text = stringResource(id = R.string.form_add_subtitle),
+                    text = stringResource(id = R.string.home_today_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MenuDadoColors.MutedInk
                 )
             }
-            MenuFormModeSelector(
+            HomeMenuModeSelector(
                 selected = selectedMode,
-                onSelected = { mode -> selectedModeName = mode.name }
+                onSelected = onModeChanged
             )
             CompactMenuSelectors(
                 mealType = state.formMealType,
@@ -2448,7 +2617,45 @@ private fun MenuForm(
                 )
             }
             when (selectedMode) {
-                MenuFormMode.Manual -> {
+                HomeMenuMode.Ai -> {
+                    OutlinedTextField(
+                        value = state.aiBaseIngredients,
+                        onValueChange = onAiBaseIngredientsChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(id = R.string.form_base_ingredients)) },
+                        placeholder = { Text(stringResource(id = R.string.form_base_ingredients_placeholder)) },
+                        minLines = 1
+                    )
+                    ContextualDiceButton(
+                        title = stringResource(id = R.string.home_ai_dice_title),
+                        body = stringResource(id = R.string.home_ai_dice_body),
+                        primaryText = generateAiButtonText(
+                            isGenerating = state.isGeneratingMenu,
+                            isAiPaused = state.aiRetryAtMillis != null,
+                            usesRemaining = state.aiGenerationUsesRemainingToday,
+                            generatingText = stringResource(id = R.string.ai_generating),
+                            restingText = stringResource(id = R.string.ai_resting),
+                            availableText = stringResource(
+                                id = R.string.dice_roll_ai_with_count,
+                                state.aiGenerationUsesRemainingToday
+                            )
+                        ),
+                        secondaryText = stringResource(id = R.string.dice_ai_action),
+                        enabled = canUseAiActions,
+                        isBusy = state.isGeneratingMenu,
+                        diceFaceIndex = diceFaceIndex,
+                        diceRollProgress = diceRollProgress,
+                        diceContinuousRollCycles = diceContinuousRollCycles,
+                        idleRotation = idleRotation,
+                        manualRotation = manualDiceRotation,
+                        onDrag = onDiceDrag,
+                        onClick = onGenerate
+                    )
+                    if (!canUseAiActions && aiDiceDisabledReason != null) {
+                        ContextualDiceDisabledReason(text = aiDiceDisabledReason)
+                    }
+                }
+                HomeMenuMode.Manual -> {
                     MenuTextFields(
                         state = state,
                         onNameChanged = onNameChanged,
@@ -2460,56 +2667,29 @@ private fun MenuForm(
                         text = stringResource(id = R.string.common_save_menu),
                         onSave = onSave
                     )
-                }
-                MenuFormMode.Ai -> {
-                    OutlinedTextField(
-                        value = state.aiBaseIngredients,
-                        onValueChange = onAiBaseIngredientsChanged,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text(stringResource(id = R.string.form_base_ingredients)) },
-                        placeholder = { Text(stringResource(id = R.string.form_base_ingredients_placeholder)) },
-                        minLines = 1
+                    ContextualDiceButton(
+                        title = stringResource(id = R.string.home_manual_dice_title),
+                        body = stringResource(id = R.string.home_manual_dice_body),
+                        primaryText = if (state.isRolling) {
+                            stringResource(id = R.string.dice_rolling)
+                        } else {
+                            stringResource(id = R.string.dice_roll)
+                        },
+                        secondaryText = if (state.isRolling) {
+                            stringResource(id = R.string.dice_mixing)
+                        } else {
+                            stringResource(id = R.string.dice_saved_action)
+                        },
+                        enabled = canRollSavedMenu,
+                        isBusy = state.isRolling,
+                        diceFaceIndex = diceFaceIndex,
+                        diceRollProgress = diceRollProgress,
+                        diceContinuousRollCycles = null,
+                        idleRotation = idleRotation,
+                        manualRotation = manualDiceRotation,
+                        onDrag = onDiceDrag,
+                        onClick = onRollSavedMenu
                     )
-                    OutlinedButton(
-                        onClick = onGenerate,
-                        enabled = canUseAiActions,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = generateAiButtonText(
-                                isGenerating = state.isGeneratingMenu,
-                                isAiPaused = state.aiRetryAtMillis != null,
-                                usesRemaining = state.aiGenerationUsesRemainingToday,
-                                generatingText = stringResource(id = R.string.ai_generating),
-                                restingText = stringResource(id = R.string.ai_resting),
-                                availableText = stringResource(
-                                    id = R.string.ai_generate_with_count,
-                                    state.aiGenerationUsesRemainingToday
-                                )
-                            ),
-                            modifier = Modifier.padding(vertical = 6.dp),
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            softWrap = false
-                        )
-                    }
-                    AnimatedVisibility(visible = hasAiDraft) {
-                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                            MenuTextFields(
-                                state = state,
-                                onNameChanged = onNameChanged,
-                                onDescriptionChanged = onDescriptionChanged,
-                                onNotesChanged = onNotesChanged
-                            )
-                            SaveMenuButton(
-                                enabled = canUseFormActions,
-                                text = stringResource(id = R.string.common_save_menu),
-                                onSave = onSave
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -2630,28 +2810,116 @@ private fun EditMenuDialog(
     }
 }
 
-private enum class MenuFormMode {
-    Manual,
-    Ai
-}
-
 @Composable
-private fun MenuFormModeSelector(
-    selected: MenuFormMode,
-    onSelected: (MenuFormMode) -> Unit
+private fun HomeMenuModeSelector(
+    selected: HomeMenuMode,
+    onSelected: (HomeMenuMode) -> Unit
 ) {
     MenuDadoSegmentedSwitch(
-        options = MenuFormMode.entries.map { mode ->
+        options = HomeMenuMode.entries.map { mode ->
             MenuDadoSegmentOption(
                 value = mode,
                 label = when (mode) {
-                    MenuFormMode.Manual -> stringResource(id = R.string.form_mode_manual)
-                    MenuFormMode.Ai -> stringResource(id = R.string.form_mode_ai)
+                    HomeMenuMode.Ai -> stringResource(id = R.string.form_mode_ai)
+                    HomeMenuMode.Manual -> stringResource(id = R.string.form_mode_manual)
                 }
             )
         },
         selected = selected,
         onSelected = onSelected
+    )
+}
+
+@Composable
+private fun ContextualDiceButton(
+    title: String,
+    body: String,
+    primaryText: String,
+    secondaryText: String,
+    enabled: Boolean,
+    isBusy: Boolean,
+    diceFaceIndex: Int,
+    diceRollProgress: Float,
+    diceContinuousRollCycles: Float? = null,
+    idleRotation: Float,
+    manualRotation: DiceDragRotation,
+    onDrag: (Float, Float) -> Unit,
+    onClick: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+                color = MenuDadoColors.Ink
+            )
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MenuDadoColors.MutedInk
+            )
+        }
+        Button(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = contextualDiceEnabledContainerColor(),
+                contentColor = contextualDiceContentColor(enabled = true),
+                disabledContainerColor = contextualDiceDisabledContainerColor(),
+                disabledContentColor = contextualDiceContentColor(enabled = false)
+            )
+        ) {
+            AnimatedDiceFace(
+                isRolling = isBusy,
+                idleRotation = idleRotation,
+                idleFaceIndex = diceFaceIndex,
+                manualRotation = manualRotation,
+                rollProgress = if (isBusy && diceContinuousRollCycles == null) diceRollProgress else null,
+                continuousRollCycles = if (isBusy) diceContinuousRollCycles else null,
+                onDrag = onDrag
+            )
+            Spacer(modifier = Modifier.size(12.dp))
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                Text(
+                    text = primaryText,
+                    modifier = Modifier.fillMaxWidth(),
+                    color = contextualDiceContentColor(enabled),
+                    fontWeight = FontWeight.Black,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = contextualDicePrimaryTextMaxLines(),
+                    overflow = TextOverflow.Ellipsis,
+                    softWrap = contextualDicePrimaryTextSoftWrap()
+                )
+                Text(
+                    text = secondaryText,
+                    modifier = Modifier.fillMaxWidth(),
+                    color = contextualDiceSecondaryTextColor(enabled),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContextualDiceDisabledReason(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier.fillMaxWidth(),
+        color = contextualDiceDisabledReasonTextColor(),
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Bold
     )
 }
 
@@ -4016,6 +4284,121 @@ private fun MenuDetailDialog(
 }
 
 @Composable
+private fun GeneratedMenuDetailDialog(
+    menu: FoodMenu,
+    onSave: () -> Unit,
+    onDiscard: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDiscard,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.88f)
+                .padding(horizontal = 14.dp),
+            colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)),
+                    contentAlignment = Alignment.BottomStart
+                ) {
+                    MenuCoverImage(
+                        menu = menu,
+                        modifier = Modifier.fillMaxSize(),
+                        showMealTypeLabel = false
+                    )
+                    MenuDetailHeroScrim(menu = menu)
+                    MenuDetailHeroText(menu = menu)
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.generated_menu_detail_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MenuDadoColors.DeepGreen
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HealthChip(status = menu.healthAnalysis?.status ?: HealthStatus.UNKNOWN)
+                        menuVisibleCalories(menu)?.let { calories ->
+                            CaloriesPill(calories = calories)
+                        }
+                    }
+                    Text(
+                        text = menu.description,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MenuDadoColors.Ink
+                    )
+                    if (menu.notes.isNotBlank()) {
+                        Text(
+                            text = menu.notes,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MenuDadoColors.MutedInk
+                        )
+                    }
+                    menu.healthAnalysis?.let { analysis ->
+                        HealthAnalysisPanel(analysis = analysis)
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onDiscard,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.generated_menu_discard),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Button(
+                        onClick = onSave,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MenuDadoColors.BrandGreen,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.generated_menu_save),
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun DeleteMenuConfirmationDialog(
     menu: FoodMenu,
     onConfirm: () -> Unit,
@@ -4222,6 +4605,24 @@ internal fun nextExpandedMenuIdAfterMenuClick(
 
 internal fun menuShouldOpenDetailFromDiceResult(result: FoodMenu?): Boolean {
     return result != null
+}
+
+internal fun generatedMenuDetailPreview(state: MenuDadoUiState): FoodMenu? {
+    if (!state.showGeneratedMenuDetail) return null
+    val mealType = state.formMealType ?: return null
+    val audience = state.formAudience ?: return null
+    val name = state.name.trim()
+    val description = state.description.trim()
+    if (name.isBlank() || description.isBlank()) return null
+    return FoodMenu(
+        name = name,
+        mealType = mealType,
+        audience = audience,
+        description = description,
+        notes = state.notes.trim(),
+        healthAnalysis = state.generatedHealthAnalysis,
+        calories = state.calories
+    )
 }
 
 internal fun menuDetailMenuIdAfterDiceResult(
@@ -5171,6 +5572,7 @@ private const val ANALYTICS_CTA_BACK = "back"
 private const val ANALYTICS_CTA_ROLL_DICE = "roll_dice"
 private const val ANALYTICS_CTA_GENERATE_AI_MENU = "generate_ai_menu"
 private const val ANALYTICS_CTA_SAVE_MENU = "save_menu"
+private const val ANALYTICS_CTA_DISCARD_GENERATED_MENU = "discard_generated_menu"
 private const val ANALYTICS_CTA_ANALYZE_PENDING = "analyze_pending"
 private const val ANALYTICS_CTA_VIEW_MORE = "view_more"
 private const val ANALYTICS_CTA_OPEN_MENU = "open_menu"
