@@ -1,16 +1,18 @@
 package com.menudado
 
 import android.os.Bundle
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.view.Window
+import android.view.WindowManager
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.activity.ComponentActivity
-import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.core.view.WindowCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -91,10 +93,7 @@ class MainActivity : ComponentActivity() {
             splashHandler.postDelayed(hideStartupSplash, SPLASH_DURATION_MILLIS)
         }
         app.analytics.trackAppOpened(AndroidDeviceInfoProvider.current())
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(menuDadoStatusBarColor()),
-            navigationBarStyle = SystemBarStyle.dark(menuDadoNavigationBarColor())
-        )
+        applyMenuDadoEdgeToEdge(window)
         setContent {
             MenuDadoTheme {
                 val showSplash by showStartupSplash
@@ -320,6 +319,30 @@ class MainActivity : ComponentActivity() {
 internal fun menuDadoStatusBarColor(): Int = MenuDadoColors.HeaderGreen.toArgb()
 
 internal fun menuDadoNavigationBarColor(): Int = MenuDadoColors.HeaderGreen.toArgb()
+
+internal fun menuDadoDecorFitsSystemWindows(): Boolean = false
+
+internal fun menuDadoDisplayCutoutMode(): Int =
+    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+
+@Suppress("DEPRECATION")
+internal fun applyMenuDadoEdgeToEdge(window: Window) {
+    WindowCompat.setDecorFitsSystemWindows(window, menuDadoDecorFitsSystemWindows())
+    window.statusBarColor = menuDadoStatusBarColor()
+    window.navigationBarColor = menuDadoNavigationBarColor()
+    WindowCompat.getInsetsController(window, window.decorView).apply {
+        isAppearanceLightStatusBars = false
+        isAppearanceLightNavigationBars = false
+    }
+    applyMenuDadoDisplayCutoutMode(window)
+}
+
+internal fun applyMenuDadoDisplayCutoutMode(window: Window) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+    window.attributes = window.attributes.apply {
+        layoutInDisplayCutoutMode = menuDadoDisplayCutoutMode()
+    }
+}
 
 internal fun shouldShowAdsPrivacyOptionsInNavigation(
     areAdsEnabled: Boolean,

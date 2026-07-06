@@ -81,6 +81,29 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `foto del menu se decodifica con reduccion de resolucion para portada`() {
+        assertEquals(1024, menuCoverImageRequestedPixelSize())
+        assertEquals(
+            2,
+            menuCoverImageBitmapSampleSize(
+                sourceWidth = 4096,
+                sourceHeight = 3072,
+                requestedWidth = 1024,
+                requestedHeight = 1024
+            )
+        )
+        assertEquals(
+            1,
+            menuCoverImageBitmapSampleSize(
+                sourceWidth = 800,
+                sourceHeight = 600,
+                requestedWidth = 1024,
+                requestedHeight = 1024
+            )
+        )
+    }
+
+    @Test
     fun `tarjetas del carrusel reservan alturas fijas para alinear chips`() {
         assertEquals(34, menuCarouselItemTitleHeightDp())
         assertEquals(26, menuCarouselItemMetaRowHeightDp())

@@ -3,6 +3,7 @@ package com.menudado
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.Lifecycle
 import com.menudado.ui.theme.MenuDadoColors
+import android.view.WindowManager
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -13,6 +14,19 @@ class MainActivitySystemBarsTest {
 
         assertEquals(headerGreen, menuDadoStatusBarColor())
         assertEquals(headerGreen, menuDadoNavigationBarColor())
+    }
+
+    @Test
+    fun `modo cutout usa el valor moderno compatible con Android 15`() {
+        assertEquals(
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS,
+            menuDadoDisplayCutoutMode()
+        )
+    }
+
+    @Test
+    fun `edge to edge dibuja contenido detras de barras del sistema`() {
+        assertEquals(false, menuDadoDecorFitsSystemWindows())
     }
 
     @Test

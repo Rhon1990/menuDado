@@ -248,6 +248,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Publicación Play Store:
   - La declaración de apps de salud en Play Console debe mantenerse alineada con las funciones reales de MenuDado. Dado que la app planifica menús, usa perfil alimentario, alérgenos, embarazo, condiciones de salud, calorías y análisis saludable con IA, debe declarar al menos `Nutrition and Weight Management` / `Nutrición y control del peso`.
   - La descripción pública de Play Store debe incluir el aviso de que MenuDado no es un dispositivo médico y no diagnostica, trata, cura ni previene ninguna condición médica, además de recomendar consultar con un profesional sanitario para asesoramiento, diagnóstico o tratamiento.
+  - Para Android 15/API 35, `MainActivity` habilita edge-to-edge con `androidx.activity` actualizado y fuerza `LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS`; las fotos de menús se decodifican con `BitmapFactory.Options.inSampleSize` para evitar cargar bitmaps completos en portadas.
   - El AAB productivo se genera en `app/build/outputs/bundle/release/app-release.aab`.
   - Si Play Console muestra la advertencia de desofuscación, subir `app/build/outputs/mapping/release/mapping.txt` en el artefacto correspondiente para mejorar el diagnóstico de crashes y ANR.
   - El build `release` configura `ndk.debugSymbolLevel = SYMBOL_TABLE`; las librerías nativas actuales vienen de dependencias AndroidX/DataStore y la tarea local `mergeReleaseNativeDebugMetadata` no genera símbolos externos porque no hay metadata nativa propia disponible.

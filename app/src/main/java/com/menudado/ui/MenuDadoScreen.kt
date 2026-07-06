@@ -3,6 +3,7 @@ package com.menudado.ui
 import androidx.compose.animation.AnimatedVisibility
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.Animatable
 import android.graphics.Paint as AndroidPaint
@@ -3383,13 +3384,7 @@ private fun MenuCoverImage(
     val bitmap = remember(menu.imageUri) {
         menu.imageUri?.let { uri ->
             runCatching {
-                if (uri.startsWith("content://") || uri.startsWith("file://")) {
-                    context.contentResolver.openInputStream(uri.toUri())?.use { input ->
-                        BitmapFactory.decodeStream(input)
-                    }
-                } else {
-                    BitmapFactory.decodeFile(uri)
-                }
+                decodeSampledMenuCoverBitmap(context, uri)
             }.getOrNull()
         }
     }
@@ -4416,6 +4411,65 @@ internal fun menuImagePlaceholderDrawableRes(): Int = R.drawable.menu_placeholde
 internal fun menuImagePlaceholderSizePercent(): Int = 72
 
 internal fun menuImagePlaceholderUsesColorTint(): Boolean = false
+
+private const val MENU_COVER_IMAGE_REQUESTED_PIXEL_SIZE = 1024
+
+internal fun menuCoverImageRequestedPixelSize(): Int = MENU_COVER_IMAGE_REQUESTED_PIXEL_SIZE
+
+internal fun menuCoverImageBitmapSampleSize(
+    sourceWidth: Int,
+    sourceHeight: Int,
+    requestedWidth: Int,
+    requestedHeight: Int
+): Int {
+    if (sourceWidth <= 0 || sourceHeight <= 0 || requestedWidth <= 0 || requestedHeight <= 0) {
+        return 1
+    }
+
+    var inSampleSize = 1
+    if (sourceHeight > requestedHeight || sourceWidth > requestedWidth) {
+        val halfHeight = sourceHeight / 2
+        val halfWidth = sourceWidth / 2
+        while (
+            halfHeight / inSampleSize >= requestedHeight &&
+            halfWidth / inSampleSize >= requestedWidth
+        ) {
+            inSampleSize *= 2
+        }
+    }
+    return inSampleSize
+}
+
+private fun sampledMenuCoverDecodeOptions(bounds: BitmapFactory.Options): BitmapFactory.Options =
+    BitmapFactory.Options().apply {
+        inSampleSize = menuCoverImageBitmapSampleSize(
+            sourceWidth = bounds.outWidth,
+            sourceHeight = bounds.outHeight,
+            requestedWidth = menuCoverImageRequestedPixelSize(),
+            requestedHeight = menuCoverImageRequestedPixelSize()
+        )
+    }
+
+private fun decodeSampledMenuCoverBitmapFromBytes(bytes: ByteArray): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, sampledMenuCoverDecodeOptions(bounds))
+}
+
+private fun decodeSampledMenuCoverBitmapFromFile(path: String): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, bounds)
+    return BitmapFactory.decodeFile(path, sampledMenuCoverDecodeOptions(bounds))
+}
+
+private fun decodeSampledMenuCoverBitmap(context: Context, uri: String): Bitmap? =
+    if (uri.startsWith("content://") || uri.startsWith("file://")) {
+        context.contentResolver.openInputStream(uri.toUri())?.use { input ->
+            decodeSampledMenuCoverBitmapFromBytes(input.readBytes())
+        }
+    } else {
+        decodeSampledMenuCoverBitmapFromFile(uri)
+    }
 
 internal fun menuCarouselItemTitleHeightDp(): Int = 34
 
