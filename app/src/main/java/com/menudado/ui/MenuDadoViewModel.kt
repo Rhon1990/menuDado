@@ -821,7 +821,7 @@ class MenuDadoViewModel(
             val retryAtMillis = nextPacificMidnightMillis(clockMillisProvider())
             _uiState.update {
                 it.copy(
-                    message = currentLanguage().aiRequestsPerDayMessage(),
+                    message = currentLanguage().aiLocalDailyLimitMessage(),
                     aiRetryAtMillis = retryAtMillis,
                     isAiRequestThrottlePause = false,
                     isAiRetryNoticeVisible = true,
@@ -1615,6 +1615,9 @@ private fun Throwable.toAiFailureNotice(nowMillis: Long, language: AppLanguage):
             "timed out" in text -> AiFailureNotice(
                 language.aiTimeoutMessage()
             )
+        text.isAiProviderInternalFailure() -> AiFailureNotice(
+            language.aiTemporaryServiceMessage()
+        )
         else -> AiFailureNotice(language.aiGenericFailureMessage())
     }
 }
@@ -1638,8 +1641,16 @@ private fun Throwable.analyticsFailureType(): String {
             this is TimeoutCancellationException ||
             "timeout" in text ||
             "timed out" in text -> AI_FAILURE_TIMEOUT
+        text.isAiProviderInternalFailure() -> AI_FAILURE_TEMPORARY
         else -> AI_FAILURE_GENERIC
     }
+}
+
+private fun String.isAiProviderInternalFailure(): Boolean {
+    val normalized = trim()
+    return normalized == "internal" ||
+        "internal error" in normalized ||
+        "status{code=internal" in normalized
 }
 
 private fun List<FoodMenu>.countAnalyzed(): Int = count { it.healthAnalysis != null }
@@ -1750,33 +1761,41 @@ private fun AppLanguage.emptyAiBatchAnalysisMessage(): String {
 
 private fun AppLanguage.aiRetryMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI is paused to avoid repeated attempts. Your menus are still available."
-        AppLanguage.FRENCH -> "L'IA est en pause pour éviter les tentatives répétées. Vos menus restent disponibles."
-        AppLanguage.SPANISH -> "La IA está en pausa para evitar intentos repetidos. Tus menús siguen disponibles."
+        AppLanguage.ENGLISH -> "AI is in high demand. Try again later."
+        AppLanguage.FRENCH -> "L'IA est très demandée. Réessayez plus tard."
+        AppLanguage.SPANISH -> "La IA está con mucha demanda. Inténtalo nuevamente más tarde."
     }
 }
 
 private fun AppLanguage.aiRequestsPerMinuteMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI received several requests close together. Wait a moment before trying again."
-        AppLanguage.FRENCH -> "L'IA a reçu plusieurs demandes très rapprochées. Attendez un moment avant de réessayer."
-        AppLanguage.SPANISH -> "La IA recibió varias peticiones muy seguidas. Espera un momento antes de volver a intentarlo."
+        AppLanguage.ENGLISH -> "AI is in high demand. Try again later."
+        AppLanguage.FRENCH -> "L'IA est très demandée. Réessayez plus tard."
+        AppLanguage.SPANISH -> "La IA está con mucha demanda. Inténtalo nuevamente más tarde."
     }
 }
 
 private fun AppLanguage.aiTokensPerMinuteMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "This idea needs a short break before being processed again. You can keep using your menus."
-        AppLanguage.FRENCH -> "Cette idée a besoin d'une pause avant d'être traitée de nouveau. Vous pouvez continuer à utiliser vos menus."
-        AppLanguage.SPANISH -> "La idea necesita una pausa antes de procesarse de nuevo. Puedes seguir usando tus menús."
+        AppLanguage.ENGLISH -> "AI is in high demand. Try again later."
+        AppLanguage.FRENCH -> "L'IA est très demandée. Réessayez plus tard."
+        AppLanguage.SPANISH -> "La IA está con mucha demanda. Inténtalo nuevamente más tarde."
     }
 }
 
 private fun AppLanguage.aiRequestsPerDayMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "Today's free AI help has run out. Your menus are still available and you can try again later."
-        AppLanguage.FRENCH -> "L'aide IA gratuite du jour est épuisée. Vos menus restent disponibles et vous pourrez réessayer plus tard."
-        AppLanguage.SPANISH -> "La ayuda gratuita con IA de hoy se agotó. Tus menús siguen disponibles y podrás volver a probar más adelante."
+        AppLanguage.ENGLISH -> "AI is in high demand. Try again later."
+        AppLanguage.FRENCH -> "L'IA est très demandée. Réessayez plus tard."
+        AppLanguage.SPANISH -> "La IA está con mucha demanda. Inténtalo nuevamente más tarde."
+    }
+}
+
+private fun AppLanguage.aiLocalDailyLimitMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "Today's free AI uses in MenuDado have run out. Your menus are still available and you can try again later."
+        AppLanguage.FRENCH -> "Les usages gratuits de l'IA dans MenuDado sont épuisés pour aujourd'hui. Vos menus restent disponibles et vous pourrez réessayer plus tard."
+        AppLanguage.SPANISH -> "Has usado la IA gratuita de MenuDado por hoy. Tus menús siguen disponibles y podrás intentarlo más tarde."
     }
 }
 
@@ -1833,6 +1852,14 @@ private fun AppLanguage.aiTimeoutMessage(): String {
         AppLanguage.ENGLISH -> "AI took too long to respond. Check your connection and try again."
         AppLanguage.FRENCH -> "L'IA a mis trop de temps à répondre. Vérifiez votre connexion et réessayez."
         AppLanguage.SPANISH -> "La IA tardó demasiado en responder. Revisa la conexión e inténtalo de nuevo."
+    }
+}
+
+private fun AppLanguage.aiTemporaryServiceMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "The service had a temporary issue. Try again later."
+        AppLanguage.FRENCH -> "Le service a rencontré un problème temporaire. Réessayez plus tard."
+        AppLanguage.SPANISH -> "El servicio tuvo un problema temporal. Inténtalo nuevamente más tarde."
     }
 }
 
@@ -1944,6 +1971,7 @@ private const val AI_FAILURE_QUOTA_DAILY = "quota_daily"
 private const val AI_FAILURE_QUOTA = "quota"
 private const val AI_FAILURE_CONFIGURATION = "configuration"
 private const val AI_FAILURE_TIMEOUT = "timeout"
+private const val AI_FAILURE_TEMPORARY = "temporary"
 private const val AI_FAILURE_GENERIC = "generic"
 private const val FIRST_QUOTA_BACKOFF_MILLIS = 0L
 private const val SECOND_QUOTA_BACKOFF_MILLIS = 2 * 60 * 1000L

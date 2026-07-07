@@ -1134,7 +1134,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(0, analyzer.generateCalls)
         assertEquals(0, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals("La ayuda gratuita con IA de hoy se agotó. Tus menús siguen disponibles y podrás volver a probar más adelante.", viewModel.uiState.value.message)
+        assertEquals("Has usado la IA gratuita de MenuDado por hoy. Tus menús siguen disponibles y podrás intentarlo más tarde.", viewModel.uiState.value.message)
         assertEquals(listOf("ai_daily_limit_reached:generate_menu"), analytics.events)
     }
 
@@ -1558,7 +1558,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está en pausa para evitar intentos repetidos. Tus menús siguen disponibles.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -1582,7 +1582,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA recibió varias peticiones muy seguidas. Espera un momento antes de volver a intentarlo.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
     }
@@ -1604,7 +1604,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La idea necesita una pausa antes de procesarse de nuevo. Puedes seguir usando tus menús.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
     }
@@ -1626,9 +1626,30 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La ayuda gratuita con IA de hoy se agotó. Tus menús siguen disponibles y podrás volver a probar más adelante.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
+    }
+
+    @Test
+    fun `generate menu idea shows temporary AI message when provider returns internal error`() = runTest(dispatcher) {
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { 100_000L },
+            aiQuotaRetryStore = aiQuotaRetryStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        analyzer.generateFailure = IllegalStateException("INTERNAL")
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(
+            "El servicio tuvo un problema temporal. Inténtalo nuevamente más tarde.",
+            viewModel.uiState.value.message
+        )
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
     }
 
     @Test
@@ -1652,7 +1673,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(1, analyzer.generateCalls)
         assertEquals(
-            "La IA está en pausa para evitar intentos repetidos. Tus menús siguen disponibles.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -1675,7 +1696,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(0, analyzer.generateCalls)
         assertEquals(
-            "La IA está en pausa para evitar intentos repetidos. Tus menús siguen disponibles.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -1704,7 +1725,7 @@ class MenuDadoViewModelTest {
         assertEquals(0, analyzer.generateCalls)
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
         assertEquals(
-            "La IA está en pausa para evitar intentos repetidos. Tus menús siguen disponibles.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
     }
@@ -1832,10 +1853,36 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está en pausa para evitar intentos repetidos. Tus menús siguen disponibles.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(295_000L, viewModel.uiState.value.aiRetryAtMillis)
+    }
+
+    @Test
+    fun `analyze existing shows temporary AI message when provider returns internal error`() = runTest(dispatcher) {
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { 250_000L },
+            aiQuotaRetryStore = aiQuotaRetryStore
+        )
+        analyzer.analysisFailure = IllegalStateException("INTERNAL")
+
+        viewModel.analyzeExisting(
+            FoodMenu(
+                id = 1,
+                name = "Tostadas",
+                mealType = MealType.BREAKFAST,
+                description = "Pan y aguacate"
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            "El servicio tuvo un problema temporal. Inténtalo nuevamente más tarde.",
+            viewModel.uiState.value.message
+        )
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
     }
 
     @Test
