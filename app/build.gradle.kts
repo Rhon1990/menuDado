@@ -36,7 +36,7 @@ android {
         applicationId = "com.menudado"
         minSdk = 23
         targetSdk = 35
-        versionCode = 9
+        versionCode = 10
         versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -68,7 +68,7 @@ android {
             buildConfigField(
                 "String",
                 "HOME_INLINE_BANNER_AD_UNIT_ID",
-                "\"ca-app-pub-2347852335093406/4295829613\""
+                "\"ca-app-pub-2347852335093406/2270906270\""
             )
             signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true

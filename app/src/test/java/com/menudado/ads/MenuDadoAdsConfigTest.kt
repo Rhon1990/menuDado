@@ -19,7 +19,7 @@ class MenuDadoAdsConfigTest {
     @Test
     fun `release home banner ad unit uses MenuDado production placement`() {
         assertEquals(
-            "ca-app-pub-2347852335093406/4295829613",
+            "ca-app-pub-2347852335093406/2270906270",
             MenuDadoAdsConfig.RELEASE_HOME_INLINE_BANNER_AD_UNIT_ID
         )
     }

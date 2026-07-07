@@ -26,7 +26,7 @@ class MenuDadoRemoteDataSourceTest {
                 timeZone = "Europe/Madrid"
             ),
             appVersionName = "1.2.3",
-            appVersionCode = 9
+            appVersionCode = 10
         )
 
         val document = BackendFirestoreMapper.metadataDocument(metadata)
@@ -37,7 +37,7 @@ class MenuDadoRemoteDataSourceTest {
         assertEquals("Pixel 8", document["deviceModel"])
         assertEquals("15", document["androidVersion"])
         assertEquals("1.2.3", document["appVersionName"])
-        assertEquals(9, document["appVersionCode"])
+        assertEquals(10, document["appVersionCode"])
         assertEquals("none", document["authMode"])
         assertEquals(null, document["accountEmail"])
         assertFalse(document.containsKey("latitude"))
@@ -57,7 +57,7 @@ class MenuDadoRemoteDataSourceTest {
                 timeZone = "Europe/Madrid"
             ),
             appVersionName = "1.2.3",
-            appVersionCode = 9,
+            appVersionCode = 10,
             authSession = MenuDadoAuthSession(
                 userId = "registered-user",
                 email = "user@example.com",
