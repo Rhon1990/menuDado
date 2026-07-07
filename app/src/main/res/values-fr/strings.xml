@@ -39,7 +39,12 @@
     <string name="auth_switch_to_sign_in">J’ai déjà un compte, me connecter</string>
     <string name="auth_switch_to_register">Créer un nouveau compte</string>
     <string name="auth_google_unavailable">La connexion avec Google n’est pas disponible pour le moment. Réessayez plus tard.</string>
+    <string name="auth_google_no_credentials">Aucun compte Google n’a été trouvé. Utilisez l’e-mail ou vérifiez votre compte Google.</string>
     <string name="auth_google_missing_token">Google n’a pas renvoyé de session valide. Réessayez.</string>
+    <string name="auth_invalid_credentials">E-mail ou mot de passe incorrect.</string>
+    <string name="auth_email_already_in_use">Cet e-mail est déjà inscrit. Connectez-vous.</string>
+    <string name="auth_weak_password">Le mot de passe doit contenir au moins 6 caractères.</string>
+    <string name="auth_network_error">Pas de connexion. Vérifiez internet et réessayez.</string>
     <string name="auth_sign_in">Se connecter</string>
     <string name="auth_register">Créer un compte</string>
     <string name="auth_register_free">M’inscrire gratuitement</string>

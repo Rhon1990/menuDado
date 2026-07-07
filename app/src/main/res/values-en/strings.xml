@@ -39,7 +39,12 @@
     <string name="auth_switch_to_sign_in">I already have an account, sign in</string>
     <string name="auth_switch_to_register">Create a new account</string>
     <string name="auth_google_unavailable">Google sign-in is not available right now. Try again later.</string>
+    <string name="auth_google_no_credentials">No Google account was found. Use email or check your Google account.</string>
     <string name="auth_google_missing_token">Google did not return a valid session. Try again.</string>
+    <string name="auth_invalid_credentials">Incorrect email or password.</string>
+    <string name="auth_email_already_in_use">That email is already registered. Sign in.</string>
+    <string name="auth_weak_password">The password must be at least 6 characters.</string>
+    <string name="auth_network_error">No connection. Check your internet and try again.</string>
     <string name="auth_sign_in">Sign in</string>
     <string name="auth_register">Create account</string>
     <string name="auth_register_free">Register for free</string>

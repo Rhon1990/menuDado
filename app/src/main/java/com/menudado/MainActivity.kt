@@ -58,6 +58,7 @@ import com.menudado.ads.MenuDadoAdsController
 import com.menudado.ads.MenuDadoAdsRemoteConfig
 import com.menudado.about.MenuDadoAboutContent
 import com.menudado.about.MenuDadoAboutRemoteConfig
+import com.menudado.auth.authErrorMessageResId
 import com.menudado.auth.shouldStartGuestModeByDefault
 import com.menudado.auth.MenuDadoGuestLimitsRemoteConfig
 import com.menudado.ui.MenuDadoScreen
@@ -153,7 +154,7 @@ class MainActivity : ComponentActivity() {
                             app.syncBackendNow()
                         } else {
                             authErrorMessage = result.exceptionOrNull()
-                                ?.localizedMessage
+                                ?.let { getString(authErrorMessageResId(it)) }
                                 ?: getString(R.string.auth_error_generic)
                         }
                         isAuthLoading = false

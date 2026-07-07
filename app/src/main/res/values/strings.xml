@@ -39,7 +39,12 @@
     <string name="auth_switch_to_sign_in">Ya tengo cuenta, iniciar sesión</string>
     <string name="auth_switch_to_register">Crear una cuenta nueva</string>
     <string name="auth_google_unavailable">No se pudo iniciar sesión con Google en este momento. Inténtalo más tarde.</string>
+    <string name="auth_google_no_credentials">No se encontró una cuenta de Google disponible. Usa correo o revisa tu cuenta de Google.</string>
     <string name="auth_google_missing_token">Google no devolvió una sesión válida. Inténtalo otra vez.</string>
+    <string name="auth_invalid_credentials">Correo o contraseña incorrectos.</string>
+    <string name="auth_email_already_in_use">Ese correo ya está registrado. Inicia sesión.</string>
+    <string name="auth_weak_password">La contraseña debe tener al menos 6 caracteres.</string>
+    <string name="auth_network_error">Sin conexión. Revisa internet e inténtalo otra vez.</string>
     <string name="auth_sign_in">Iniciar sesión</string>
     <string name="auth_register">Crear cuenta</string>
     <string name="auth_register_free">Registrarme gratis</string>

@@ -12,10 +12,26 @@ fun installMenuDadoAppCheckProvider() {
 }
 
 private fun menuDadoAppCheckProviderFactory(): AppCheckProviderFactory {
-    return if (BuildConfig.APP_CHECK_PROVIDER == APP_CHECK_PROVIDER_DEBUG) {
-        debugAppCheckProviderFactory() ?: playIntegrityAppCheckProviderFactory()
+    return when (menuDadoAppCheckProviderKind(BuildConfig.APP_CHECK_PROVIDER)) {
+        MenuDadoAppCheckProviderKind.DEBUG -> {
+            debugAppCheckProviderFactory() ?: playIntegrityAppCheckProviderFactory()
+        }
+        MenuDadoAppCheckProviderKind.PLAY_INTEGRITY -> {
+            playIntegrityAppCheckProviderFactory()
+        }
+    }
+}
+
+internal enum class MenuDadoAppCheckProviderKind {
+    DEBUG,
+    PLAY_INTEGRITY
+}
+
+internal fun menuDadoAppCheckProviderKind(configuredProvider: String): MenuDadoAppCheckProviderKind {
+    return if (configuredProvider == APP_CHECK_PROVIDER_DEBUG) {
+        MenuDadoAppCheckProviderKind.DEBUG
     } else {
-        playIntegrityAppCheckProviderFactory()
+        MenuDadoAppCheckProviderKind.PLAY_INTEGRITY
     }
 }
 

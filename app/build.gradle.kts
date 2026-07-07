@@ -36,7 +36,7 @@ android {
         applicationId = "com.menudado"
         minSdk = 23
         targetSdk = 35
-        versionCode = 7
+        versionCode = 8
         versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -95,6 +95,7 @@ android {
                 "HOME_INLINE_BANNER_AD_UNIT_ID",
                 "\"ca-app-pub-3940256099942544/9214589741\""
             )
+            buildConfigField("String", "APP_CHECK_PROVIDER", "\"debug\"")
         }
     }
 
@@ -154,6 +155,7 @@ dependencies {
     debugImplementation("com.google.firebase:firebase-appcheck-debug:18.0.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+    "releaseDebuggableImplementation"("com.google.firebase:firebase-appcheck-debug:18.0.0")
     "releaseDebuggableImplementation"("androidx.compose.ui:ui-tooling")
     "releaseDebuggableImplementation"("androidx.compose.ui:ui-test-manifest")
 }
