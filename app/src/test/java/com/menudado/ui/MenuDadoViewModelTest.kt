@@ -1206,26 +1206,53 @@ class MenuDadoViewModelTest {
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
-        aiRequestThrottleStore.storedLastRequestAtMillis = 98_001L
+        aiRequestThrottleStore.storedLastRequestAtMillis = 99_500L
 
         viewModel.generateMenuIdea()
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
         assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals(102_001L, viewModel.uiState.value.aiRetryAtMillis)
-        assertEquals(
-            "La IA recibió varias peticiones muy seguidas. Espera un momento antes de volver a intentarlo.",
-            viewModel.uiState.value.message
-        )
+        assertEquals(100_500L, viewModel.uiState.value.aiRetryAtMillis)
+        assertNull(viewModel.uiState.value.message)
+        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
 
-        nowMillis = 102_001L
+        nowMillis = 100_500L
         viewModel.generateMenuIdea()
         advanceUntilIdle()
 
         assertEquals(1, analyzer.generateCalls)
         assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals(102_001L, aiRequestThrottleStore.storedLastRequestAtMillis)
+        assertEquals(100_500L, aiRequestThrottleStore.storedLastRequestAtMillis)
+    }
+
+    @Test
+    fun `generate menu idea can be requested again after a completed response exceeds local anti double tap pause`() = runTest(dispatcher) {
+        analyzer.generateDelayMillis = 1_500L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { 100_000L + currentTime },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        viewModel.discardGeneratedMenuIdea()
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(2, analyzer.generateCalls)
+        assertEquals(18, viewModel.uiState.value.aiUsesRemainingToday)
+        assertNull(viewModel.uiState.value.message)
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
     }
 
     @Test
@@ -1868,7 +1895,7 @@ class MenuDadoViewModelTest {
         viewModel.generateMenuIdea()
         advanceUntilIdle()
 
-        nowMillis += 2_000L
+        nowMillis += 500L
         viewModel.analyzeExisting(
             FoodMenu(
                 id = 1,
@@ -1882,7 +1909,7 @@ class MenuDadoViewModelTest {
         assertEquals(1, analyzer.generateCalls)
         assertEquals(0, analyzer.analysisCalls)
         assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals(204_000L, viewModel.uiState.value.aiRetryAtMillis)
+        assertEquals(201_000L, viewModel.uiState.value.aiRetryAtMillis)
     }
 
     @Test

@@ -1509,10 +1509,10 @@ class MenuDadoViewModel(
     private fun showAiRequestThrottleNotice(retryAtMillis: Long) {
         _uiState.update {
             it.copy(
-                message = currentLanguage().aiRequestsPerMinuteMessage(),
+                message = null,
                 aiRetryAtMillis = retryAtMillis,
                 isAiRequestThrottlePause = true,
-                isAiRetryNoticeVisible = true
+                isAiRetryNoticeVisible = false
             )
         }
         scheduleAiRetryRefresh(retryAtMillis)
@@ -1948,7 +1948,7 @@ private const val AI_FAILURE_GENERIC = "generic"
 private const val FIRST_QUOTA_BACKOFF_MILLIS = 0L
 private const val SECOND_QUOTA_BACKOFF_MILLIS = 2 * 60 * 1000L
 private const val MAX_QUOTA_BACKOFF_MILLIS = 30 * 60 * 1000L
-private const val AI_REQUEST_THROTTLE_MILLIS = 4 * 1000L
+private const val AI_REQUEST_THROTTLE_MILLIS = 1 * 1000L
 private const val AI_REQUEST_TIMEOUT_MILLIS = 45 * 1000L
 private fun AiQuotaLimitType.message(language: AppLanguage): String {
     return when (this) {
