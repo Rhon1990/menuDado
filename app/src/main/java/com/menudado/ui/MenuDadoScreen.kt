@@ -67,6 +67,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -189,7 +190,11 @@ fun MenuDadoScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    var previousRolling by remember { mutableStateOf(state.isRolling) }
+    val isContextualDiceAnimating = contextualDiceShouldAnimate(
+        isGeneratingMenu = state.isGeneratingMenu,
+        isSelectingSavedMenu = state.isRolling
+    )
+    var previousContextualDiceAnimating by remember { mutableStateOf(isContextualDiceAnimating) }
     var diceFaceIndex by remember { mutableIntStateOf(0) }
     var manualDiceRotation by remember { mutableStateOf(DiceDragRotation()) }
     val contextualDiceRollProgress = remember { ComposeAnimatable(0f) }
@@ -318,15 +323,15 @@ fun MenuDadoScreen(
         }
     }
 
-    LaunchedEffect(state.isRolling) {
-        if (previousRolling && !state.isRolling) {
+    LaunchedEffect(isContextualDiceAnimating) {
+        if (previousContextualDiceAnimating && !isContextualDiceAnimating) {
             diceFaceIndex = (diceFaceIndex + 1) % DiceRestPoses.size
         }
-        previousRolling = state.isRolling
+        previousContextualDiceAnimating = isContextualDiceAnimating
     }
 
-    LaunchedEffect(state.isRolling) {
-        if (state.isRolling) {
+    LaunchedEffect(isContextualDiceAnimating) {
+        if (isContextualDiceAnimating) {
             contextualDiceRollProgress.snapTo(0f)
             contextualDiceRollProgress.animateTo(
                 targetValue = 1f,
@@ -2634,8 +2639,10 @@ private fun TodayMenuSection(
     onSave: () -> Unit
 ) {
     val selectedMode = state.homeMenuMode
-    val isAiMode = selectedMode == HomeMenuMode.Ai
-    val isDiceBusy = if (isAiMode) state.isGeneratingMenu else state.isRolling
+    val isDiceBusy = contextualDiceShouldAnimate(
+        isGeneratingMenu = state.isGeneratingMenu,
+        isSelectingSavedMenu = state.isRolling
+    )
     val idleRotation by animateFloatAsState(
         targetValue = if (isDiceBusy) 0f else -4f,
         animationSpec = tween(durationMillis = 300),
@@ -2741,20 +2748,11 @@ private fun TodayMenuSection(
                     if (!canUseAiActions && aiDiceDisabledReason != null) {
                         ContextualDiceDisabledReason(text = aiDiceDisabledReason)
                     }
-                    OutlinedButton(
-                        onClick = onRollSavedMenu,
+                    SavedMenuRandomButton(
+                        isRolling = state.isRolling,
                         enabled = canRollSavedMenu,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
-                        border = BorderStroke(1.dp, MenuDadoColors.BrandGreen)
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.home_choose_saved_action),
-                            modifier = Modifier.padding(vertical = 7.dp),
-                            color = MenuDadoColors.DeepGreen,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                        onClick = onRollSavedMenu
+                    )
                     TextButton(
                         onClick = { onModeChanged(HomeMenuMode.Manual) },
                         modifier = Modifier.fillMaxWidth(),
@@ -2794,6 +2792,66 @@ private fun TodayMenuSection(
             }
         }
     }
+}
+
+@Composable
+private fun SavedMenuRandomButton(
+    isRolling: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
+        border = BorderStroke(1.dp, MenuDadoColors.BrandGreen)
+    ) {
+        if (isRolling) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = MenuDadoColors.BrandGreen,
+                strokeWidth = 2.dp
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+        }
+        Column(
+            modifier = Modifier.padding(vertical = 7.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(id = savedMenuRandomPrimaryTextRes(isRolling)),
+                color = MenuDadoColors.DeepGreen,
+                fontWeight = FontWeight.Bold
+            )
+            if (!isRolling) {
+                Text(
+                    text = stringResource(id = savedMenuRandomSupportingTextRes()),
+                    color = MenuDadoColors.MutedInk,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+    }
+}
+
+internal fun contextualDiceShouldAnimate(
+    isGeneratingMenu: Boolean,
+    isSelectingSavedMenu: Boolean
+): Boolean = isGeneratingMenu && !isSelectingSavedMenu
+
+internal fun savedMenuRandomPrimaryTextRes(isRolling: Boolean): Int = if (isRolling) {
+    R.string.home_choose_saved_loading
+} else {
+    R.string.home_choose_saved_action
+}
+
+internal fun savedMenuRandomSupportingTextRes(): Int = R.string.home_choose_saved_supporting
+
+internal fun menuDetailChooseAnotherSavedTextRes(): Int = R.string.menu_detail_choose_another_saved
+
+internal fun shouldShowChooseAnotherSavedMenu(openedFromRandomSelection: Boolean): Boolean {
+    return openedFromRandomSelection
 }
 
 @Composable

@@ -140,7 +140,10 @@
     <string name="home_today_subtitle">Genera una idea saludable con IA o escribe tu propio menú.</string>
     <string name="home_ai_dice_title">Generar idea saludable</string>
     <string name="home_ai_dice_body">Lanza el dado y MenuDado crea una idea nueva según tu perfil.</string>
-    <string name="home_choose_saved_action">Elegir entre mis menús</string>
+    <string name="home_choose_saved_action">Elegir un menú al azar</string>
+    <string name="home_choose_saved_supporting">Entre tus menús guardados</string>
+    <string name="home_choose_saved_loading">Buscando entre tus menús…</string>
+    <string name="menu_detail_choose_another_saved">Elegir otro menú</string>
     <string name="home_write_menu_action">Escribir mi menú</string>
     <string name="home_back_to_ai_action">Volver a generar con IA</string>
     <string name="home_recent_title">Tu último menú</string>

@@ -645,6 +645,32 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `seleccion local no anima el dado IA`() {
+        assertFalse(
+            contextualDiceShouldAnimate(
+                isGeneratingMenu = false,
+                isSelectingSavedMenu = true
+            )
+        )
+        assertTrue(
+            contextualDiceShouldAnimate(
+                isGeneratingMenu = true,
+                isSelectingSavedMenu = false
+            )
+        )
+    }
+
+    @Test
+    fun `seleccion aleatoria explica origen progreso y repeticion`() {
+        assertEquals(R.string.home_choose_saved_action, savedMenuRandomPrimaryTextRes(isRolling = false))
+        assertEquals(R.string.home_choose_saved_loading, savedMenuRandomPrimaryTextRes(isRolling = true))
+        assertEquals(R.string.home_choose_saved_supporting, savedMenuRandomSupportingTextRes())
+        assertEquals(R.string.menu_detail_choose_another_saved, menuDetailChooseAnotherSavedTextRes())
+        assertTrue(shouldShowChooseAnotherSavedMenu(openedFromRandomSelection = true))
+        assertFalse(shouldShowChooseAnotherSavedMenu(openedFromRandomSelection = false))
+    }
+
+    @Test
     fun `cabecera pone la marca al lado del menu sin espacio superior extra`() {
         assertEquals(0, menuDadoHeaderBrandTopPaddingDp())
         assertEquals(6, menuDadoHeaderBrandStartGapDp())

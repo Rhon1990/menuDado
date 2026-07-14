@@ -138,7 +138,10 @@
     <string name="home_today_subtitle">Generate a healthy idea with AI or write your own menu.</string>
     <string name="home_ai_dice_title">Generate healthy idea</string>
     <string name="home_ai_dice_body">Roll the dice and MenuDado creates a new idea based on your profile.</string>
-    <string name="home_choose_saved_action">Choose from my menus</string>
+    <string name="home_choose_saved_action">Choose a random menu</string>
+    <string name="home_choose_saved_supporting">From your saved menus</string>
+    <string name="home_choose_saved_loading">Looking through your menus…</string>
+    <string name="menu_detail_choose_another_saved">Choose another menu</string>
     <string name="home_write_menu_action">Write my menu</string>
     <string name="home_back_to_ai_action">Generate with AI instead</string>
     <string name="home_recent_title">Your latest menu</string>

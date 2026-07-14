@@ -138,7 +138,10 @@
     <string name="home_today_subtitle">Générez une idée saine avec l’IA ou écrivez votre propre menu.</string>
     <string name="home_ai_dice_title">Générer une idée saine</string>
     <string name="home_ai_dice_body">Lancez le dé et MenuDado crée une nouvelle idée selon votre profil.</string>
-    <string name="home_choose_saved_action">Choisir parmi mes menus</string>
+    <string name="home_choose_saved_action">Choisir un menu au hasard</string>
+    <string name="home_choose_saved_supporting">Parmi vos menus enregistrés</string>
+    <string name="home_choose_saved_loading">Recherche dans vos menus…</string>
+    <string name="menu_detail_choose_another_saved">Choisir un autre menu</string>
     <string name="home_write_menu_action">Écrire mon menu</string>
     <string name="home_back_to_ai_action">Générer plutôt avec l’IA</string>
     <string name="home_recent_title">Votre dernier menu</string>
