@@ -34,7 +34,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -622,7 +621,7 @@ fun MenuDadoScreen(
         )
     }
 
-    BoxWithConstraints(
+    Box(
         modifier = Modifier.hideKeyboardOnTouch(focusManager, keyboardController)
     ) {
         LazyColumn(
