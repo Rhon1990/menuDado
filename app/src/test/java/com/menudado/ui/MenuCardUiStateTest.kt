@@ -658,6 +658,12 @@ class MenuCardUiStateTest {
                 isSelectingSavedMenu = false
             )
         )
+        assertTrue(
+            contextualDiceShouldAnimate(
+                isGeneratingMenu = true,
+                isSelectingSavedMenu = true
+            )
+        )
     }
 
     @Test

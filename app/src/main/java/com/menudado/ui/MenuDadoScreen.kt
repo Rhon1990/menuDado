@@ -2862,7 +2862,11 @@ private fun SavedMenuRandomButton(
 internal fun contextualDiceShouldAnimate(
     isGeneratingMenu: Boolean,
     isSelectingSavedMenu: Boolean
-): Boolean = isGeneratingMenu && !isSelectingSavedMenu
+): Boolean = when {
+    isGeneratingMenu -> true
+    isSelectingSavedMenu -> false
+    else -> false
+}
 
 internal fun savedMenuRandomPrimaryTextRes(isRolling: Boolean): Int = if (isRolling) {
     R.string.home_choose_saved_loading
