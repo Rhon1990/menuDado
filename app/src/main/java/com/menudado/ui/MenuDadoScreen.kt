@@ -258,6 +258,7 @@ fun MenuDadoScreen(
         enabled = adsPrivacyOptionsMessage != null ||
             message != null ||
             state.showOnboarding ||
+            state.diceEmptyRecovery != null ||
             authFormMode != null ||
             actionSheetMenuId != null ||
             isPhotoSourceDialogVisible ||
@@ -276,6 +277,9 @@ fun MenuDadoScreen(
             }
             state.showOnboarding -> {
                 viewModel.skipOnboarding()
+            }
+            state.diceEmptyRecovery != null -> {
+                viewModel.dismissDiceEmptyRecovery()
             }
             authFormMode != null -> {
                 authFormMode = null
@@ -440,6 +444,24 @@ fun MenuDadoScreen(
             onFinish = {
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_ONBOARDING, ANALYTICS_CTA_START_ONBOARDING)
                 viewModel.completeOnboarding()
+            }
+        )
+    }
+
+    state.diceEmptyRecovery?.let { recovery ->
+        DiceEmptyRecoveryDialog(
+            recovery = recovery,
+            onGenerateAi = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_DICE_EMPTY_GENERATE_AI)
+                viewModel.generateAiFromDiceEmptyRecovery()
+            },
+            onBroadenMealType = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_DICE_EMPTY_BROADEN)
+                viewModel.rollDiceAcrossMealTypesForSelectedAudience()
+            },
+            onChangeFilters = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_DICE_EMPTY_CHANGE_FILTERS)
+                viewModel.dismissDiceEmptyRecovery()
             }
         )
     }
@@ -737,7 +759,17 @@ fun MenuDadoScreen(
                                 onDiceDrag = { dragX, dragY ->
                                     manualDiceRotation = manualDiceRotation.afterDrag(dragX, dragY)
                                 },
-                                onModeChanged = viewModel::setHomeMenuMode,
+                                onModeChanged = { mode ->
+                                    viewModel.trackCtaTapped(
+                                        ANALYTICS_SCREEN_HOME,
+                                        if (mode == HomeMenuMode.Ai) {
+                                            ANALYTICS_CTA_RETURN_TO_AI
+                                        } else {
+                                            ANALYTICS_CTA_WRITE_MENU
+                                        }
+                                    )
+                                    viewModel.setHomeMenuMode(mode)
+                                },
                                 onMealTypeChanged = { mealType ->
                                     viewModel.setFormMealType(mealType)
                                     viewModel.setDiceFilter(mealType)
@@ -751,11 +783,11 @@ fun MenuDadoScreen(
                                 onNotesChanged = viewModel::updateNotes,
                                 onAiBaseIngredientsChanged = viewModel::updateAiBaseIngredients,
                                 onGenerate = {
-                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_GENERATE_AI_MENU)
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_GENERATE_MENU)
                                     viewModel.generateMenuIdea()
                                 },
                                 onRollSavedMenu = {
-                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_ROLL_DICE)
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_CHOOSE_SAVED_MENU)
                                     viewModel.rollDice()
                                 },
                                 onSave = {
@@ -763,6 +795,21 @@ fun MenuDadoScreen(
                                     viewModel.saveMenu()
                                 }
                             )
+                        }
+                        mostRecentMenu(state.menus)?.let { recentMenu ->
+                            item {
+                                RecentMenuSection(
+                                    menu = recentMenu,
+                                    onOpen = {
+                                        viewModel.trackCtaTapped(
+                                            ANALYTICS_SCREEN_HOME,
+                                            ANALYTICS_CTA_OPEN_RECENT_MENU
+                                        )
+                                        viewModel.trackMenuCardOpened(recentMenu)
+                                        selectedDetailMenuId = recentMenu.id
+                                    }
+                                )
+                            }
                         }
                         item {
                             MenuDadoBannerAd(
@@ -2564,10 +2611,6 @@ private fun TodayMenuSection(
                     color = MenuDadoColors.MutedInk
                 )
             }
-            HomeMenuModeSelector(
-                selected = selectedMode,
-                onSelected = onModeChanged
-            )
             CompactMenuSelectors(
                 mealType = state.formMealType,
                 audience = state.formAudience,
@@ -2631,6 +2674,31 @@ private fun TodayMenuSection(
                     if (!canUseAiActions && aiDiceDisabledReason != null) {
                         ContextualDiceDisabledReason(text = aiDiceDisabledReason)
                     }
+                    OutlinedButton(
+                        onClick = onRollSavedMenu,
+                        enabled = canRollSavedMenu,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, MenuDadoColors.BrandGreen)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.home_choose_saved_action),
+                            modifier = Modifier.padding(vertical = 7.dp),
+                            color = MenuDadoColors.DeepGreen,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    TextButton(
+                        onClick = { onModeChanged(HomeMenuMode.Manual) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.home_write_menu_action),
+                            color = MenuDadoColors.DeepGreen,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
                 HomeMenuMode.Manual -> {
                     MenuTextFields(
@@ -2644,28 +2712,175 @@ private fun TodayMenuSection(
                         text = stringResource(id = R.string.common_save_menu),
                         onSave = onSave
                     )
-                    ContextualDiceButton(
-                        title = stringResource(id = R.string.home_manual_dice_title),
-                        body = stringResource(id = R.string.home_manual_dice_body),
-                        primaryText = if (state.isRolling) {
-                            stringResource(id = R.string.dice_rolling)
-                        } else {
-                            stringResource(id = R.string.dice_roll)
-                        },
-                        secondaryText = if (state.isRolling) {
-                            stringResource(id = R.string.dice_mixing)
-                        } else {
-                            stringResource(id = R.string.dice_saved_action)
-                        },
-                        enabled = canRollSavedMenu,
-                        isBusy = state.isRolling,
-                        diceFaceIndex = diceFaceIndex,
-                        diceRollProgress = diceRollProgress,
-                        diceContinuousRollCycles = null,
-                        idleRotation = idleRotation,
-                        manualRotation = manualDiceRotation,
-                        onDrag = onDiceDrag,
-                        onClick = onRollSavedMenu
+                    TextButton(
+                        onClick = { onModeChanged(HomeMenuMode.Ai) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.home_back_to_ai_action),
+                            color = MenuDadoColors.DeepGreen,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentMenuSection(
+    menu: FoodMenu,
+    onOpen: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = stringResource(id = R.string.home_recent_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Black,
+            color = MenuDadoColors.Ink
+        )
+        Card(
+            onClick = onOpen,
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MenuCoverImage(
+                    menu = menu,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                    showMealTypeLabel = false
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = menu.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MenuDadoColors.Ink,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${stringResource(id = mealTypeLabelRes(menu.mealType))} · " +
+                            stringResource(id = menuAudienceLabelRes(menu.audience)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MenuDadoColors.MutedInk
+                    )
+                }
+                Text(
+                    text = "›",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MenuDadoColors.DeepGreen
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiceEmptyRecoveryDialog(
+    recovery: DiceEmptyRecovery,
+    onGenerateAi: () -> Unit,
+    onBroadenMealType: () -> Unit,
+    onChangeFilters: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onChangeFilters,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.dice_plate_1),
+                    contentDescription = null,
+                    modifier = Modifier.size(80.dp),
+                    contentScale = ContentScale.Fit
+                )
+                Text(
+                    text = stringResource(id = R.string.dice_empty_recovery_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black,
+                    color = MenuDadoColors.Ink,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = stringResource(
+                        id = R.string.dice_empty_recovery_body,
+                        stringResource(id = mealTypeLabelRes(recovery.mealType)),
+                        stringResource(id = menuAudienceLabelRes(recovery.audience))
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MenuDadoColors.MutedInk,
+                    textAlign = TextAlign.Center
+                )
+                Button(
+                    onClick = onGenerateAi,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MenuDadoColors.Tomato,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.dice_empty_recovery_generate_ai),
+                        modifier = Modifier.padding(vertical = 7.dp),
+                        fontWeight = FontWeight.Black
+                    )
+                }
+                if (recovery.canBroadenMealType) {
+                    OutlinedButton(
+                        onClick = onBroadenMealType,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, MenuDadoColors.BrandGreen)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.dice_empty_recovery_broaden),
+                            modifier = Modifier.padding(vertical = 7.dp),
+                            color = MenuDadoColors.DeepGreen,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                TextButton(
+                    onClick = onChangeFilters,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.dice_empty_recovery_change_filters),
+                        color = MenuDadoColors.DeepGreen,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -2785,26 +3000,6 @@ private fun EditMenuDialog(
             }
         }
     }
-}
-
-@Composable
-private fun HomeMenuModeSelector(
-    selected: HomeMenuMode,
-    onSelected: (HomeMenuMode) -> Unit
-) {
-    MenuDadoSegmentedSwitch(
-        options = HomeMenuMode.entries.map { mode ->
-            MenuDadoSegmentOption(
-                value = mode,
-                label = when (mode) {
-                    HomeMenuMode.Ai -> stringResource(id = R.string.form_mode_ai)
-                    HomeMenuMode.Manual -> stringResource(id = R.string.form_mode_manual)
-                }
-            )
-        },
-        selected = selected,
-        onSelected = onSelected
-    )
 }
 
 @Composable
@@ -4649,6 +4844,8 @@ internal fun menuDetailMenuIdAfterDiceResult(
     return result?.id ?: currentDetailMenuId
 }
 
+internal fun mostRecentMenu(menus: List<FoodMenu>): FoodMenu? = menus.maxByOrNull(FoodMenu::createdAt)
+
 internal fun menuDeleteConfirmationMenuIdAfterDeleteClick(menu: FoodMenu): Long {
     return menu.id
 }
@@ -5551,8 +5748,14 @@ private const val ANALYTICS_CTA_NAV_ABOUT = "nav_about"
 private const val ANALYTICS_CTA_NAV_MY_ZONE = "nav_my_zone"
 private const val ANALYTICS_CTA_ADS_PRIVACY_OPTIONS = "ads_privacy_options"
 private const val ANALYTICS_CTA_BACK = "back"
-private const val ANALYTICS_CTA_ROLL_DICE = "roll_dice"
-private const val ANALYTICS_CTA_GENERATE_AI_MENU = "generate_ai_menu"
+private const val ANALYTICS_CTA_GENERATE_MENU = "generate_menu"
+private const val ANALYTICS_CTA_RETURN_TO_AI = "return_to_ai"
+private const val ANALYTICS_CTA_CHOOSE_SAVED_MENU = "choose_saved_menu"
+private const val ANALYTICS_CTA_WRITE_MENU = "write_menu"
+private const val ANALYTICS_CTA_OPEN_RECENT_MENU = "open_recent_menu"
+private const val ANALYTICS_CTA_DICE_EMPTY_GENERATE_AI = "dice_empty_generate_ai"
+private const val ANALYTICS_CTA_DICE_EMPTY_BROADEN = "dice_empty_broaden_meal_type"
+private const val ANALYTICS_CTA_DICE_EMPTY_CHANGE_FILTERS = "dice_empty_change_filters"
 private const val ANALYTICS_CTA_SAVE_MENU = "save_menu"
 private const val ANALYTICS_CTA_DISCARD_GENERATED_MENU = "discard_generated_menu"
 private const val ANALYTICS_CTA_ANALYZE_PENDING = "analyze_pending"

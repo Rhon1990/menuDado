@@ -689,6 +689,27 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `recent menu uses greatest creation timestamp`() {
+        val old = FoodMenu(
+            id = 1,
+            name = "Anterior",
+            mealType = MealType.LUNCH,
+            description = "Anterior",
+            createdAt = 10
+        )
+        val recent = FoodMenu(
+            id = 2,
+            name = "Reciente",
+            mealType = MealType.DINNER,
+            description = "Reciente",
+            createdAt = 30
+        )
+
+        assertEquals(2L, mostRecentMenu(listOf(recent.copy(createdAt = 20), old, recent))?.id)
+        assertNull(mostRecentMenu(emptyList()))
+    }
+
+    @Test
     fun `acerca de la app muestra motivo creador y version`() {
         val info = com.menudado.about.MenuDadoAboutContent(
             description = "MenuDado ayuda a decidir que comer.",

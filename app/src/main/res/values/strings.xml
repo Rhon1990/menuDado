@@ -146,6 +146,15 @@
     <string name="home_ai_dice_body">Lanza el dado y MenuDado crea una idea nueva según tu perfil.</string>
     <string name="home_manual_dice_title">Elegir de mis menús</string>
     <string name="home_manual_dice_body">El dado elige entre los menús que ya guardaste.</string>
+    <string name="home_choose_saved_action">Elegir entre mis menús</string>
+    <string name="home_write_menu_action">Escribir mi menú</string>
+    <string name="home_back_to_ai_action">Volver a generar con IA</string>
+    <string name="home_recent_title">Continúa donde lo dejaste</string>
+    <string name="dice_empty_recovery_title">No hay coincidencias todavía</string>
+    <string name="dice_empty_recovery_body">No hay menús guardados con los filtros %1$s · %2$s.</string>
+    <string name="dice_empty_recovery_generate_ai">Crear una idea con IA</string>
+    <string name="dice_empty_recovery_broaden">Probar otro tipo de comida</string>
+    <string name="dice_empty_recovery_change_filters">Cambiar filtros</string>
     <string name="form_add_menu">Agregar menú</string>
     <string name="form_add_subtitle">Elige si quieres escribirlo tú o generar una idea de menú.</string>
     <string name="form_select_meal">Selecciona desayuno, almuerzo o cena.</string>

@@ -144,6 +144,15 @@
     <string name="home_ai_dice_body">Roll the dice and MenuDado creates a new idea based on your profile.</string>
     <string name="home_manual_dice_title">Choose from my menus</string>
     <string name="home_manual_dice_body">The dice chooses from the menus you have already saved.</string>
+    <string name="home_choose_saved_action">Choose from my menus</string>
+    <string name="home_write_menu_action">Write my menu</string>
+    <string name="home_back_to_ai_action">Generate with AI instead</string>
+    <string name="home_recent_title">Continue where you left off</string>
+    <string name="dice_empty_recovery_title">No matches yet</string>
+    <string name="dice_empty_recovery_body">There are no saved menus for the filters %1$s · %2$s.</string>
+    <string name="dice_empty_recovery_generate_ai">Create an idea with AI</string>
+    <string name="dice_empty_recovery_broaden">Try another meal type</string>
+    <string name="dice_empty_recovery_change_filters">Change filters</string>
     <string name="form_add_menu">Add menu</string>
     <string name="form_add_subtitle">Choose whether to write it yourself or generate a meal idea.</string>
     <string name="form_select_meal">Choose breakfast, lunch or dinner.</string>
