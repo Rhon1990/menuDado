@@ -51,15 +51,16 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - La generación y el análisis con IA deben pedir nombre, descripción, notas, razón y sugerencia en el mismo idioma visible de la app para evitar mezclar idiomas en menús creados por IA.
 
 1. Crear menús y decidir qué comer hoy.
-   - El bloque principal de Inicio se llama `Qué comer hoy` y unifica creación y dado con dos modos: `Generar con IA` y `Escribir menu`.
-   - `Generar con IA` viene seleccionado por defecto porque el dado es la acción principal esperada por usuarios nuevos para recibir una idea saludable.
+   - El bloque principal de Inicio se llama `Qué comer hoy` y prioriza `Generar con IA`; `Elegir entre mis menús` queda como acción secundaria directa y `Escribir mi menú` revela el formulario manual.
+   - `Generar con IA` es el estado inicial porque es la acción con mayor adopción observada y reduce decisiones antes de recibir una idea saludable.
    - El tipo de comida es obligatorio y viene sugerido automaticamente segun la hora local del movil: desayuno por la mañana, almuerzo al mediodia/tarde y cena por la noche; el usuario puede cambiarlo antes de guardar o generar.
    - El público objetivo también es obligatorio y no viene seleccionado por defecto; el usuario debe elegir persona adulta, peques o bebé entre los públicos activos del perfil alimentario.
    - Si solo hay un público activo, el selector de público se muestra ya seleccionado con ese público. Si hay dos o más públicos activos, el selector queda vacío y obliga al usuario a elegir para quién es el menú.
-   - En modo `Generar con IA` se muestra la selección de tipo y público, un campo opcional de ingredientes base y el dado como acción principal. Al lanzarlo, MenuDado genera una idea saludable con IA usando perfil alimentario, tipo de comida, público objetivo e ingredientes base.
+   - En el estado principal se muestra la selección de tipo y público, un campo opcional de ingredientes base y el dado IA como acción principal. Al lanzarlo, MenuDado genera una idea saludable usando perfil alimentario, tipo de comida, público objetivo e ingredientes base.
    - Si el dado de IA está bloqueado por falta de tipo de comida, público objetivo o pausa de IA, el propio bloque del dado debe explicar el motivo fuera del botón del dado, usar un aviso cálido alineado con la paleta de MenuDado dentro del bloque amarillo, mantener el botón en un color neutral de marca claramente distinto del naranja activo y recordar que el usuario puede cambiar a `Escribir menú`. El aviso usa el naranja del dado solo como acento/título y deja el motivo en texto oscuro para mejorar legibilidad. En pausa de IA por límite, el aviso debe explicar de forma muy corta que el uso gratuito de IA es limitado y que se puede esperar un poco o seguir con `Escribir menú`.
-   - Cuando la IA completa la idea, se abre un modal de detalle de idea generada con nombre, descripción, notas, calorías, análisis saludable y sugerencia. El usuario decide entre `Guardar menú` o `Descartar`.
-   - En modo `Escribir menu` se muestran los campos de nombre del plato o menú, ingredientes o descripción y notas opcionales, además de la acción `Guardar menú`.
+   - Cuando la IA completa la idea, se abre un modal de detalle con nombre, descripción, notas, calorías, análisis saludable y sugerencia. `Guardar en mis menús` es la acción principal; `Probar otra idea` reutiliza tipo, público e ingredientes base y respeta cuota, throttle y timeout; `Descartar` sigue disponible como acción terciaria.
+   - Al tocar `Escribir mi menú` se muestran nombre del plato o menú, ingredientes o descripción y notas opcionales, además de `Guardar menú`; se puede volver a IA sin perder los selectores.
+   - Si existen menús guardados, Inicio muestra `Continúa donde lo dejaste` con el menú de mayor `createdAt` y abre su detalle al tocarlo.
    - Si el usuario cambia el tipo de comida o el público objetivo del formulario, se limpia el borrador actual del menú para evitar mezclar contenido de contextos distintos; editar los campos de texto conserva el resto del formulario.
    - Calorías estimadas opcionales.
    - Se guarda con una única acción principal: `Guardar menú`.
@@ -98,25 +99,23 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Si un menú tiene calorías estimadas, mostrarlas como `kcal aprox.` en tarjeta y modal solo cuando el menú ya tenga análisis IA.
 
 3. Dado contextual.
-   - El dado aparece dentro del bloque `Qué comer hoy` y su significado depende del modo seleccionado.
-   - En modo `Generar con IA`, lanzar el dado genera una idea saludable nueva con IA y muestra el modal de detalle de idea generada para guardar o descartar.
-   - En modo `Escribir menu`, lanzar el dado elige un menú guardado al azar.
+   - El dado aparece dentro del bloque `Qué comer hoy`: el dado principal genera una idea saludable nueva con IA y `Elegir entre mis menús` ejecuta la selección aleatoria sobre los guardados.
    - Al tocar el dado, se muestra una animación breve de lanzamiento con duración constante antes del resultado.
    - La animación debe mostrar un dado 3D con seis platos ilustrados en sus caras, bordes redondeados y acabado cálido similar al logo; no debe usar puntos, letras, icono estático ni una cara plana 2D.
    - El dado del botón de lanzamiento debe permitir ajustar su ángulo con el dedo: al mantener presionado sobre el dado y arrastrar, cambia la rotación, y al soltar conserva la posición elegida.
    - Al detenerse después de cada lanzamiento, el dado debe quedar en una orientación de reposo distinta para que se vea una cara diferente.
-   - En modo `Escribir menu`, tras la animación el resultado debe abrir el mismo modal de detalle que se muestra al tocar cualquier menú guardado.
+   - Tras la animación de `Elegir entre mis menús`, el resultado debe abrir el mismo modal de detalle que se muestra al tocar cualquier menú guardado.
    - Antes de lanzar el dado, la app sugiere desayuno, almuerzo o cena segun la hora local del movil, y el usuario debe escoger persona adulta, peques o bebé; no hay opción `Todos` y el tipo de comida sugerido se puede cambiar.
    - Los selectores de tipo y público del bloque `Qué comer hoy` se usan tanto para generar con IA como para elegir menús guardados.
    - Los filtros de público solo muestran públicos activos en el perfil alimentario.
    - Si solo hay un público activo, el selector de público se muestra ya seleccionado con ese público. Si hay dos o más públicos activos, queda vacío y obliga al usuario a elegir.
-   - En modo `Escribir menu`, si el usuario elige filtros, el azar solo considera menús de ese tipo y público objetivo.
+   - La selección aleatoria solo considera menús del tipo y público objetivo elegidos.
    - Si falta tipo o público y se toca el dado, la app muestra un aviso pidiendo escoger desayuno, almuerzo o cena y persona adulta, peques o bebé antes de lanzar.
    - El azar no debe repetir durante el mismo día menús que ya hayan salido mientras queden candidatos nuevos para el filtro activo.
    - Si todos los menús del filtro activo ya salieron hoy, la memoria de ese filtro se reinicia automáticamente y el dado vuelve a elegir entre todos sus menús sin mostrar aviso.
    - La memoria de menús elegidos también se reinicia automáticamente al cambiar el día.
    - El resultado responde: "Qué comer hoy".
-   - Si no hay menús para el filtro elegido, la app guía al usuario para crear uno o quitar el filtro.
+   - Si no hay menús para el filtro elegido, la app muestra una recuperación explícita: crear una idea con IA, probar otro tipo de comida manteniendo siempre el mismo público cuando haya candidatos, o cambiar filtros.
 
 4. Análisis saludable con IA.
    - Requiere internet.
@@ -202,7 +201,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Diagnóstico de regresiones IA: en la corrección de generación IA de 1.0.2 se dejó la pausa local en pocos segundos y se añadió timeout local para evitar cargas indefinidas. Si vuelve a fallar la generación, comparar primero contra ese contrato antes de cambiar prompts o contadores diarios: una idea generada debe consumir una sola llamada real, traer análisis y calorías, permitir guardar sin analizar otra vez y permitir nuevas ideas tras la pausa corta salvo cuota real del proveedor.
 - Todos los build variants usan IA real con Firebase AI Logic; `debug` usa el proyecto Firebase separado `MenuDado Debug` (`menudado-debug`) con `applicationId` `com.menudado.debug`, mientras `release` y `releaseDebuggable` usan el proyecto productivo `MenuDado Production` (`menudado-6a2da`) con `applicationId` `com.menudado`.
 - Perfil alimentario: configuración local por público objetivo en SharedPreferences usada como restricciones del prompt de generación IA y sincronizada en Firestore.
-- Onboarding: estado local en SharedPreferences para mostrar la guía solo en primera apertura y sincronizado en Firestore.
+- Onboarding: estado local en SharedPreferences para mostrar solo en primera apertura una única propuesta de valor orientada a `Crear mi primer menú`, con alternativa `Explorar por mi cuenta`, y sincronizado en Firestore. La versión persistida se mantiene para no volver a mostrarlo a usuarios existentes.
 - Metadatos backend: al abrir la app se sincronizan país de la configuración regional, zona horaria, fabricante/modelo de dispositivo, versión Android, `versionName`, `versionCode`, modo de cuenta (`none`, `guest` o `signed_in`) y correo solo cuando el usuario tiene cuenta registrada; no se solicita GPS, contactos ni identificador publicitario.
 - Reglas Firestore: `firestore.rules` restringe lectura/escritura a `users/{request.auth.uid}/**`.
 - Remote Config:
@@ -225,7 +224,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - Eventos propios de formulario: `menu_form_started`, `menu_save_blocked`, `meal_type_selected`.
   - Eventos propios de filtros y navegación: `audience_filter_selected`, `menu_list_view_more_opened`.
   - Eventos propios de edición multimedia: `menu_edit_started`, `menu_edit_saved`, `menu_photo_updated`; la apertura del selector cámara/biblioteca desde acciones rápidas se marca como `cta_tapped` con `cta=open_photo_source`.
-  - Eventos propios del dado: `dice_filter_selected`, `dice_rolled`, `dice_empty_result`.
+  - Eventos propios del dado: `dice_filter_selected`, `dice_rolled`, `dice_empty_result` y `dice_empty_recovery`; este último usa `action` cerrado (`shown`, `generate_ai`, `broaden_meal_type`, `change_filters`).
   - Eventos propios de consulta de contenido: `menu_card_opened`, `about_app_opened`.
   - Eventos propios de perfil alimentario: `dietary_profile_opened`, `dietary_profile_audience_selected`, `dietary_profile_updated`, sin enviar alérgenos, embarazo, condiciones ni texto libre.
   - Eventos propios de onboarding: `onboarding_shown`, `onboarding_completed` con parámetro `action` limitado a `start` o `skip`.
@@ -268,8 +267,8 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 - La primera pantalla debe ser la app usable, no una página de presentación.
 - La navegación principal vive en una barra inferior verde MenuDado con accesos a Inicio, Perfil y Mi zona. `Acerca de la app` y `Privacidad` se acceden desde `Mi zona`.
-- Una acción principal clara: `Qué comer hoy`, con `Generar con IA` seleccionado por defecto.
-- Una acción divertida y protagonista: tocar el dado. En modo IA crea una idea saludable nueva; en modo `Escribir menu` elige entre menús guardados.
+- Una acción principal clara: `Qué comer hoy`, con `Generar con IA` visible por defecto, `Elegir entre mis menús` como secundaria y escritura manual como terciaria.
+- Una acción divertida y protagonista: tocar el dado IA para crear una idea saludable; la selección entre guardados mantiene una acción de dado diferenciada por su texto.
 - La cabecera debe respetar el espacio de la barra de estado y usar colores de sistema coherentes con la marca.
 - El flujo de creación debe evitar acciones duplicadas: una idea IA se revisa en modal antes de guardarse; un menú manual se guarda desde el formulario; el análisis IA precalculado solo se conserva si la idea generada no fue modificada.
 - Los selectores de modo, filtros de comida y switches booleanos deben usar controles reutilizables con estilo de marca MenuDado, evitando componentes básicos sin personalización cuando formen parte de flujos principales.
@@ -284,8 +283,8 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Editar menús guardados conservando el mismo registro local y descartando análisis IA cuando cambie la receta.
 - Filtrar menús por tipo de comida.
 - Ejecutar la selección aleatoria solo cuando existan menús aplicables al filtro elegido.
-- Validar que `Generar con IA` es el modo inicial, que lanzar el dado en ese modo abre el modal de idea generada sin guardar automáticamente, y que `Guardar menú` persiste la idea con análisis y calorías.
-- Validar que en modo `Escribir menu` el dado sugiere desayuno, almuerzo o cena por hora local, exige público objetivo antes de lanzar, mantiene la validación interna si falta el tipo de comida y limita correctamente los candidatos por filtros.
+- Validar que `Generar con IA` es el estado inicial, que lanzar el dado IA abre el modal sin guardar automáticamente, que `Guardar en mis menús` persiste análisis y calorías y que `Probar otra idea` conserva la intención sin saltarse protecciones.
+- Validar que `Elegir entre mis menús` sugiere desayuno, almuerzo o cena por hora local, exige público objetivo, limita candidatos por filtros y, ante ausencia real, ofrece recuperación sin mezclar públicos.
 - Validar que al desactivar un público en el perfil alimentario desaparece de agregar menú y del dado.
 - Validar que la animación del dado no bloquee la UI ni repita resultados por dobles taps accidentales.
 - Manejar en el análisis IA: éxito, sin internet, respuesta mal formada y errores del proveedor.
