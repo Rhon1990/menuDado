@@ -36,8 +36,8 @@ android {
         applicationId = "com.menudado"
         minSdk = 23
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.1.0"
+        versionCode = 11
+        versionName = "1.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "GEMINI_MODEL", "\"gemini-2.5-flash-lite\"")

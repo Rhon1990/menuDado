@@ -786,7 +786,9 @@ class MenuCardUiStateTest {
         assertEquals("MenuDado ayuda a decidir que comer.", info.description)
         assertEquals("Rhonal A. Delgado Padilla", info.createdBy)
         assertEquals("rhonal.delgado@gmail.com", info.contact)
-        assertEquals("1.1.0 (10)", aboutVersionLabel(versionName = "1.1.0", versionCode = 10))
+        assertEquals("1.2.0", BuildConfig.VERSION_NAME)
+        assertEquals(11, BuildConfig.VERSION_CODE)
+        assertEquals("1.2.0 (11)", aboutVersionLabel(versionName = "1.2.0", versionCode = 11))
     }
 
     @Test
