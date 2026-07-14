@@ -141,7 +141,7 @@
     <string name="home_choose_saved_action">Choose from my menus</string>
     <string name="home_write_menu_action">Write my menu</string>
     <string name="home_back_to_ai_action">Generate with AI instead</string>
-    <string name="home_recent_title">Continue where you left off</string>
+    <string name="home_recent_title">Your latest menu</string>
     <string name="dice_empty_recovery_title">No matches yet</string>
     <string name="dice_empty_recovery_body">There are no saved menus for the filters %1$s · %2$s.</string>
     <string name="dice_empty_recovery_generate_ai">Create an idea with AI</string>

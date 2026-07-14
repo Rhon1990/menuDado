@@ -714,6 +714,12 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `saved and generated details share the same corner radius`() {
+        assertEquals(28, menuDetailContainerCornerRadiusDp())
+        assertEquals(menuDetailContainerCornerRadiusDp(), generatedMenuContainerCornerRadiusDp())
+    }
+
+    @Test
     fun `recent menu uses greatest creation timestamp`() {
         val old = FoodMenu(
             id = 1,

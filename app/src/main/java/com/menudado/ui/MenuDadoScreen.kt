@@ -4431,6 +4431,8 @@ private fun CompactCaloriesText(calories: Int) {
     )
 }
 
+internal fun menuDetailContainerCornerRadiusDp(): Int = 28
+
 @Composable
 private fun MenuDetailDialog(
     menu: FoodMenu,
@@ -4453,14 +4455,19 @@ private fun MenuDetailDialog(
                 .padding(horizontal = 14.dp),
             colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
+            shape = RoundedCornerShape(menuDetailContainerCornerRadiusDp().dp)
         ) {
             Column {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(150.dp)
-                        .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)),
+                        .clip(
+                            RoundedCornerShape(
+                                topStart = menuDetailContainerCornerRadiusDp().dp,
+                                topEnd = menuDetailContainerCornerRadiusDp().dp
+                            )
+                        ),
                     contentAlignment = Alignment.BottomStart
                 ) {
                     MenuCoverImage(
@@ -4568,7 +4575,7 @@ internal fun generatedMenuPrimaryActionColor(): Color = MenuDadoColors.ActionTer
 
 internal fun generatedMenuContainerColor(): Color = MenuDadoColors.Surface
 
-internal fun generatedMenuContainerCornerRadiusDp(): Int = 28
+internal fun generatedMenuContainerCornerRadiusDp(): Int = menuDetailContainerCornerRadiusDp()
 
 @Composable
 private fun GeneratedMenuDetailDialog(

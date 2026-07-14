@@ -141,7 +141,7 @@
     <string name="home_choose_saved_action">Choisir parmi mes menus</string>
     <string name="home_write_menu_action">Écrire mon menu</string>
     <string name="home_back_to_ai_action">Générer plutôt avec l’IA</string>
-    <string name="home_recent_title">Reprenez là où vous en étiez</string>
+    <string name="home_recent_title">Votre dernier menu</string>
     <string name="dice_empty_recovery_title">Aucune correspondance pour le moment</string>
     <string name="dice_empty_recovery_body">Aucun menu enregistré pour les filtres %1$s · %2$s.</string>
     <string name="dice_empty_recovery_generate_ai">Créer une idée avec l’IA</string>
