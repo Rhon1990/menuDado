@@ -67,6 +67,13 @@ Separar visual y funcionalmente la generación con IA de la selección aleatoria
 - Suite `:app:testDebugUnitTest`, compilación `:app:assembleDebug` y `git diff --check`.
 - QA manual: selección inicial, indicador local, dado IA inmóvil, detalle resultante, elección de otra opción, cierre, filtros sin resultados y ausencia de errores en Logcat.
 
+## Versión de la entrega
+
+- La versión visible cambia de `1.1.0` a `1.2.0` porque la entrega agrupa una mejora funcional y de experiencia de usuario, no solo una corrección interna.
+- `versionCode` aumenta de `10` a `11` para mantener el orden requerido por Android y Google Play.
+- El cambio debe mantenerse sincronizado en Gradle, el contrato de `Acerca de la app` y `docs/project-context.md`.
+- La validación del APK debe confirmar `versionName=1.2.0` y `versionCode=11` desde los metadatos generados del build.
+
 ## Fuera de alcance
 
 - Cambiar el algoritmo aleatorio o la memoria diaria.
