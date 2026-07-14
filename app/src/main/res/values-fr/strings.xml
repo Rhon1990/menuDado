@@ -200,6 +200,12 @@
     <string name="onboarding_dice_body">Dans Générer avec l’IA, le dé crée une nouvelle idée saine selon votre profil. Dans Écrire un menu, le dé choisit parmi vos menus enregistrés.</string>
     <string name="onboarding_account_title">Sauvegardez votre compte</string>
     <string name="onboarding_account_body">Vous pouvez utiliser MenuDado comme invité dès le départ. Pour conserver vos menus après une réinstallation ou un changement de téléphone, allez dans Ma zone et créez votre compte ou connectez-vous.</string>
+    <string name="onboarding_activation_title">Décidez quoi manger en moins d’une minute</string>
+    <string name="onboarding_activation_body">Générez une idée avec l’IA ou laissez le dé choisir parmi vos menus enregistrés.</string>
+    <string name="onboarding_create_first_menu">Créer mon premier menu</string>
+    <string name="onboarding_explore">Explorer par moi-même</string>
+    <string name="onboarding_no_registration">Sans inscription</string>
+    <string name="onboarding_data_control">Vos données sous contrôle</string>
     <string name="result_today">Aujourd’hui, ce sera</string>
     <string name="result_option_today">Votre option pour aujourd’hui</string>
     <string name="result_chosen_menu">Menu choisi</string>

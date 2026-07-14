@@ -202,6 +202,12 @@
     <string name="onboarding_dice_body">En Generar con IA, el dado crea una idea saludable nueva según tu perfil. En Escribir menú, el dado elige entre tus menús guardados.</string>
     <string name="onboarding_account_title">Guarda tu cuenta</string>
     <string name="onboarding_account_body">Puedes usar MenuDado como invitado desde el inicio. Cuando quieras conservar tus menús al reinstalar o cambiar de móvil, entra en Mi zona y crea tu cuenta o inicia sesión.</string>
+    <string name="onboarding_activation_title">Resuelve qué comer en menos de un minuto</string>
+    <string name="onboarding_activation_body">Genera una idea con IA o deja que el dado elija entre tus menús guardados.</string>
+    <string name="onboarding_create_first_menu">Crear mi primer menú</string>
+    <string name="onboarding_explore">Explorar por mi cuenta</string>
+    <string name="onboarding_no_registration">Sin registro</string>
+    <string name="onboarding_data_control">Tus datos, bajo control</string>
     <string name="result_today">Hoy toca</string>
     <string name="result_option_today">Tu opción para hoy</string>
     <string name="result_chosen_menu">Menú elegido</string>

@@ -680,29 +680,12 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `onboarding explica los usos principales y recuerda el perfil alimentario`() {
+    fun `onboarding focuses on creating the first menu`() {
         val steps = onboardingSteps()
 
-        assertEquals(5, steps.size)
-        assertEquals(R.string.onboarding_profile_title, steps[0].titleRes)
-        assertEquals(R.string.onboarding_profile_body, steps[0].bodyRes)
-        assertEquals(R.string.onboarding_menus_title, steps[1].titleRes)
-        assertEquals(R.string.onboarding_menus_body, steps[1].bodyRes)
-        assertEquals(R.string.onboarding_ai_title, steps[2].titleRes)
-        assertEquals(R.string.onboarding_ai_body, steps[2].bodyRes)
-        assertEquals(R.string.onboarding_dice_title, steps[3].titleRes)
-        assertEquals(R.string.onboarding_dice_body, steps[3].bodyRes)
-        assertEquals(R.string.onboarding_account_title, steps[4].titleRes)
-        assertEquals(R.string.onboarding_account_body, steps[4].bodyRes)
-    }
-
-    @Test
-    fun `onboarding permite avanzar y retroceder con swipe horizontal`() {
-        assertEquals(1, onboardingStepAfterSwipe(currentStep = 0, stepCount = 5, dragAmount = -72f))
-        assertEquals(3, onboardingStepAfterSwipe(currentStep = 4, stepCount = 5, dragAmount = 72f))
-        assertEquals(0, onboardingStepAfterSwipe(currentStep = 0, stepCount = 5, dragAmount = 72f))
-        assertEquals(4, onboardingStepAfterSwipe(currentStep = 4, stepCount = 5, dragAmount = -72f))
-        assertEquals(1, onboardingStepAfterSwipe(currentStep = 1, stepCount = 5, dragAmount = 20f))
+        assertEquals(1, steps.size)
+        assertEquals(R.string.onboarding_activation_title, steps.single().titleRes)
+        assertEquals(R.string.onboarding_activation_body, steps.single().bodyRes)
     }
 
     @Test

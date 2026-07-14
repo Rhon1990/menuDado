@@ -437,9 +437,6 @@ fun MenuDadoScreen(
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_ONBOARDING, ANALYTICS_CTA_SKIP_ONBOARDING)
                 viewModel.skipOnboarding()
             },
-            onNext = {
-                viewModel.trackCtaTapped(ANALYTICS_SCREEN_ONBOARDING, ANALYTICS_CTA_NEXT_ONBOARDING)
-            },
             onFinish = {
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_ONBOARDING, ANALYTICS_CTA_START_ONBOARDING)
                 viewModel.completeOnboarding()
@@ -1223,40 +1220,10 @@ internal data class OnboardingStep(
 
 internal fun onboardingSteps(): List<OnboardingStep> = listOf(
     OnboardingStep(
-        titleRes = R.string.onboarding_profile_title,
-        bodyRes = R.string.onboarding_profile_body
-    ),
-    OnboardingStep(
-        titleRes = R.string.onboarding_menus_title,
-        bodyRes = R.string.onboarding_menus_body
-    ),
-    OnboardingStep(
-        titleRes = R.string.onboarding_ai_title,
-        bodyRes = R.string.onboarding_ai_body
-    ),
-    OnboardingStep(
-        titleRes = R.string.onboarding_dice_title,
-        bodyRes = R.string.onboarding_dice_body
-    ),
-    OnboardingStep(
-        titleRes = R.string.onboarding_account_title,
-        bodyRes = R.string.onboarding_account_body
+        titleRes = R.string.onboarding_activation_title,
+        bodyRes = R.string.onboarding_activation_body
     )
 )
-
-internal fun onboardingStepAfterSwipe(
-    currentStep: Int,
-    stepCount: Int,
-    dragAmount: Float
-): Int {
-    return when {
-        dragAmount <= -ONBOARDING_SWIPE_THRESHOLD -> minOf(currentStep + 1, stepCount - 1)
-        dragAmount >= ONBOARDING_SWIPE_THRESHOLD -> maxOf(currentStep - 1, 0)
-        else -> currentStep
-    }
-}
-
-private const val ONBOARDING_SWIPE_THRESHOLD = 56f
 private const val MENU_DADO_PRIVACY_POLICY_URL = "https://rhon1990.github.io/menuDado/privacy-policy/"
 private const val AI_DICE_BASE_CYCLE_MILLIS = 850.0
 private const val AI_DICE_DECELERATION_MILLIS = 6_000.0
@@ -5473,14 +5440,9 @@ private fun pendingAnalysisButtonText(
 @Composable
 private fun OnboardingDialog(
     onSkip: () -> Unit,
-    onNext: () -> Unit,
     onFinish: () -> Unit
 ) {
-    val steps = remember { onboardingSteps() }
-    var selectedStepIndex by rememberSaveable { mutableIntStateOf(0) }
-    val selectedStep = steps[selectedStepIndex]
-    val isLastStep = selectedStepIndex == steps.lastIndex
-    var swipeDragAmount by remember { mutableStateOf(0f) }
+    val step = remember { onboardingSteps().single() }
 
     Dialog(
         onDismissRequest = onSkip,
@@ -5495,25 +5457,7 @@ private fun OnboardingDialog(
             shape = RoundedCornerShape(8.dp)
         ) {
             Column(
-                modifier = Modifier
-                    .pointerInput(steps.size, selectedStepIndex) {
-                        detectDragGestures(
-                            onDragStart = { swipeDragAmount = 0f },
-                            onDragEnd = {
-                                selectedStepIndex = onboardingStepAfterSwipe(
-                                    currentStep = selectedStepIndex,
-                                    stepCount = steps.size,
-                                    dragAmount = swipeDragAmount
-                                )
-                                swipeDragAmount = 0f
-                            },
-                            onDragCancel = { swipeDragAmount = 0f }
-                        ) { change, dragAmount ->
-                            change.consume()
-                            swipeDragAmount += dragAmount.x
-                        }
-                    }
-                    .padding(20.dp),
+                modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -5528,74 +5472,62 @@ private fun OnboardingDialog(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = stringResource(id = selectedStep.titleRes),
+                        text = stringResource(id = step.titleRes),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Black,
                         color = MenuDadoColors.Ink,
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = stringResource(id = selectedStep.bodyRes),
+                        text = stringResource(id = step.bodyRes),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MenuDadoColors.MutedInk,
                         textAlign = TextAlign.Center
                     )
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    steps.forEachIndexed { index, _ ->
-                        Box(
-                            modifier = Modifier
-                                .size(if (index == selectedStepIndex) 10.dp else 8.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (index == selectedStepIndex) {
-                                        MenuDadoColors.BrandGreen
-                                    } else {
-                                        MenuDadoColors.SoftSand
-                                    }
-                                )
-                        )
-                    }
-                }
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    OutlinedButton(
-                        onClick = onSkip,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(stringResource(id = R.string.common_skip))
-                    }
-                    Button(
-                        onClick = {
-                            if (isLastStep) {
-                                onFinish()
-                            } else {
-                                onNext()
-                                selectedStepIndex += 1
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MenuDadoColors.BrandGreen,
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Text(
-                            if (isLastStep) {
-                                stringResource(id = R.string.common_start)
-                            } else {
-                                stringResource(id = R.string.common_next)
-                            }
-                        )
-                    }
+                    Text(
+                        text = "✓ ${stringResource(id = R.string.onboarding_no_registration)}",
+                        color = MenuDadoColors.DeepGreen,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "✓ ${stringResource(id = R.string.onboarding_data_control)}",
+                        color = MenuDadoColors.DeepGreen,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Button(
+                    onClick = onFinish,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MenuDadoColors.Tomato,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.onboarding_create_first_menu),
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        fontWeight = FontWeight.Black
+                    )
+                }
+                TextButton(
+                    onClick = onSkip,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.onboarding_explore),
+                        color = MenuDadoColors.DeepGreen,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -5645,9 +5577,8 @@ private const val ANALYTICS_CTA_CONFIRM_DELETE_MENU = "confirm_delete_menu"
 private const val ANALYTICS_CTA_CANCEL_DELETE_MENU = "cancel_delete_menu"
 private const val ANALYTICS_CTA_CLOSE_AI_QUOTA = "close_ai_quota"
 private const val ANALYTICS_CTA_UNDERSTOOD = "understood"
-private const val ANALYTICS_CTA_SKIP_ONBOARDING = "skip_onboarding"
-private const val ANALYTICS_CTA_NEXT_ONBOARDING = "next_onboarding"
-private const val ANALYTICS_CTA_START_ONBOARDING = "start_onboarding"
+private const val ANALYTICS_CTA_SKIP_ONBOARDING = "explore_without_onboarding"
+private const val ANALYTICS_CTA_START_ONBOARDING = "create_first_menu"
 private const val AUTH_METHOD_EMAIL = "email"
 private const val AUTH_METHOD_GOOGLE = "google"
 private const val AUTH_METHOD_ACCOUNT = "account"
