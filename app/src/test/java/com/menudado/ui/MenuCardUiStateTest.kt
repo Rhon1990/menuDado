@@ -200,6 +200,15 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `desplegable compacto usa la superficie calida de MenuDado`() {
+        assertEquals(MenuDadoColors.Surface, compactDropdownMenuContainerColor())
+        assertEquals(MenuDadoColors.Ink, compactDropdownMenuContentColor())
+        assertEquals(16, compactDropdownMenuCornerRadiusDp())
+        assertEquals(MenuDadoColors.SoftSand, compactDropdownMenuBorderColor())
+        assertEquals(4, compactDropdownMenuShadowElevationDp())
+    }
+
+    @Test
     fun `opciones principales viven en barra inferior calida`() {
         assertEquals(MenuDadoColors.Surface, menuDadoBottomNavigationContainerColor())
         assertEquals(MenuDadoColors.BrandGreen, menuDadoBottomNavigationContentColor(isSelected = true))

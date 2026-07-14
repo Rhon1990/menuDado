@@ -3500,11 +3500,21 @@ private fun <T> CompactDropdownSelector(
         }
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            shape = RoundedCornerShape(compactDropdownMenuCornerRadiusDp().dp),
+            containerColor = compactDropdownMenuContainerColor(),
+            tonalElevation = 0.dp,
+            shadowElevation = compactDropdownMenuShadowElevationDp().dp,
+            border = BorderStroke(1.dp, compactDropdownMenuBorderColor())
         ) {
             options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(optionLabel(option)) },
+                    text = {
+                        Text(
+                            text = optionLabel(option),
+                            color = compactDropdownMenuContentColor()
+                        )
+                    },
                     onClick = {
                         expanded = false
                         onSelected(option)
@@ -3514,6 +3524,16 @@ private fun <T> CompactDropdownSelector(
         }
     }
 }
+
+internal fun compactDropdownMenuContainerColor(): Color = MenuDadoColors.Surface
+
+internal fun compactDropdownMenuContentColor(): Color = MenuDadoColors.Ink
+
+internal fun compactDropdownMenuCornerRadiusDp(): Int = MenuDadoUiTokens.ControlRadius.value.toInt()
+
+internal fun compactDropdownMenuBorderColor(): Color = MenuDadoColors.SoftSand
+
+internal fun compactDropdownMenuShadowElevationDp(): Int = 4
 
 @Composable
 private fun AudienceFilter(
