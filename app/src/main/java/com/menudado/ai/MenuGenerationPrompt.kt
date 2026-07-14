@@ -31,17 +31,20 @@ internal object MenuGenerationPrompt {
             Tipo: ${mealType.localizedLabel(language)}.
             Público: ${audience.localizedLabel(language)}.
             
-            Reglas:
+            Reglas del tipo de comida:
             - ${guidance.fitRule}
             - ${guidance.exclusionRule}
             ${guidance.effortRule?.let { "- $it" }.orEmpty()}
             - Debe ser saludable, rica, simple y con ingredientes comunes.
             - Evita productos raros, caros o difíciles de conseguir.
-            - Debe ser distinta de los platos previos.
-            - No repitas el mismo plato ni una variante muy parecida.
-            - Cambia base, proteína, preparación o estilo cuando sea posible.
             - Variedad saludable: cremas, sopas, ensaladas completas, ensalada cesar saludable, bowls, salteados simples, tortillas, legumbres, wraps, tostas, pasta integral o arroz integral.
-            - La evaluacion saludable debe ser breve, practica y sin tono de juicio.
+
+            Prioridad obligatoria si dos instrucciones entran en tension:
+            1. Seguridad alimentaria, alergias y restricciones dieteticas.
+            2. Publico y edad, incluido embarazo o alimentacion infantil.
+            3. Tipo de comida solicitado.
+            4. Uso razonable de ingredientes base.
+            5. Variedad y atractivo de la propuesta.
             
             $audienceGuidance
             
@@ -51,12 +54,24 @@ internal object MenuGenerationPrompt {
             
             Platos previos a evitar:
             $avoidBlock
+
+            Contrato de calidad:
+            - name debe ser un nombre concreto y reconocible, no una categoria generica ni una lista de ingredientes.
+            - description debe incluir ingredientes comunes con cantidades aproximadas para una racion adecuada al publico y una preparacion accionable de 2 a 4 indicaciones breves.
+            - notes debe incluir el tiempo total de preparacion y un consejo util de sustitucion, conservacion o servicio. notes no debe repetir description.
+            - calories debe ser una estimacion realista para una racion adecuada al publico.
+            - La evaluacion saludable debe ser breve, practica y sin tono de juicio.
+            - health_reason y health_suggestion deben ser breves, utiles y sin tono alarmista o de juicio. No des consejo medico.
+
+            Variedad real:
+            - Debe ser distinta de los platos previos; no basta con cambiar el nombre.
+            - Cambia al menos una dimension relevante: base, proteina, tecnica o estilo, sin romper las prioridades anteriores.
             
-            Responde solo JSON válido, sin markdown:
+            Responde con solo un objeto JSON valido, sin markdown, sin texto adicional y sin campos nuevos:
             {
               "name": "nombre breve",
-              "description": "ingredientes y preparación breve",
-              "notes": "nota práctica opcional",
+              "description": "ingredientes con cantidades y preparacion breve",
+              "notes": "tiempo total y consejo practico",
               "calories": 520,
               "health_status": "saludable",
               "health_reason": "motivo breve",

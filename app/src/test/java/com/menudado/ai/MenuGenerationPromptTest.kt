@@ -143,4 +143,70 @@ class MenuGenerationPromptTest {
         assertTrue(englishPrompt.contains("write name, description, notes, reason and suggestion in english"))
         assertTrue(frenchPrompt.contains("write name, description, notes, reason and suggestion in french"))
     }
+
+    @Test
+    fun `prompt requires a specific executable recipe`() {
+        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+
+        assertTrue(prompt.contains("nombre concreto"))
+        assertTrue(prompt.contains("cantidades aproximadas"))
+        assertTrue(prompt.contains("una racion"))
+        assertTrue(prompt.contains("2 a 4 indicaciones"))
+        assertTrue(prompt.contains("tiempo total de preparacion"))
+        assertTrue(prompt.contains("sustitucion, conservacion o servicio"))
+    }
+
+    @Test
+    fun `prompt separates description notes and health fields`() {
+        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+
+        assertTrue(prompt.contains("notes no debe repetir description"))
+        assertTrue(prompt.contains("estimacion realista para una racion"))
+        assertTrue(prompt.contains("breves, utiles y sin tono alarmista"))
+    }
+
+    @Test
+    fun `prompt prioritizes safety before variety`() {
+        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+
+        val safety = prompt.indexOf("1. seguridad alimentaria")
+        val audience = prompt.indexOf("2. publico y edad")
+        val mealType = prompt.indexOf("3. tipo de comida")
+        val variety = prompt.indexOf("5. variedad y atractivo")
+
+        assertTrue(safety >= 0)
+        assertTrue(safety < audience)
+        assertTrue(audience < mealType)
+        assertTrue(mealType < variety)
+    }
+
+    @Test
+    fun `prompt requires genuine differentiation from prior ideas`() {
+        val prompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = listOf("Ensalada de pollo", "Bowl de garbanzos")
+        ).lowercase()
+
+        assertTrue(prompt.contains("no basta con cambiar el nombre"))
+        assertTrue(prompt.contains("base, proteina, tecnica o estilo"))
+        assertTrue(prompt.contains("ensalada de pollo"))
+        assertTrue(prompt.contains("bowl de garbanzos"))
+    }
+
+    @Test
+    fun `prompt requires only the existing json schema`() {
+        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+
+        assertTrue(prompt.contains("solo un objeto json valido"))
+        assertTrue(prompt.contains("sin markdown"))
+        assertTrue(prompt.contains("sin texto adicional"))
+        assertTrue(prompt.contains("sin campos nuevos"))
+        assertTrue(prompt.contains("\"name\""))
+        assertTrue(prompt.contains("\"description\""))
+        assertTrue(prompt.contains("\"notes\""))
+        assertTrue(prompt.contains("\"calories\""))
+        assertTrue(prompt.contains("\"health_status\""))
+        assertTrue(prompt.contains("\"health_reason\""))
+        assertTrue(prompt.contains("\"health_suggestion\""))
+    }
 }
