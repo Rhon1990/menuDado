@@ -201,6 +201,7 @@ fun MenuDadoScreen(
     var aiDiceRollCycles by remember { mutableFloatStateOf(0f) }
     var audienceDetailRoute by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedDetailMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var openedFromRandomSelection by rememberSaveable { mutableStateOf(false) }
     var pendingDeleteMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var actionSheetMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var photoPickerMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -228,6 +229,14 @@ fun MenuDadoScreen(
         state.menus.firstOrNull { it.id == actionMenuId }
     }
     val generatedDetailMenu = generatedMenuDetailPreview(state)
+    fun openMenuDetail(menuId: Long, fromRandomSelection: Boolean = false) {
+        openedFromRandomSelection = fromRandomSelection
+        selectedDetailMenuId = menuId
+    }
+    fun closeMenuDetail() {
+        selectedDetailMenuId = null
+        openedFromRandomSelection = false
+    }
     fun saveSelectedPhoto(uriString: String) {
         val menuId = photoPickerMenuId
         if (menuId == null) {
@@ -305,7 +314,7 @@ fun MenuDadoScreen(
                 viewModel.cancelEditingMenu()
             }
             selectedDetailMenuId != null -> {
-                selectedDetailMenuId = null
+                closeMenuDetail()
             }
             audienceDetailRoute != null -> {
                 audienceDetailRoute = menuAudienceDetailRouteAfterBack(audienceDetailRoute)
@@ -360,7 +369,7 @@ fun MenuDadoScreen(
 
     LaunchedEffect(state.menus) {
         if (selectedDetailMenuId != null && state.menus.none { it.id == selectedDetailMenuId }) {
-            selectedDetailMenuId = null
+            closeMenuDetail()
         }
         if (pendingDeleteMenuId != null && state.menus.none { it.id == pendingDeleteMenuId }) {
             pendingDeleteMenuId = null
@@ -372,6 +381,7 @@ fun MenuDadoScreen(
 
     LaunchedEffect(result?.id) {
         if (menuShouldOpenDetailFromDiceResult(result)) {
+            openedFromRandomSelection = true
             selectedDetailMenuId = menuDetailMenuIdAfterDiceResult(
                 currentDetailMenuId = selectedDetailMenuId,
                 result = result
@@ -537,7 +547,7 @@ fun MenuDadoScreen(
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_DELETE_CONFIRMATION, ANALYTICS_CTA_CONFIRM_DELETE_MENU)
                 pendingDeleteMenuId = null
                 if (selectedDetailMenuId == menu.id) {
-                    selectedDetailMenuId = null
+                    closeMenuDetail()
                 }
                 viewModel.deleteMenu(menu)
             },
@@ -565,7 +575,7 @@ fun MenuDadoScreen(
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_DIALOG, ANALYTICS_CTA_EDIT_MENU)
                 actionSheetMenuId = null
                 if (selectedDetailMenuId == menu.id) {
-                    selectedDetailMenuId = null
+                    closeMenuDetail()
                 }
                 viewModel.startEditingMenu(menu)
             },
@@ -599,9 +609,23 @@ fun MenuDadoScreen(
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_OPEN_MENU_ACTIONS)
                 actionSheetMenuId = menu.id
             },
+            onChooseAnotherSavedMenu = if (
+                shouldShowChooseAnotherSavedMenu(openedFromRandomSelection)
+            ) {
+                {
+                    viewModel.trackCtaTapped(
+                        ANALYTICS_SCREEN_MENU_DETAIL,
+                        ANALYTICS_CTA_CHOOSE_ANOTHER_SAVED_MENU
+                    )
+                    closeMenuDetail()
+                    viewModel.rollDice()
+                }
+            } else {
+                null
+            },
             onDismiss = {
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_CLOSE_MENU_DETAIL)
-                selectedDetailMenuId = null
+                closeMenuDetail()
             }
         )
     }
@@ -747,7 +771,7 @@ fun MenuDadoScreen(
                                 onOpenMenu = { menu ->
                                     viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_OPEN_MENU)
                                     viewModel.trackMenuCardOpened(menu)
-                                    selectedDetailMenuId = menu.id
+                                    openMenuDetail(menu.id)
                                 },
                                 onOpenActions = { menu ->
                                     viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_OPEN_MENU_ACTIONS)
@@ -818,7 +842,7 @@ fun MenuDadoScreen(
                                             ANALYTICS_CTA_OPEN_RECENT_MENU
                                         )
                                         viewModel.trackMenuCardOpened(recentMenu)
-                                        selectedDetailMenuId = recentMenu.id
+                                        openMenuDetail(recentMenu.id)
                                     }
                                 )
                             }
@@ -867,7 +891,7 @@ fun MenuDadoScreen(
                                     onOpenMenu = { menu ->
                                         viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_OPEN_MENU)
                                         viewModel.trackMenuCardOpened(menu)
-                                        selectedDetailMenuId = menu.id
+                                        openMenuDetail(menu.id)
                                     },
                                     onOpenActions = { menu ->
                                         viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_OPEN_MENU_ACTIONS)
@@ -4520,6 +4544,7 @@ private fun MenuDetailDialog(
     onAnalyze: () -> Unit,
     onToggleFavorite: () -> Unit,
     onOpenActions: () -> Unit,
+    onChooseAnotherSavedMenu: (() -> Unit)?,
     onDismiss: () -> Unit
 ) {
     Dialog(
@@ -4627,6 +4652,23 @@ private fun MenuDetailDialog(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             softWrap = false
+                        )
+                    }
+                }
+
+                onChooseAnotherSavedMenu?.let { chooseAnother ->
+                    OutlinedButton(
+                        onClick = chooseAnother,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
+                        border = BorderStroke(1.dp, MenuDadoColors.BrandGreen)
+                    ) {
+                        Text(
+                            text = stringResource(id = menuDetailChooseAnotherSavedTextRes()),
+                            color = MenuDadoColors.DeepGreen,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -5943,6 +5985,7 @@ private const val ANALYTICS_CTA_BACK = "back"
 private const val ANALYTICS_CTA_GENERATE_MENU = "generate_menu"
 private const val ANALYTICS_CTA_RETURN_TO_AI = "return_to_ai"
 private const val ANALYTICS_CTA_CHOOSE_SAVED_MENU = "choose_saved_menu"
+private const val ANALYTICS_CTA_CHOOSE_ANOTHER_SAVED_MENU = "choose_another_saved_menu"
 private const val ANALYTICS_CTA_WRITE_MENU = "write_menu"
 private const val ANALYTICS_CTA_OPEN_RECENT_MENU = "open_recent_menu"
 private const val ANALYTICS_CTA_DICE_EMPTY_GENERATE_AI = "dice_empty_generate_ai"
