@@ -95,6 +95,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -145,6 +146,7 @@ import com.menudado.domain.HealthStatus
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import com.menudado.ui.theme.MenuDadoColors
+import com.menudado.ui.theme.MenuDadoUiTokens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
@@ -1056,8 +1058,19 @@ private fun MenuDadoBottomNavigation(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(menuDadoBottomNavigationContainerColor())
             .navigationBarsPadding()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(MenuDadoUiTokens.NavigationRadius)
+            )
+            .clip(RoundedCornerShape(MenuDadoUiTokens.NavigationRadius))
+            .background(menuDadoBottomNavigationContainerColor())
+            .border(
+                width = 1.dp,
+                color = MenuDadoColors.SoftSand.copy(alpha = 0.72f),
+                shape = RoundedCornerShape(MenuDadoUiTokens.NavigationRadius)
+            )
             .padding(
                 horizontal = menuDadoBottomNavigationHorizontalPaddingDp().dp,
                 vertical = menuDadoBottomNavigationVerticalPaddingDp().dp
@@ -1138,10 +1151,14 @@ internal fun menuDadoBottomNavigationDestinations(
     )
 }
 
-internal fun menuDadoBottomNavigationContainerColor(): Color = MenuDadoColors.HeaderGreen
+internal fun menuDadoBottomNavigationContainerColor(): Color = MenuDadoColors.Surface
 
 internal fun menuDadoBottomNavigationContentColor(isSelected: Boolean): Color =
-    Color.White.copy(alpha = if (isSelected) 1f else 0.72f)
+    if (isSelected) {
+        MenuDadoColors.BrandGreen
+    } else {
+        MenuDadoColors.MutedInk.copy(alpha = 0.72f)
+    }
 
 internal fun menuDadoBottomNavigationPressOverlayEnabled(): Boolean = false
 
@@ -1172,12 +1189,12 @@ internal fun menuDadoBottomNavigationMinHeightDp(): Int = 58
 
 internal fun menuDadoBottomNavigationIconSizeDp(): Int = 24
 
-internal fun menuDadoBottomNavigationItemCornerRadiusDp(): Int = 8
+internal fun menuDadoBottomNavigationItemCornerRadiusDp(): Int = 16
 
 internal fun menuDadoBottomNavigationIndicatorWidthDp(isSelected: Boolean): Int =
-    if (isSelected) 6 else 0
+    if (isSelected) 24 else 0
 
-internal fun menuDadoBottomNavigationIndicatorHeightDp(): Int = 6
+internal fun menuDadoBottomNavigationIndicatorHeightDp(): Int = 3
 
 internal fun shouldShowMenuDadoHeaderBackButton(
     destination: MenuDadoDestination,
@@ -1258,7 +1275,7 @@ internal fun menuDadoHeaderBackButtonSizeDp(): Int = 48
 
 internal fun menuDadoWordmarkVisualStartInsetDp(): Int = 15
 
-internal fun menuDadoHeaderSymbolSizeDp(): Int = 61
+internal fun menuDadoHeaderSymbolSizeDp(): Int = 44
 
 internal fun menuDadoHeaderWordmarkHeightDp(): Int = 34
 
@@ -2017,7 +2034,7 @@ private fun Header(
             .fillMaxWidth()
             .background(MenuDadoColors.HeaderGreen)
             .statusBarsPadding()
-            .padding(start = 24.dp, top = 16.dp, end = 20.dp, bottom = 22.dp),
+            .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(menuDadoHeaderBrandStartGapDp().dp)
     ) {
@@ -5219,7 +5236,7 @@ internal fun menuSheetCloseActionButtonSizeDp(): Int = 34
 
 internal fun menuSheetCloseActionIconTint(): Color = menuActionSheetContentColor()
 
-internal fun menuDadoNavigationBarScrimColor(): Color = MenuDadoColors.HeaderGreen
+internal fun menuDadoNavigationBarScrimColor(): Color = MenuDadoColors.Background
 
 @StringRes
 internal fun menuPhotoActionContentDescriptionRes(hasImage: Boolean): Int {

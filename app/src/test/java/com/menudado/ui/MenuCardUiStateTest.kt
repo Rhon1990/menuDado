@@ -195,15 +195,18 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `barra inferior de navegacion usa el verde de cabecera`() {
-        assertEquals(MenuDadoColors.HeaderGreen, menuDadoNavigationBarScrimColor())
+    fun `barra inferior de navegacion usa fondo calido`() {
+        assertEquals(MenuDadoColors.Background, menuDadoNavigationBarScrimColor())
     }
 
     @Test
-    fun `opciones principales viven en barra inferior verde`() {
-        assertEquals(MenuDadoColors.HeaderGreen, menuDadoBottomNavigationContainerColor())
-        assertEquals(Color.White, menuDadoBottomNavigationContentColor(isSelected = true))
-        assertEquals(Color.White.copy(alpha = 0.72f), menuDadoBottomNavigationContentColor(isSelected = false))
+    fun `opciones principales viven en barra inferior calida`() {
+        assertEquals(MenuDadoColors.Surface, menuDadoBottomNavigationContainerColor())
+        assertEquals(MenuDadoColors.BrandGreen, menuDadoBottomNavigationContentColor(isSelected = true))
+        assertEquals(
+            MenuDadoColors.MutedInk.copy(alpha = 0.72f),
+            menuDadoBottomNavigationContentColor(isSelected = false)
+        )
         assertEquals(
             listOf(
                 MenuDadoDestination.HOME,
@@ -303,7 +306,7 @@ class MenuCardUiStateTest {
         assertEquals(MenuDadoColors.BrandGreen, MenuDadoColors.HeaderGreen)
         assertEquals(MenuDadoColors.BrandGreen, MenuDadoColors.DeepGreen)
         assertEquals(MenuDadoColors.BrandGreen, menuActionSheetContainerColor())
-        assertEquals(MenuDadoColors.BrandGreen, menuDadoNavigationBarScrimColor())
+        assertEquals(MenuDadoColors.Background, menuDadoNavigationBarScrimColor())
     }
 
     @Test
@@ -522,14 +525,17 @@ class MenuCardUiStateTest {
 
     @Test
     fun `barra inferior usa colores y formas de MenuDado`() {
-        assertEquals(MenuDadoColors.HeaderGreen, menuDadoBottomNavigationContainerColor())
-        assertEquals(Color.White, menuDadoBottomNavigationContentColor(isSelected = true))
-        assertEquals(Color.White.copy(alpha = 0.72f), menuDadoBottomNavigationContentColor(isSelected = false))
+        assertEquals(MenuDadoColors.Surface, menuDadoBottomNavigationContainerColor())
+        assertEquals(MenuDadoColors.BrandGreen, menuDadoBottomNavigationContentColor(isSelected = true))
+        assertEquals(
+            MenuDadoColors.MutedInk.copy(alpha = 0.72f),
+            menuDadoBottomNavigationContentColor(isSelected = false)
+        )
         assertEquals(false, menuDadoBottomNavigationPressOverlayEnabled())
-        assertEquals(8, menuDadoBottomNavigationItemCornerRadiusDp())
-        assertEquals(6, menuDadoBottomNavigationIndicatorWidthDp(isSelected = true))
+        assertEquals(16, menuDadoBottomNavigationItemCornerRadiusDp())
+        assertEquals(24, menuDadoBottomNavigationIndicatorWidthDp(isSelected = true))
         assertEquals(0, menuDadoBottomNavigationIndicatorWidthDp(isSelected = false))
-        assertEquals(6, menuDadoBottomNavigationIndicatorHeightDp())
+        assertEquals(3, menuDadoBottomNavigationIndicatorHeightDp())
     }
 
     @Test
@@ -633,7 +639,7 @@ class MenuCardUiStateTest {
 
     @Test
     fun `cabecera reduce el bloque de marca un quince por ciento`() {
-        assertEquals(61, menuDadoHeaderSymbolSizeDp())
+        assertEquals(44, menuDadoHeaderSymbolSizeDp())
         assertEquals(34, menuDadoHeaderWordmarkHeightDp())
         assertEquals(14, menuDadoHeaderSubtitleFontSizeSp())
     }
