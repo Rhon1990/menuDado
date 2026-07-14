@@ -46,9 +46,10 @@ object MenuDadoUiTokens {
 private val ColorScheme = lightColorScheme(
     primary = MenuDadoColors.BrandGreen,
     onPrimary = Color.White,
-    secondary = MenuDadoColors.Tomato,
+    secondary = MenuDadoColors.ActionTerracotta,
     onSecondary = Color.White,
     tertiary = MenuDadoColors.EggYellow,
+    error = MenuDadoColors.Tomato,
     background = MenuDadoColors.Background,
     onBackground = MenuDadoColors.Ink,
     surface = MenuDadoColors.Surface,
@@ -98,6 +99,7 @@ private val MenuDadoTypography = Typography(
 )
 
 private val MenuDadoShapes = Shapes(
+    extraSmall = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
     large = RoundedCornerShape(MenuDadoUiTokens.CardRadius),

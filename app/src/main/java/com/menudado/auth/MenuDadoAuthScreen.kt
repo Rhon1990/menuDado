@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -130,7 +129,8 @@ fun MenuDadoAuthFormScreen(
                 .fillMaxWidth()
                 .height(54.dp),
             enabled = canSubmit,
-            colors = ButtonDefaults.buttonColors(containerColor = MenuDadoColors.DeepGreen)
+            shape = MaterialTheme.shapes.medium,
+            colors = ButtonDefaults.buttonColors(containerColor = MenuDadoColors.ActionTerracotta)
         ) {
             AuthButtonContent(
                 isLoading = isLoading,
@@ -184,10 +184,10 @@ private fun GoogleSignInButton(
             .border(
                 width = 1.dp,
                 color = MenuDadoColors.OutlineBrown.copy(alpha = 0.28f),
-                shape = RoundedCornerShape(8.dp)
+                shape = MaterialTheme.shapes.medium
             ),
         enabled = !isLoading,
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(
             containerColor = MenuDadoColors.Surface,
             contentColor = MenuDadoColors.Ink

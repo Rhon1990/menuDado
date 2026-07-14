@@ -27,16 +27,19 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 ### Paleta de Colores
 
-- Verde MenuDado: `#2F765D` - verde único para marca, cabecera, barra de estado, barra de navegación, botones principales y modales de acción.
+- Verde MenuDado: `#2F765D` - marca, cabecera, barra de estado, selección y acciones secundarias.
+- Terracota de acción: `#D66548` - llamadas a la acción principales como generar, guardar, registrarse o empezar.
+- Verde de selección: `#E7F0EB` - fondos suaves de beneficios, estados seleccionados y ayudas contextuales.
 - Crema cálido: `#FFF7E7` - dado, fondos claros y contraste suave.
 - Crema del dado de platos: `#FBF2DC` - fondo específico de las caras del dado ilustrado.
 - Fondo app: `#FFF9EC` - fondo general cálido y limpio.
 - Superficie: `#FFFCF4` - tarjetas principales con lectura clara.
 - Superficie formulario: `#FFEBC7` - bloque de creación de menú.
-- Arena suave: `#F2DFC1` - estados neutros o sin analizar.
+- Arena suave: `#F2DFC1` - bordes discretos, estados neutros y separación sin sombras pesadas.
+- Rojo tomate: `#E35D3E` - reservado para error, eliminación y cierre de sesión; no se usa como CTA principal.
+- Sistema visual `Calma editorial`: tarjetas de 24 dp, controles de 16 dp, objetivos táctiles mínimos de 48 dp, tipografía jerárquica y barra inferior flotante sobre superficie cálida.
 - Marrón contorno: `#9A6A45` - bordes y detalles secundarios.
 - Marrón borde dado: `#C49460` - trazo fino de las caras del dado 3D.
-- Tomate: `#E35D3E` - llamada principal del dado y estados poco saludables.
 - Aguacate: `#79A85B` - selección y estados saludables.
 - Amarillo huevo: `#F4B43E` - desayuno, energía y estados intermedios.
 - Tinta: `#263238` - texto principal.
@@ -81,6 +84,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Cada generación debe intentar diferenciarse de menús guardados del mismo tipo y del mismo público objetivo, además de la idea actual del formulario, evitando repetir plato, base principal, proteína o preparación.
    - Durante el mismo día, la app recuerda las últimas ideas generadas con IA por tipo de comida y público objetivo para enviarlas como ideas a evitar en siguientes generaciones, incluso si el usuario no las guarda.
    - El prompt de generación debe promover variedad saludable con opciones como cremas o sopas ligeras, ensaladas completas, ensalada César saludable, bowls, salteados simples, tortillas, legumbres, wraps, tostas, pasta integral y arroz integral.
+   - El prompt de generación prioriza seguridad, público, tipo de comida, ingredientes base y variedad en ese orden; exige nombre específico, cantidades aproximadas para una ración, preparación accionable en 2 a 4 pasos, tiempo total y un consejo útil dentro del JSON existente, sin añadir llamadas ni campos.
    - Los menús ya guardados se pueden editar desde un diálogo `Editar menu` abierto desde la propia tarjeta para evitar que el usuario pierda el contexto.
    - Si al editar un menú se cambia nombre, tipo, público objetivo, descripción o notas, el análisis IA y las calorías asociadas se descartan para evitar mostrar una evaluación desactualizada; el usuario puede volver a tocar `Analizar IA`.
 
@@ -158,14 +162,12 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 6. Onboarding de primera apertura.
    - La primera vez que el usuario entra a la app, MenuDado muestra un onboarding breve en modal sin reemplazar la pantalla principal.
-   - El onboarding explica cinco pasos básicos en este orden: completar el perfil alimentario, guardar menús, usar IA, entender el dado contextual y crear cuenta desde `Mi zona` para conservar datos entre reinstalaciones o cambios de móvil.
-   - El paso de perfil debe recordar que el usuario puede activar persona adulta, peques o bebé e indicar embarazo, alergias y condiciones de salud para adaptar mejor las ideas generadas.
-   - El paso de IA debe comunicar en lenguaje simple que la IA ayuda a generar y revisar ideas, y que en modo invitado los usos diarios están limitados para probar la app sin bloquear el uso básico.
-   - El usuario puede avanzar o retroceder por los pasos con swipe horizontal, empezar u omitir.
+   - El onboarding concentra la activación en una única propuesta: resolver qué comer en menos de un minuto generando una idea con IA o dejando que el dado elija entre los menús guardados.
+   - La acción principal del onboarding lleva a crear el primer menú; la secundaria permite explorar sin registro y sin bloquear el uso básico.
    - Al empezar u omitir, el onboarding se marca como completado en almacenamiento local y no vuelve a mostrarse en siguientes aperturas hasta que exista una nueva versión de contenido relevante. La versión vigente del contenido de onboarding es 5.
 
 7. Perfil alimentario.
-   - La app ofrece una barra inferior verde con acceso a `Perfil`.
+   - La app ofrece acceso a `Perfil` desde la barra inferior flotante.
    - El perfil se guarda localmente en el móvil y se sincroniza en Firestore para el usuario anónimo.
    - El perfil alimentario se configura por público objetivo: persona adulta, peques y bebé.
    - Cada público tiene un interruptor `Activo`; por defecto solo `Persona adulta` viene activo, y `Peques` y `Bebé` empiezan desactivados. Si un público está desactivado, no aparece como botón seleccionable al agregar menús ni al lanzar el dado. La app impide desactivar el último público activo para que siempre quede al menos uno disponible.
@@ -266,7 +268,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 ## Principios de UX
 
 - La primera pantalla debe ser la app usable, no una página de presentación.
-- La navegación principal vive en una barra inferior verde MenuDado con accesos a Inicio, Perfil y Mi zona. `Acerca de la app` y `Privacidad` se acceden desde `Mi zona`.
+- La navegación principal vive en una barra inferior flotante de superficie cálida, con verde MenuDado para el destino seleccionado y accesos a Inicio, Perfil y Mi zona. `Acerca de la app` y `Privacidad` se acceden desde `Mi zona`.
 - Una acción principal clara: `Qué comer hoy`, con `Generar con IA` visible por defecto, `Elegir entre mis menús` como secundaria y escritura manual como terciaria.
 - Una acción divertida y protagonista: tocar el dado IA para crear una idea saludable; la selección entre guardados mantiene una acción de dado diferenciada por su texto.
 - La cabecera debe respetar el espacio de la barra de estado y usar colores de sistema coherentes con la marca.

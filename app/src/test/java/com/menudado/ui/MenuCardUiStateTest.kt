@@ -123,7 +123,7 @@ class MenuCardUiStateTest {
     @Test
     fun `boton de camara se superpone dentro de la foto de cards y editor`() {
         assertEquals(R.drawable.ic_photo_camera, menuPhotoActionIconRes())
-        assertEquals(34, menuPhotoActionButtonSizeDp())
+        assertEquals(48, menuPhotoActionButtonSizeDp())
         assertEquals(2, menuPhotoActionButtonInsetDp())
         assertEquals(Color(0xFFA4ADA9), menuPhotoActionIconTint())
         assertEquals(Color.Transparent, menuPhotoActionButtonBackgroundColor())
@@ -144,7 +144,7 @@ class MenuCardUiStateTest {
         assertTrue(menuPhotoSourceShowsCloseAction())
         assertEquals(R.drawable.ic_close, menuSheetCloseActionIconRes())
         assertEquals(R.string.common_close, menuSheetCloseActionContentDescriptionRes())
-        assertEquals(34, menuSheetCloseActionButtonSizeDp())
+        assertEquals(48, menuSheetCloseActionButtonSizeDp())
         assertEquals(Color.White, menuPhotoSourceOptionIconTint())
         assertEquals(Color.White, menuPhotoSourceOptionTitleColor())
         assertEquals(Color.White.copy(alpha = 0.78f), menuPhotoSourceOptionDescriptionColor())
@@ -153,7 +153,7 @@ class MenuCardUiStateTest {
 
     @Test
     fun `boton de favorito usa el estilo visual de la camara y mantiene rojo al activarse`() {
-        assertEquals(34, menuFavoriteActionButtonSizeDp())
+        assertEquals(48, menuFavoriteActionButtonSizeDp())
         assertEquals(2, menuFavoriteActionButtonInsetDp())
         assertEquals(Color.Transparent, menuFavoriteActionButtonBackgroundColor())
         assertEquals(Color(0xFFA4ADA9), menuFavoriteActionIconTint(isFavorite = false))
@@ -163,7 +163,7 @@ class MenuCardUiStateTest {
     @Test
     fun `menu de tres puntos muestra acciones de menu con estilo MenuDado`() {
         assertEquals(R.drawable.ic_more_vertical, menuOverflowActionIconRes())
-        assertEquals(34, menuOverflowActionButtonSizeDp())
+        assertEquals(48, menuOverflowActionButtonSizeDp())
         assertEquals(2, menuOverflowActionButtonInsetDp())
         assertEquals(Color.Transparent, menuOverflowActionButtonBackgroundColor())
         assertEquals(Color(0xFFA4ADA9), menuOverflowActionIconTint())
@@ -279,6 +279,15 @@ class MenuCardUiStateTest {
             ),
             myZoneAccountBenefitRes()
         )
+    }
+
+    @Test
+    fun `mi zona mantiene una jerarquia visual calmada para captar usuarios`() {
+        assertEquals(MenuDadoColors.ActionTerracotta, myZonePrimaryActionColor())
+        assertEquals(MenuDadoColors.BrandGreen, myZoneSecondaryActionColor())
+        assertEquals(MenuDadoColors.SelectionGreen, myZoneBenefitsContainerColor())
+        assertEquals(MenuDadoColors.Surface, myZoneAccountContainerColor())
+        assertEquals(24, myZoneAccountContainerCornerRadiusDp())
     }
 
     @Test
@@ -613,7 +622,7 @@ class MenuCardUiStateTest {
 
     @Test
     fun `boton de dado deshabilitado usa color calido de marca distinto del naranja activo`() {
-        assertEquals(MenuDadoColors.Tomato, contextualDiceEnabledContainerColor())
+        assertEquals(MenuDadoColors.ActionTerracotta, contextualDiceEnabledContainerColor())
         assertEquals(MenuDadoColors.SoftSand, contextualDiceDisabledContainerColor())
         assertFalse(contextualDiceDisabledContainerColor() == MenuDadoColors.Tomato.copy(alpha = 0.72f))
         assertEquals(MenuDadoColors.Ink, contextualDiceContentColor(enabled = false))
@@ -692,6 +701,16 @@ class MenuCardUiStateTest {
         assertEquals(1, steps.size)
         assertEquals(R.string.onboarding_activation_title, steps.single().titleRes)
         assertEquals(R.string.onboarding_activation_body, steps.single().bodyRes)
+        assertEquals(MenuDadoColors.ActionTerracotta, onboardingPrimaryActionColor())
+        assertEquals(MenuDadoColors.Surface, onboardingContainerColor())
+        assertEquals(24, onboardingContainerCornerRadiusDp())
+    }
+
+    @Test
+    fun `generated result uses a clear save hierarchy`() {
+        assertEquals(MenuDadoColors.ActionTerracotta, generatedMenuPrimaryActionColor())
+        assertEquals(MenuDadoColors.Surface, generatedMenuContainerColor())
+        assertEquals(28, generatedMenuContainerCornerRadiusDp())
     }
 
     @Test

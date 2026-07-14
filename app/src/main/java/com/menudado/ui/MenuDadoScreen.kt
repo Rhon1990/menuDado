@@ -988,7 +988,7 @@ private fun AiGenerationLoadingOverlay(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = aiGenerationLoadingCardColor()),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
         ) {
             Column(
                 modifier = Modifier
@@ -1232,7 +1232,7 @@ internal fun contextualDicePrimaryTextMaxLines(): Int = 2
 
 internal fun contextualDicePrimaryTextSoftWrap(): Boolean = true
 
-internal fun contextualDiceEnabledContainerColor(): Color = MenuDadoColors.Tomato
+internal fun contextualDiceEnabledContainerColor(): Color = MenuDadoColors.ActionTerracotta
 
 internal fun contextualDiceDisabledContainerColor(): Color = MenuDadoColors.SoftSand
 
@@ -1294,6 +1294,12 @@ internal fun onboardingSteps(): List<OnboardingStep> = listOf(
         bodyRes = R.string.onboarding_activation_body
     )
 )
+
+internal fun onboardingPrimaryActionColor(): Color = MenuDadoColors.ActionTerracotta
+
+internal fun onboardingContainerColor(): Color = MenuDadoColors.Surface
+
+internal fun onboardingContainerCornerRadiusDp(): Int = 24
 private const val MENU_DADO_PRIVACY_POLICY_URL = "https://rhon1990.github.io/menuDado/privacy-policy/"
 private const val AI_DICE_BASE_CYCLE_MILLIS = 850.0
 private const val AI_DICE_DECELERATION_MILLIS = 6_000.0
@@ -1326,12 +1332,13 @@ private fun AboutAppSection(aboutContent: MenuDadoAboutContent) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MenuDadoColors.SoftSand),
+        shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = stringResource(id = R.string.about_title),
@@ -1408,6 +1415,16 @@ private fun AboutAppSection(aboutContent: MenuDadoAboutContent) {
     }
 }
 
+internal fun myZonePrimaryActionColor(): Color = MenuDadoColors.ActionTerracotta
+
+internal fun myZoneSecondaryActionColor(): Color = MenuDadoColors.BrandGreen
+
+internal fun myZoneBenefitsContainerColor(): Color = MenuDadoColors.SelectionGreen
+
+internal fun myZoneAccountContainerColor(): Color = MenuDadoColors.Surface
+
+internal fun myZoneAccountContainerCornerRadiusDp(): Int = 24
+
 @Composable
 private fun MyZoneSection(
     authSession: MenuDadoAuthSession?,
@@ -1442,42 +1459,56 @@ private fun MyZoneSection(
                     }
                 )
             }
-            Column(
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 22.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(18.dp)
+                    .padding(horizontal = 16.dp, vertical = 20.dp),
+                colors = CardDefaults.cardColors(containerColor = myZoneAccountContainerColor()),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, MenuDadoColors.SoftSand),
+                shape = RoundedCornerShape(myZoneAccountContainerCornerRadiusDp().dp)
             ) {
-            Text(
-                text = stringResource(id = R.string.my_zone_guest_prompt),
-                color = MenuDadoColors.Ink,
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center
-            )
-            Button(
-                onClick = onRegisterClick,
-                modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MenuDadoColors.DeepGreen)
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = stringResource(id = R.string.auth_register_free),
-                        fontWeight = FontWeight.Black
+                        text = stringResource(id = R.string.my_zone_guest_prompt),
+                        color = MenuDadoColors.Ink,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center
                     )
-                }
-                Button(
-                    onClick = onSignInClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MenuDadoColors.Tomato)
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.auth_sign_in),
-                        fontWeight = FontWeight.Black
-                    )
+                    Button(
+                        onClick = onRegisterClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = myZonePrimaryActionColor()),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.auth_register_free),
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = onSignInClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = myZoneSecondaryActionColor()
+                        ),
+                        border = BorderStroke(1.dp, myZoneSecondaryActionColor()),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.auth_sign_in),
+                            fontWeight = FontWeight.Black
+                        )
+                    }
                 }
             }
         } else {
@@ -1497,15 +1528,16 @@ private fun MyZoneBenefitsButton(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MenuDadoColors.EggYellow)
+            .background(myZoneBenefitsContainerColor())
             .clickable(onClick = onClick)
+            .defaultMinSize(minHeight = MenuDadoUiTokens.MinimumTouchTarget)
             .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = stringResource(id = R.string.my_zone_benefits_title),
-            color = MenuDadoColors.Ink,
+            color = MenuDadoColors.BrandGreen,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Black,
             textAlign = TextAlign.Center
@@ -1514,7 +1546,7 @@ private fun MyZoneBenefitsButton(onClick: () -> Unit) {
         Icon(
             painter = painterResource(id = R.drawable.ic_expand_more),
             contentDescription = null,
-            tint = MenuDadoColors.Ink,
+            tint = MenuDadoColors.BrandGreen,
             modifier = Modifier.size(20.dp)
         )
     }
@@ -1548,7 +1580,7 @@ private fun MyZoneBenefitsDialog(onDismiss: () -> Unit) {
             }
         },
         containerColor = MenuDadoColors.Surface,
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
     )
 }
 
@@ -1570,14 +1602,14 @@ private fun MyZoneHeader(authSession: MenuDadoAuthSession?, isSignedIn: Boolean)
         modifier = Modifier
             .fillMaxWidth()
             .background(MenuDadoColors.HeaderGreen)
-            .padding(horizontal = 20.dp, vertical = 26.dp),
+            .padding(horizontal = 20.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(18.dp)
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         if (isSignedIn) {
             Box(
                 modifier = Modifier
-                    .size(74.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
                     .background(MenuDadoColors.EggYellow),
                 contentAlignment = Alignment.Center
@@ -1585,12 +1617,12 @@ private fun MyZoneHeader(authSession: MenuDadoAuthSession?, isSignedIn: Boolean)
                 Text(
                     text = initial,
                     color = MenuDadoColors.Ink,
-                    style = MaterialTheme.typography.headlineLarge,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black
                 )
             }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 text = if (isSignedIn && accountName != null) {
                     stringResource(id = R.string.my_zone_signed_in_title, accountName)
@@ -1646,51 +1678,60 @@ private fun MyZoneSignedInData(
     onPrivacyClick: () -> Unit,
     onSignOutClick: () -> Unit
 ) {
-    Column(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MenuDadoColors.Background)
-            .padding(horizontal = 24.dp, vertical = 34.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(22.dp)
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(containerColor = myZoneAccountContainerColor()),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MenuDadoColors.SoftSand),
+        shape = RoundedCornerShape(myZoneAccountContainerCornerRadiusDp().dp)
     ) {
-        Text(
-            text = stringResource(id = R.string.my_zone_my_data),
-            color = MenuDadoColors.Ink,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Black
-        )
-        Box(
+        Column(
             modifier = Modifier
-                .width(96.dp)
-                .height(5.dp)
-                .clip(RoundedCornerShape(5.dp))
-                .background(MenuDadoColors.EggYellow)
-        )
-        MyZoneDataRow(
-            label = stringResource(id = R.string.my_zone_email),
-            value = authSession?.email.orEmpty()
-        )
-        MyZoneDataRow(
-            label = stringResource(id = R.string.my_zone_synced_account),
-            value = stringResource(id = myZoneSyncedAccountValueRes())
-        )
-        MyZoneActionRow(
-            label = stringResource(id = R.string.my_zone_about_app),
-            onClick = onAboutClick
-        )
-        if (shouldShowPrivacyOption) {
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            Text(
+                text = stringResource(id = R.string.my_zone_my_data),
+                color = MenuDadoColors.Ink,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Black
+            )
+            Box(
+                modifier = Modifier
+                    .width(72.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MenuDadoColors.ActionTerracotta)
+            )
+            MyZoneDataRow(
+                label = stringResource(id = R.string.my_zone_email),
+                value = authSession?.email.orEmpty()
+            )
+            MyZoneDataRow(
+                label = stringResource(id = R.string.my_zone_synced_account),
+                value = stringResource(id = myZoneSyncedAccountValueRes())
+            )
             MyZoneActionRow(
-                label = stringResource(id = R.string.my_zone_privacy),
-                onClick = onPrivacyClick
+                label = stringResource(id = R.string.my_zone_about_app),
+                onClick = onAboutClick
+            )
+            if (shouldShowPrivacyOption) {
+                MyZoneActionRow(
+                    label = stringResource(id = R.string.my_zone_privacy),
+                    onClick = onPrivacyClick
+                )
+            }
+            MyZoneActionRow(
+                label = stringResource(id = R.string.my_zone_sign_out),
+                color = MenuDadoColors.Tomato,
+                trailingIconRes = myZoneSignOutActionIconRes(),
+                onClick = onSignOutClick
             )
         }
-        MyZoneActionRow(
-            label = stringResource(id = R.string.my_zone_sign_out),
-            color = MenuDadoColors.Tomato,
-            trailingIconRes = myZoneSignOutActionIconRes(),
-            onClick = onSignOutClick
-        )
     }
 }
 
@@ -1732,7 +1773,8 @@ private fun MyZoneActionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 2.dp),
+            .defaultMinSize(minHeight = MenuDadoUiTokens.MinimumTouchTarget)
+            .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1789,12 +1831,13 @@ private fun DietaryProfileSection(
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MenuDadoColors.SoftSand),
+        shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = stringResource(id = R.string.dietary_profile_title),
@@ -1976,7 +2019,7 @@ private fun AiQuotaDialog(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
                         .background(
                             if (canRetry) {
                                 MenuDadoColors.Avocado.copy(alpha = 0.22f)
@@ -2107,12 +2150,13 @@ private fun DiceSection(
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MenuDadoColors.SoftSand),
+        shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
@@ -2145,11 +2189,11 @@ private fun DiceSection(
                 onClick = onRoll,
                 enabled = !isRolling,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MenuDadoColors.Tomato,
+                    containerColor = MenuDadoColors.ActionTerracotta,
                     contentColor = Color.White,
-                    disabledContainerColor = MenuDadoColors.Tomato.copy(alpha = 0.72f),
+                    disabledContainerColor = MenuDadoColors.ActionTerracotta.copy(alpha = 0.64f),
                     disabledContentColor = Color.White
                 )
             ) {
@@ -2614,13 +2658,14 @@ private fun TodayMenuSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = MenuDadoColors.FormSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(8.dp)
+        colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MenuDadoColors.SoftSand.copy(alpha = 0.84f)),
+        shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
@@ -2701,7 +2746,7 @@ private fun TodayMenuSection(
                         onClick = onRollSavedMenu,
                         enabled = canRollSavedMenu,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
                         border = BorderStroke(1.dp, MenuDadoColors.BrandGreen)
                     ) {
                         Text(
@@ -2714,7 +2759,7 @@ private fun TodayMenuSection(
                     TextButton(
                         onClick = { onModeChanged(HomeMenuMode.Manual) },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                     ) {
                         Text(
                             text = stringResource(id = R.string.home_write_menu_action),
@@ -2738,7 +2783,7 @@ private fun TodayMenuSection(
                     TextButton(
                         onClick = { onModeChanged(HomeMenuMode.Ai) },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                     ) {
                         Text(
                             text = stringResource(id = R.string.home_back_to_ai_action),
@@ -2773,11 +2818,12 @@ private fun RecentMenuSection(
             onClick = onOpen,
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            shape = RoundedCornerShape(12.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border = BorderStroke(1.dp, MenuDadoColors.SoftSand),
+            shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
         ) {
             Row(
-                modifier = Modifier.padding(12.dp),
+                modifier = Modifier.padding(14.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -2785,7 +2831,7 @@ private fun RecentMenuSection(
                     menu = menu,
                     modifier = Modifier
                         .size(72.dp)
-                        .clip(RoundedCornerShape(10.dp)),
+                        .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius)),
                     showMealTypeLabel = false
                 )
                 Column(
@@ -2835,7 +2881,7 @@ private fun DiceEmptyRecoveryDialog(
                 .padding(horizontal = 24.dp),
             colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
@@ -2868,9 +2914,9 @@ private fun DiceEmptyRecoveryDialog(
                 Button(
                     onClick = onGenerateAi,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MenuDadoColors.Tomato,
+                        containerColor = MenuDadoColors.ActionTerracotta,
                         contentColor = Color.White
                     )
                 ) {
@@ -2884,7 +2930,7 @@ private fun DiceEmptyRecoveryDialog(
                     OutlinedButton(
                         onClick = onBroadenMealType,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
                         border = BorderStroke(1.dp, MenuDadoColors.BrandGreen)
                     ) {
                         Text(
@@ -2898,7 +2944,7 @@ private fun DiceEmptyRecoveryDialog(
                 TextButton(
                     onClick = onChangeFilters,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                 ) {
                     Text(
                         text = stringResource(id = R.string.dice_empty_recovery_change_filters),
@@ -2928,7 +2974,7 @@ private fun EditMenuDialog(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
         ) {
             Column(
                 modifier = Modifier
@@ -2995,7 +3041,7 @@ private fun EditMenuDialog(
                     OutlinedButton(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                     ) {
                         Text(
                             text = stringResource(id = R.string.common_cancel),
@@ -3006,9 +3052,9 @@ private fun EditMenuDialog(
                     Button(
                         onClick = onSave,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MenuDadoColors.BrandGreen,
+                            containerColor = MenuDadoColors.ActionTerracotta,
                             contentColor = Color.White
                         )
                     ) {
@@ -3059,7 +3105,7 @@ private fun ContextualDiceButton(
             onClick = onClick,
             enabled = enabled,
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
             colors = ButtonDefaults.buttonColors(
                 containerColor = contextualDiceEnabledContainerColor(),
                 contentColor = contextualDiceContentColor(enabled = true),
@@ -3123,11 +3169,11 @@ private fun ContextualDiceDisabledReason(text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
             .background(contextualDiceDisabledReasonContainerColor())
             .border(
                 BorderStroke(1.dp, contextualDiceDisabledReasonBorderColor()),
-                RoundedCornerShape(8.dp)
+                RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
             )
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(9.dp),
@@ -3198,9 +3244,9 @@ private fun SaveMenuButton(
         onClick = onSave,
         enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MenuDadoColors.BrandGreen,
+            containerColor = MenuDadoColors.ActionTerracotta,
             contentColor = Color.White
         )
     ) {
@@ -3246,7 +3292,7 @@ private fun <T> MenuDadoSegmentedSwitch(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
                     .background(containerColor)
                     .clickable { onSelected(option.value) }
                     .padding(horizontal = 8.dp),
@@ -3413,11 +3459,11 @@ private fun <T> CompactDropdownSelector(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
                 .background(MenuDadoColors.Cream)
                 .border(
                     BorderStroke(1.dp, MenuDadoColors.OutlineBrown.copy(alpha = 0.24f)),
-                    RoundedCornerShape(8.dp)
+                    RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                 )
                 .clickable(enabled = enabled) { expanded = true }
                 .padding(horizontal = 12.dp),
@@ -3543,7 +3589,7 @@ private fun ProfileAudienceFilter(
 private fun CaloriesPill(calories: Int) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
             .background(MenuDadoColors.EggYellow.copy(alpha = 0.24f))
             .padding(horizontal = 12.dp, vertical = 7.dp)
     ) {
@@ -3563,12 +3609,13 @@ private fun EmptyState() {
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MenuDadoColors.SoftSand),
+        shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
     ) {
         Text(
             text = stringResource(id = R.string.empty_menus),
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier.padding(20.dp),
             style = MaterialTheme.typography.bodyLarge,
             color = MenuDadoColors.MutedInk
         )
@@ -3588,7 +3635,7 @@ private fun PendingAnalysisButton(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
     ) {
         Text(
             text = pendingAnalysisButtonText(
@@ -3748,7 +3795,7 @@ private fun MenuCarouselItem(
             .semantics { contentDescription = menu.name },
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Box {
@@ -3894,7 +3941,7 @@ private fun MenuCoverImage(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
             .background(menu.mealType.carouselCoverColor()),
         contentAlignment = Alignment.BottomStart
     ) {
@@ -4029,7 +4076,7 @@ private fun MenuPhotoSourceDialog(
                     .clickable(onClick = {}),
                 colors = CardDefaults.cardColors(containerColor = menuPhotoSourceSheetContainerColor()),
                 elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
-                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
@@ -4045,7 +4092,7 @@ private fun MenuPhotoSourceDialog(
                                 .align(Alignment.Center)
                                 .width(86.dp)
                                 .height(5.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
                                 .background(menuPhotoSourceContentColor().copy(alpha = 0.42f))
                         )
                         MenuSheetCloseButton(
@@ -4103,7 +4150,7 @@ private fun MenuPhotoSourceOption(
         modifier = Modifier
             .fillMaxWidth()
             .height(menuPhotoSourceOptionMinHeightDp().dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -4179,7 +4226,7 @@ private fun MenuActionsSheet(
                     .clickable(onClick = {}),
                 colors = CardDefaults.cardColors(containerColor = menuActionSheetContainerColor()),
                 elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
-                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
@@ -4195,7 +4242,7 @@ private fun MenuActionsSheet(
                                 .align(Alignment.Center)
                                 .width(86.dp)
                                 .height(5.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
                                 .background(menuActionSheetContentColor().copy(alpha = 0.42f))
                         )
                         MenuSheetCloseButton(
@@ -4256,7 +4303,7 @@ private fun MenuActionSheetRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -4356,7 +4403,7 @@ private fun MenuPhotoSelector(
 private fun CompactHealthChip(status: HealthStatus) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
             .background(status.accentColor().copy(alpha = 0.24f))
             .padding(horizontal = 8.dp, vertical = 5.dp)
     ) {
@@ -4407,14 +4454,14 @@ private fun MenuDetailDialog(
                 .padding(horizontal = 14.dp),
             colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
         ) {
             Column {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(150.dp)
-                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)),
+                        .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)),
                     contentAlignment = Alignment.BottomStart
                 ) {
                     MenuCoverImage(
@@ -4479,7 +4526,7 @@ private fun MenuDetailDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 18.dp, vertical = 12.dp),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                     ) {
                         Text(
                             text = analyzeAiButtonText(
@@ -4505,7 +4552,7 @@ private fun MenuDetailDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 18.dp, end = 18.dp, bottom = 14.dp),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                 ) {
                     Text(
                         text = stringResource(id = R.string.common_close),
@@ -4517,6 +4564,12 @@ private fun MenuDetailDialog(
         }
     }
 }
+
+internal fun generatedMenuPrimaryActionColor(): Color = MenuDadoColors.ActionTerracotta
+
+internal fun generatedMenuContainerColor(): Color = MenuDadoColors.Surface
+
+internal fun generatedMenuContainerCornerRadiusDp(): Int = 28
 
 @Composable
 private fun GeneratedMenuDetailDialog(
@@ -4536,16 +4589,21 @@ private fun GeneratedMenuDetailDialog(
                 .fillMaxWidth()
                 .fillMaxHeight(0.88f)
                 .padding(horizontal = 14.dp),
-            colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+            colors = CardDefaults.cardColors(containerColor = generatedMenuContainerColor()),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(generatedMenuContainerCornerRadiusDp().dp)
         ) {
             Column {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(150.dp)
-                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)),
+                        .clip(
+                            RoundedCornerShape(
+                                topStart = generatedMenuContainerCornerRadiusDp().dp,
+                                topEnd = generatedMenuContainerCornerRadiusDp().dp
+                            )
+                        ),
                     contentAlignment = Alignment.BottomStart
                 ) {
                     MenuCoverImage(
@@ -4605,9 +4663,9 @@ private fun GeneratedMenuDetailDialog(
                     Button(
                         onClick = onSave,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MenuDadoColors.BrandGreen,
+                            containerColor = generatedMenuPrimaryActionColor(),
                             contentColor = Color.White
                         )
                     ) {
@@ -4622,7 +4680,7 @@ private fun GeneratedMenuDetailDialog(
                         onClick = onTryAnother,
                         enabled = !isGenerating,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                     ) {
                         Text(
                             text = stringResource(
@@ -4636,7 +4694,7 @@ private fun GeneratedMenuDetailDialog(
                     TextButton(
                         onClick = onDiscard,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                     ) {
                         Text(
                             text = stringResource(id = R.string.generated_menu_discard),
@@ -4721,12 +4779,13 @@ private fun MenuCard(
                 }
             },
         colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MenuDadoColors.SoftSand),
+        shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
                 text = menu.name,
@@ -4765,7 +4824,7 @@ private fun MenuCard(
                 }
                 Box(
                     modifier = Modifier
-                        .size(34.dp),
+                        .size(MenuDadoUiTokens.MinimumTouchTarget),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -4803,7 +4862,7 @@ private fun MenuCard(
                                 onClick = onAnalyze,
                                 enabled = !isAnalyzing && !isAiPaused,
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                             ) {
                                 Text(
                                     text = analyzeAiButtonText(
@@ -5152,7 +5211,7 @@ internal enum class MenuActionSheetAction {
 
 internal fun menuPhotoActionIconRes(): Int = R.drawable.ic_photo_camera
 
-internal fun menuPhotoActionButtonSizeDp(): Int = 34
+internal fun menuPhotoActionButtonSizeDp(): Int = 48
 
 internal fun menuPhotoActionButtonInsetDp(): Int = 2
 
@@ -5232,7 +5291,7 @@ internal fun menuSheetCloseActionIconRes(): Int = R.drawable.ic_close
 @StringRes
 internal fun menuSheetCloseActionContentDescriptionRes(): Int = R.string.common_close
 
-internal fun menuSheetCloseActionButtonSizeDp(): Int = 34
+internal fun menuSheetCloseActionButtonSizeDp(): Int = 48
 
 internal fun menuSheetCloseActionIconTint(): Color = menuActionSheetContentColor()
 
@@ -5385,7 +5444,7 @@ private fun BoxScope.MenuDetailHeroText(menu: FoodMenu) {
         Text(
             text = "${stringResource(id = mealTypeLabelRes(menu.mealType))} · ${stringResource(id = menuAudienceLabelRes(menu.audience))}",
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
                 .background(MenuDadoColors.Surface.copy(alpha = 0.9f))
                 .padding(horizontal = 12.dp, vertical = 7.dp),
             color = MenuDadoColors.Tomato,
@@ -5419,7 +5478,7 @@ private fun EditMenuButton(
         } else {
             modifier.fillMaxWidth()
         },
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Image(
@@ -5457,7 +5516,7 @@ private fun ShareMenuButton(
         } else {
             modifier.fillMaxWidth()
         },
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Image(
@@ -5495,7 +5554,7 @@ private fun DeleteMenuButton(
         } else {
             modifier.fillMaxWidth()
         },
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Image(
@@ -5564,7 +5623,7 @@ private fun HealthAnalysisPanel(analysis: HealthAnalysis) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
             .background(background)
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -5608,7 +5667,7 @@ private fun HealthChip(status: HealthStatus) {
     val color = status.accentColor()
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
             .background(color.copy(alpha = 0.28f))
             .padding(horizontal = 12.dp, vertical = 7.dp)
     ) {
@@ -5690,21 +5749,29 @@ private fun OnboardingDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp),
-            colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+            colors = CardDefaults.cardColors(containerColor = onboardingContainerColor()),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(onboardingContainerCornerRadiusDp().dp)
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.menu_dado_symbol),
-                    contentDescription = null,
-                    modifier = Modifier.size(72.dp),
-                    contentScale = ContentScale.Fit
-                )
+                Box(
+                    modifier = Modifier
+                        .size(96.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(MenuDadoColors.BrandGreen),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.menu_dado_symbol),
+                        contentDescription = null,
+                        modifier = Modifier.size(76.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                }
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -5744,9 +5811,9 @@ private fun OnboardingDialog(
                 Button(
                     onClick = onFinish,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MenuDadoColors.Tomato,
+                        containerColor = onboardingPrimaryActionColor(),
                         contentColor = Color.White
                     )
                 ) {
@@ -5759,7 +5826,7 @@ private fun OnboardingDialog(
                 TextButton(
                     onClick = onSkip,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                 ) {
                     Text(
                         text = stringResource(id = R.string.onboarding_explore),
