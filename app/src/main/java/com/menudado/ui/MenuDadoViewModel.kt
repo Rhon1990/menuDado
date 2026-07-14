@@ -92,7 +92,14 @@ data class MenuDadoUiState(
     val dietaryProfileAudience: MenuAudience = MenuAudience.ADULT,
     val dietaryProfile: DietaryProfile = DietaryProfile(),
     val showOnboarding: Boolean = false,
-    val showGeneratedMenuDetail: Boolean = false
+    val showGeneratedMenuDetail: Boolean = false,
+    val diceEmptyRecovery: DiceEmptyRecovery? = null
+)
+
+data class DiceEmptyRecovery(
+    val mealType: MealType,
+    val audience: MenuAudience,
+    val canBroadenMealType: Boolean
 )
 
 enum class HomeMenuMode {
@@ -144,7 +151,7 @@ class MenuDadoViewModel(
 
     fun setDiceFilter(filter: MealType?) {
         analytics.trackDiceFilterSelected(filter, _uiState.value.menus.size)
-        _uiState.update { it.copy(diceFilter = filter) }
+        _uiState.update { it.copy(diceFilter = filter, diceEmptyRecovery = null) }
     }
 
     fun setHomeMenuMode(mode: HomeMenuMode) {
@@ -192,7 +199,7 @@ class MenuDadoViewModel(
             if (filter != null && filter !in it.enabledAudiences) {
                 it
             } else {
-                it.copy(diceAudienceFilter = filter)
+                it.copy(diceAudienceFilter = filter, diceEmptyRecovery = null)
             }
         }
         if (filter == null || filter in state.enabledAudiences) {
@@ -482,43 +489,92 @@ class MenuDadoViewModel(
             return
         }
 
+        startDiceRoll(
+            filter = state.diceFilter,
+            audience = state.diceAudienceFilter,
+            recoveryMealType = state.diceFilter
+        )
+    }
+
+    fun dismissDiceEmptyRecovery() {
+        if (_uiState.value.diceEmptyRecovery != null) {
+            analytics.trackDiceEmptyRecovery(DICE_EMPTY_RECOVERY_CHANGE_FILTERS)
+        }
+        _uiState.update { it.copy(diceEmptyRecovery = null) }
+    }
+
+    fun rollDiceAcrossMealTypesForSelectedAudience() {
+        val recovery = _uiState.value.diceEmptyRecovery ?: return
+        if (_uiState.value.isRolling) return
+        analytics.trackDiceEmptyRecovery(DICE_EMPTY_RECOVERY_BROADEN_MEAL_TYPE)
+        _uiState.update { it.copy(diceEmptyRecovery = null) }
+        startDiceRoll(filter = null, audience = recovery.audience, recoveryMealType = null)
+    }
+
+    fun generateAiFromDiceEmptyRecovery() {
+        val recovery = _uiState.value.diceEmptyRecovery ?: return
+        analytics.trackDiceEmptyRecovery(DICE_EMPTY_RECOVERY_GENERATE_AI)
+        _uiState.update {
+            it.copy(
+                diceEmptyRecovery = null,
+                homeMenuMode = HomeMenuMode.Ai,
+                formMealType = recovery.mealType,
+                formAudience = recovery.audience
+            )
+        }
+        generateMenuIdea()
+    }
+
+    private fun startDiceRoll(
+        filter: MealType?,
+        audience: MenuAudience,
+        recoveryMealType: MealType?
+    ) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isRolling = true, result = null, message = null, isAiRetryNoticeVisible = false) }
+            _uiState.update {
+                it.copy(
+                    isRolling = true,
+                    result = null,
+                    message = null,
+                    isAiRetryNoticeVisible = false,
+                    diceEmptyRecovery = null
+                )
+            }
             delay(DICE_ROLL_DURATION_MILLIS)
             val today = todayProvider()
             val currentState = _uiState.value
             val hasCandidates = DiceSelector.hasCandidates(
                 currentState.menus,
-                currentState.diceFilter,
-                currentState.diceAudienceFilter
+                filter,
+                audience
             )
             val availableCandidateCountBeforeReset = DiceSelector.availableCandidateCount(
                 menus = currentState.menus,
-                filter = currentState.diceFilter,
-                audienceFilter = currentState.diceAudienceFilter,
+                filter = filter,
+                audienceFilter = audience,
                 today = today
             )
             var selected = DiceSelector.select(
                 menus = currentState.menus,
-                filter = currentState.diceFilter,
-                audienceFilter = currentState.diceAudienceFilter,
+                filter = filter,
+                audienceFilter = audience,
                 today = today
             )
             if (selected == null && hasCandidates) {
                 val resetMenus = currentState.menus.map { menu ->
-                    if (menu.matchesDiceFilters(currentState.diceFilter, currentState.diceAudienceFilter)) {
+                    if (menu.matchesDiceFilters(filter, audience)) {
                         menu.copy(lastPickedDate = null)
                     } else {
                         menu
                     }
                 }
                 resetMenus
-                    .filter { it.matchesDiceFilters(currentState.diceFilter, currentState.diceAudienceFilter) }
+                    .filter { it.matchesDiceFilters(filter, audience) }
                     .forEach { repository.save(it) }
                 selected = DiceSelector.select(
                     menus = resetMenus,
-                    filter = currentState.diceFilter,
-                    audienceFilter = currentState.diceAudienceFilter,
+                    filter = filter,
+                    audienceFilter = audience,
                     today = today
                 )
             }
@@ -526,23 +582,37 @@ class MenuDadoViewModel(
                 repository.save(selected.copy(lastPickedDate = today))
             }
             analytics.trackDiceRolled(
-                filter = currentState.diceFilter,
+                filter = filter,
                 resultMealType = selected?.mealType,
                 menuCount = currentState.menus.size,
                 availableCandidateCount = availableCandidateCountBeforeReset
             )
             if (selected == null && !hasCandidates) {
                 analytics.trackDiceEmptyResult(
-                    filter = currentState.diceFilter,
+                    filter = filter,
                     availableCandidateCount = availableCandidateCountBeforeReset
                 )
+            }
+            val recovery = if (selected == null && !hasCandidates && recoveryMealType != null) {
+                DiceEmptyRecovery(
+                    mealType = recoveryMealType,
+                    audience = audience,
+                    canBroadenMealType = currentState.menus.any { menu ->
+                        menu.audience == audience && menu.mealType != recoveryMealType
+                    }
+                ).also {
+                    analytics.trackDiceEmptyRecovery(DICE_EMPTY_RECOVERY_SHOWN)
+                }
+            } else {
+                null
             }
             _uiState.update {
                 it.copy(
                     isRolling = false,
                     result = selected,
-                    message = if (selected == null && !hasCandidates) currentLanguage().noMenusForFilterMessage() else null,
-                    isAiRetryNoticeVisible = false
+                    message = null,
+                    isAiRetryNoticeVisible = false,
+                    diceEmptyRecovery = recovery
                 )
             }
         }
@@ -1952,6 +2022,10 @@ private const val ONBOARDING_ACTION_START = "start"
 private const val ONBOARDING_ACTION_SKIP = "skip"
 private const val CURRENT_ONBOARDING_VERSION = 5
 private const val ANALYTICS_SOURCE_DICE = "dice"
+private const val DICE_EMPTY_RECOVERY_SHOWN = "shown"
+private const val DICE_EMPTY_RECOVERY_GENERATE_AI = "generate_ai"
+private const val DICE_EMPTY_RECOVERY_BROADEN_MEAL_TYPE = "broaden_meal_type"
+private const val DICE_EMPTY_RECOVERY_CHANGE_FILTERS = "change_filters"
 internal const val DICE_ROLL_DURATION_MILLIS = 850L
 internal const val DICE_ROLL_SPIN_DEGREES = 720f
 private const val ANALYTICS_SOURCE_FORM = "form"

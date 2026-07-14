@@ -2338,10 +2338,113 @@ class MenuDadoViewModelTest {
             listOf(
                 "dice_filter_selected:DINNER:0",
                 "dice_rolled:DINNER:false:NONE:0:0",
-                "dice_empty_result:DINNER:0"
+                "dice_empty_result:DINNER:0",
+                "dice_empty_recovery:shown"
             ),
             analytics.events
         )
+    }
+
+    @Test
+    fun `empty dice result exposes recovery with alternative meal for same audience`() = runTest(dispatcher) {
+        dao.seed(
+            listOf(
+                FoodMenu(
+                    id = 1,
+                    name = "Cena adulta",
+                    mealType = MealType.DINNER,
+                    audience = MenuAudience.ADULT,
+                    description = "Cena"
+                )
+            )
+        )
+        advanceUntilIdle()
+        viewModel.setDiceFilter(MealType.BREAKFAST)
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
+        analytics.events.clear()
+
+        viewModel.rollDice()
+        advanceUntilIdle()
+
+        val recovery = viewModel.uiState.value.diceEmptyRecovery
+        assertEquals(MealType.BREAKFAST, recovery?.mealType)
+        assertEquals(MenuAudience.ADULT, recovery?.audience)
+        assertTrue(recovery?.canBroadenMealType == true)
+        assertTrue(analytics.events.contains("dice_empty_recovery:shown"))
+    }
+
+    @Test
+    fun `broadened dice roll preserves audience and selects another meal type`() = runTest(dispatcher) {
+        dao.seed(
+            listOf(
+                FoodMenu(
+                    id = 1,
+                    name = "Cena adulta",
+                    mealType = MealType.DINNER,
+                    audience = MenuAudience.ADULT,
+                    description = "Cena"
+                ),
+                FoodMenu(
+                    id = 2,
+                    name = "Cena bebé",
+                    mealType = MealType.DINNER,
+                    audience = MenuAudience.BABY,
+                    description = "Cena"
+                )
+            )
+        )
+        advanceUntilIdle()
+        viewModel.setDiceFilter(MealType.BREAKFAST)
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
+        viewModel.rollDice()
+        advanceUntilIdle()
+
+        viewModel.rollDiceAcrossMealTypesForSelectedAudience()
+        advanceUntilIdle()
+
+        assertEquals("Cena adulta", viewModel.uiState.value.result?.name)
+        assertEquals(MenuAudience.ADULT, viewModel.uiState.value.diceAudienceFilter)
+        assertEquals(MealType.BREAKFAST, viewModel.uiState.value.diceFilter)
+    }
+
+    @Test
+    fun `changing filters dismisses empty recovery and tracks the action`() = runTest(dispatcher) {
+        viewModel.setDiceFilter(MealType.DINNER)
+        viewModel.rollDice()
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        viewModel.dismissDiceEmptyRecovery()
+
+        assertNull(viewModel.uiState.value.diceEmptyRecovery)
+        assertEquals(listOf("dice_empty_recovery:change_filters"), analytics.events)
+    }
+
+    @Test
+    fun `empty recovery can generate ai with the same meal and audience`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Desayuno nuevo",
+            description = "Avena y fruta",
+            notes = "",
+            calories = 380
+        )
+        viewModel.setDiceFilter(MealType.BREAKFAST)
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
+        viewModel.rollDice()
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        viewModel.generateAiFromDiceEmptyRecovery()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.diceEmptyRecovery)
+        assertEquals(MealType.BREAKFAST, state.formMealType)
+        assertEquals(MenuAudience.ADULT, state.formAudience)
+        assertEquals("Desayuno nuevo", state.name)
+        assertTrue(state.showGeneratedMenuDetail)
+        assertTrue(analytics.events.contains("dice_empty_recovery:generate_ai"))
+        assertEquals(1, analytics.events.count { it.startsWith("ai_menu_generation_started") })
     }
 
     @Test
