@@ -16,6 +16,8 @@ local.properties
 .externalNativeBuild/
 .cxx/
 captures/
+.worktrees/
+.superpowers/
 
 # Signing material and generated packages
 key/
