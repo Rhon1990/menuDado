@@ -119,6 +119,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -200,6 +201,7 @@ fun MenuDadoScreen(
     val contextualDiceRollProgress = remember { ComposeAnimatable(0f) }
     var aiDiceRollCycles by remember { mutableFloatStateOf(0f) }
     var audienceDetailRoute by rememberSaveable { mutableStateOf<String?>(null) }
+    var favoritesDetailHadVisibleMenus by rememberSaveable { mutableStateOf(false) }
     var selectedDetailMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var openedFromRandomSelection by rememberSaveable { mutableStateOf(false) }
     var pendingDeleteMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -212,6 +214,7 @@ fun MenuDadoScreen(
     val pendingAnalysisCount = state.menus.count { it.healthAnalysis == null }
     val destination = MenuDadoDestination.valueOf(selectedDestination)
     val audienceDetail = menuAudienceFromDetailRoute(audienceDetailRoute)
+    val isFavoritesDetail = menuIsFavoritesDetailRoute(audienceDetailRoute)
     val homeListState = rememberLazyListState()
     val audienceDetailListState = remember(audienceDetailRoute) { LazyListState() }
     val activeListState = if (menuListStateKeyForAudienceDetail(audienceDetailRoute) == "home") {
@@ -367,7 +370,20 @@ fun MenuDadoScreen(
         }
     }
 
-    LaunchedEffect(state.menus) {
+    LaunchedEffect(audienceDetailRoute) {
+        if (!menuIsFavoritesDetailRoute(audienceDetailRoute)) {
+            favoritesDetailHadVisibleMenus = false
+        }
+    }
+
+    LaunchedEffect(state.menus, audienceDetailRoute) {
+        if (menuIsFavoritesDetailRoute(audienceDetailRoute) && menuFavoriteMenus(state.menus).isNotEmpty()) {
+            favoritesDetailHadVisibleMenus = true
+        }
+        if (menuShouldLeaveFavoritesDetail(audienceDetailRoute, state.menus, favoritesDetailHadVisibleMenus)) {
+            audienceDetailRoute = null
+            favoritesDetailHadVisibleMenus = false
+        }
         if (selectedDetailMenuId != null && state.menus.none { it.id == selectedDetailMenuId }) {
             closeMenuDetail()
         }
@@ -763,7 +779,35 @@ fun MenuDadoScreen(
                 }
                 MenuDadoDestination.HOME,
                 MenuDadoDestination.PRIVACY -> {
-                    if (audienceDetail != null) {
+                    if (isFavoritesDetail) {
+                        item {
+                            FavoriteMenusDetailScreen(
+                                menus = state.menus,
+                                onOpenMenu = { menu ->
+                                    viewModel.trackCtaTapped(
+                                        ANALYTICS_SCREEN_AUDIENCE_DETAIL,
+                                        ANALYTICS_CTA_OPEN_MENU
+                                    )
+                                    viewModel.trackMenuCardOpened(menu)
+                                    openMenuDetail(menu.id)
+                                },
+                                onOpenActions = { menu ->
+                                    viewModel.trackCtaTapped(
+                                        ANALYTICS_SCREEN_AUDIENCE_DETAIL,
+                                        ANALYTICS_CTA_OPEN_MENU_ACTIONS
+                                    )
+                                    actionSheetMenuId = menu.id
+                                },
+                                onToggleFavorite = { menu ->
+                                    viewModel.trackCtaTapped(
+                                        ANALYTICS_SCREEN_AUDIENCE_DETAIL,
+                                        ANALYTICS_CTA_TOGGLE_FAVORITE
+                                    )
+                                    viewModel.toggleFavorite(menu)
+                                }
+                            )
+                        }
+                    } else if (audienceDetail != null) {
                         item {
                             MenuAudienceDetailScreen(
                                 audience = audienceDetail,
@@ -3779,7 +3823,7 @@ private fun MenuCarouselSections(
         if (menuShouldShowFavoriteSection(menus)) {
             key("favorite_menus") {
                 FavoriteMenuCarouselSection(
-                    menus = menuFavoriteMenus(menus).take(MenuCarouselCollapsedLimit),
+                    menus = menuFavoriteMenus(menus),
                     onViewMore = onViewMoreFavorites,
                     onOpenMenu = onOpenMenu,
                     onOpenActions = onOpenActions,
@@ -3816,80 +3860,86 @@ private fun FavoriteMenuCarouselSection(
     onToggleFavorite: (FoodMenu) -> Unit
 ) {
     val listState = rememberLazyListState()
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = favoriteCarouselBackgroundColor()),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MenuDadoColors.SoftSand),
-        shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
-    ) {
-        Column(
-            modifier = Modifier.padding(vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(favoriteCarouselAccentColor().copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_favorite_filled),
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = MenuDadoColors.ActionTerracotta
+                        modifier = Modifier.size(19.dp),
+                        tint = favoriteCarouselAccentColor()
                     )
-                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        Text(
-                            text = stringResource(id = R.string.favorite_menus),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black,
-                            color = MenuDadoColors.Ink
-                        )
-                        Text(
-                            text = "${stringResource(id = favoriteCarouselSupportingTextRes())} · " +
-                                stringResource(id = R.string.menu_count, menus.size),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MenuDadoColors.MutedInk,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
                 }
-                if (menuFavoriteCarouselShowsViewMore(menus)) {
-                    TextButton(
-                        onClick = onViewMore,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.view_more),
-                            color = MenuDadoColors.DeepGreen,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                Text(
+                    text = stringResource(id = R.string.favorite_menus),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MenuDadoColors.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
+                        .background(MenuDadoColors.SoftSand.copy(alpha = 0.5f))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = pluralStringResource(
+                            id = favoriteMenuCountRes(),
+                            count = menus.size,
+                            menus.size
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MenuDadoColors.DeepGreen,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
-            LazyRow(
-                state = listState,
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                items(items = menus, key = { it.id }) { menu ->
-                    FavoriteMenuCarouselItem(
-                        menu = menu,
-                        onOpenMenu = { onOpenMenu(menu) },
-                        onOpenActions = { onOpenActions(menu) },
-                        onToggleFavorite = { onToggleFavorite(menu) }
+            if (menuFavoriteCarouselShowsViewMore(menus)) {
+                TextButton(
+                    onClick = onViewMore,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.view_more),
+                        color = MenuDadoColors.DeepGreen,
+                        fontWeight = FontWeight.Bold
                     )
                 }
+            }
+        }
+        LazyRow(
+            state = listState,
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(items = menuFavoriteCarouselVisibleMenus(menus), key = { it.id }) { menu ->
+                FavoriteMenuCarouselItem(
+                    menu = menu,
+                    onOpenMenu = { onOpenMenu(menu) },
+                    onOpenActions = { onOpenActions(menu) },
+                    onToggleFavorite = { onToggleFavorite(menu) }
+                )
             }
         }
     }
@@ -3904,57 +3954,92 @@ private fun FavoriteMenuCarouselItem(
 ) {
     Card(
         modifier = Modifier
-            .width(126.dp)
+            .width(favoriteCarouselCardWidthDp().dp)
+            .defaultMinSize(minHeight = favoriteCarouselCardMinHeightDp().dp)
             .clickable(onClick = onOpenMenu)
             .semantics { contentDescription = menu.name },
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        colors = CardDefaults.cardColors(containerColor = favoriteCarouselBackgroundColor()),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MenuDadoColors.SoftSand),
         shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(7.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = favoriteCarouselCardMinHeightDp().dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(favoriteCarouselCoverSizeDp().dp)
-                    .clip(favoriteCarouselCoverShape())
-                    .border(2.dp, MenuDadoColors.Surface, favoriteCarouselCoverShape())
+                    .width(4.dp)
+                    .height(favoriteCarouselCardMinHeightDp().dp)
+                    .background(favoriteCarouselAccentColor())
+            )
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 8.dp, top = 10.dp, end = 4.dp, bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 MenuCoverImage(
                     menu = menu,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .size(favoriteCarouselCoverSizeDp().dp)
+                        .clip(RoundedCornerShape(favoriteCarouselCoverCornerRadiusDp().dp))
+                        .border(
+                            1.dp,
+                            MenuDadoColors.SoftSand,
+                            RoundedCornerShape(favoriteCarouselCoverCornerRadiusDp().dp)
+                        ),
                     showMealTypeLabel = false
                 )
-                FavoriteMenuIconButton(
-                    isFavorite = true,
-                    onToggleFavorite = onToggleFavorite,
-                    modifier = Modifier.align(Alignment.TopStart)
-                )
-                MenuOverflowActionButton(
-                    onOpenActions = onOpenActions,
-                    modifier = Modifier.align(Alignment.TopEnd)
-                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text(
+                            text = menu.name,
+                            modifier = Modifier.weight(1f),
+                            color = MenuDadoColors.Ink,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 17.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        MenuOverflowActionButton(onOpenActions = onOpenActions)
+                    }
+                    Text(
+                        text = "${stringResource(id = mealTypeLabelRes(menu.mealType))} · " +
+                            stringResource(id = menuAudienceLabelRes(menu.audience)),
+                        color = MenuDadoColors.MutedInk,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.favorite_menus),
+                            color = MenuDadoColors.DeepGreen,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        FavoriteMenuIconButton(
+                            isFavorite = true,
+                            onToggleFavorite = onToggleFavorite
+                        )
+                    }
+                }
             }
-            Text(
-                text = menu.name,
-                modifier = Modifier.height(38.dp),
-                color = MenuDadoColors.Ink,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                lineHeight = 17.sp,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = stringResource(id = mealTypeLabelRes(menu.mealType)),
-                color = MenuDadoColors.DeepGreen,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
         }
     }
 }
@@ -4020,7 +4105,8 @@ private fun MenuCarouselItem(
     onOpenMenu: () -> Unit,
     onOpenActions: () -> Unit,
     onToggleFavorite: () -> Unit,
-    modifier: Modifier = Modifier.width(150.dp)
+    modifier: Modifier = Modifier.width(150.dp),
+    showAudienceLabel: Boolean = false
 ) {
     Card(
         modifier = modifier
@@ -4059,6 +4145,17 @@ private fun MenuCarouselItem(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+            if (showAudienceLabel) {
+                Text(
+                    text = "${stringResource(id = mealTypeLabelRes(menu.mealType))} · " +
+                        stringResource(id = menuAudienceLabelRes(menu.audience)),
+                    color = MenuDadoColors.MutedInk,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Row(
                 modifier = Modifier.height(menuCarouselItemMetaRowHeightDp().dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -4114,6 +4211,83 @@ private fun MenuAudienceDetailScreen(
                 onOpenActions = onOpenActions,
                 onToggleFavorite = onToggleFavorite
             )
+        }
+    }
+}
+
+@Composable
+private fun FavoriteMenusDetailScreen(
+    menus: List<FoodMenu>,
+    onOpenMenu: (FoodMenu) -> Unit,
+    onOpenActions: (FoodMenu) -> Unit,
+    onToggleFavorite: (FoodMenu) -> Unit
+) {
+    val favoriteMenus = menuFavoriteDetailMenus(menus)
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_favorite_filled),
+                    contentDescription = null,
+                    modifier = Modifier.size(26.dp),
+                    tint = MenuDadoColors.ActionTerracotta
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = stringResource(id = R.string.favorite_menus),
+                        color = MenuDadoColors.Ink,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black
+                    )
+                    Text(
+                        text = stringResource(id = favoriteCarouselSupportingTextRes()),
+                        color = MenuDadoColors.MutedInk,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+            Text(
+                text = pluralStringResource(
+                    id = favoriteMenuCountRes(),
+                    count = favoriteMenus.size,
+                    favoriteMenus.size
+                ),
+                color = MenuDadoColors.MutedInk,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        favoriteMenus.chunked(2).forEach { rowMenus ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                rowMenus.forEach { menu ->
+                    MenuCarouselItem(
+                        menu = menu,
+                        onOpenMenu = { onOpenMenu(menu) },
+                        onOpenActions = { onOpenActions(menu) },
+                        onToggleFavorite = { onToggleFavorite(menu) },
+                        modifier = Modifier.weight(1f),
+                        showAudienceLabel = menuFavoriteDetailShowsAudienceLabel()
+                    )
+                }
+                if (rowMenus.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
         }
     }
 }
@@ -5240,14 +5414,28 @@ internal fun menuFavoriteMenus(menus: List<FoodMenu>): List<FoodMenu> {
 
 internal fun menuFavoriteDetailMenus(menus: List<FoodMenu>): List<FoodMenu> = menuFavoriteMenus(menus)
 
-internal fun favoriteCarouselCoverSizeDp(): Int = 108
+internal fun menuFavoriteCarouselVisibleMenus(favoriteMenus: List<FoodMenu>): List<FoodMenu> {
+    return favoriteMenus.take(MenuCarouselCollapsedLimit)
+}
 
-internal fun favoriteCarouselBackgroundColor(): Color = MenuDadoColors.SelectionGreen
+internal fun favoriteCarouselCardWidthDp(): Int = 252
 
-internal fun favoriteCarouselCoverShape() = CircleShape
+internal fun favoriteCarouselCardMinHeightDp(): Int = 118
+
+internal fun favoriteCarouselCoverSizeDp(): Int = 88
+
+internal fun favoriteCarouselCoverCornerRadiusDp(): Int = 18
+
+internal fun favoriteCarouselBackgroundColor(): Color = MenuDadoColors.Surface
+
+internal fun favoriteCarouselAccentColor(): Color = MenuDadoColors.ActionTerracotta
 
 @StringRes
 internal fun favoriteCarouselSupportingTextRes(): Int = R.string.favorite_menus_supporting
+
+internal fun favoriteMenuCountRes(): Int = R.plurals.favorite_menu_count
+
+internal fun menuFavoriteDetailShowsAudienceLabel(): Boolean = true
 
 internal fun menuFavoriteCarouselShowsViewMore(menus: List<FoodMenu>): Boolean {
     return menus.any { it.isFavorite }
@@ -5290,6 +5478,14 @@ private const val FAVORITES_DETAIL_ROUTE = "FAVORITES"
 internal fun menuFavoritesDetailRouteAfterViewMore(): String = FAVORITES_DETAIL_ROUTE
 
 internal fun menuIsFavoritesDetailRoute(route: String?): Boolean = route == FAVORITES_DETAIL_ROUTE
+
+internal fun menuShouldLeaveFavoritesDetail(
+    route: String?,
+    menus: List<FoodMenu>,
+    hadVisibleFavorites: Boolean
+): Boolean {
+    return menuIsFavoritesDetailRoute(route) && hadVisibleFavorites && menuFavoriteMenus(menus).isEmpty()
+}
 
 internal fun menuAudienceDetailRoute(audience: MenuAudience): String = audience.name
 

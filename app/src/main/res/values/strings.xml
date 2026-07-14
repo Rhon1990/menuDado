@@ -17,6 +17,10 @@
     <string name="common_remove_favorite">Quitar de favoritos</string>
     <string name="favorite_menus">Favoritos</string>
     <string name="favorite_menus_supporting">Tus elecciones guardadas</string>
+    <plurals name="favorite_menu_count">
+        <item quantity="one">%1$d menú</item>
+        <item quantity="other">%1$d menús</item>
+    </plurals>
     <string name="share_menu_chooser">Compartir menú</string>
     <string name="menu_actions_open">Abrir opciones del menú</string>
     <string name="menu_action_photo">Foto del menú</string>

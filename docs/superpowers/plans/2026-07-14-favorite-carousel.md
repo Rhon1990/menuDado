@@ -4,7 +4,7 @@
 
 **Goal:** Diferenciar visualmente el carrusel de Favoritos y añadir un flujo `Ver más` que muestre todos los favoritos.
 
-**Architecture:** Mantener el estado local existente y extender la navegación interna de listas con una ruta cerrada para Favoritos. Crear una presentación circular exclusiva para Inicio y reutilizar `MenuCarouselItem` en la pantalla completa para preservar acciones y reducir regresiones.
+**Architecture:** Mantener el estado local existente y extender la navegación interna de listas con una ruta cerrada para Favoritos. Crear una presentación horizontal compacta exclusiva para Inicio y reutilizar `MenuCarouselItem` en la pantalla completa para preservar acciones y reducir regresiones.
 
 **Tech Stack:** Kotlin, Jetpack Compose, JUnit 4, Gradle Android.
 
@@ -18,7 +18,7 @@
 
 - [ ] **Step 1: Escribir pruebas fallidas para ruta, orden y tokens visuales**
 
-Añadir pruebas que validen `menuFavoritesDetailRouteAfterViewMore()`, `menuIsFavoritesDetailRoute(route)`, `menuFavoriteDetailMenus(menus)`, `favoriteCarouselCoverSizeDp()` y `favoriteCarouselBackgroundColor()`.
+Añadir pruebas que validen `menuFavoritesDetailRouteAfterViewMore()`, `menuIsFavoritesDetailRoute(route)`, `menuFavoriteDetailMenus(menus)`, `favoriteCarouselCardWidthDp()`, `favoriteCarouselCoverSizeDp()` y `favoriteCarouselBackgroundColor()`.
 
 - [ ] **Step 2: Ejecutar las pruebas y comprobar que fallan**
 
@@ -39,9 +39,13 @@ internal fun menuIsFavoritesDetailRoute(route: String?): Boolean = route == FAVO
 
 internal fun menuFavoriteDetailMenus(menus: List<FoodMenu>): List<FoodMenu> = menuFavoriteMenus(menus)
 
-internal fun favoriteCarouselCoverSizeDp(): Int = 108
+internal fun favoriteCarouselCardWidthDp(): Int = 252
 
-internal fun favoriteCarouselBackgroundColor(): Color = MenuDadoColors.SelectionGreen
+internal fun favoriteCarouselCardMinHeightDp(): Int = 118
+
+internal fun favoriteCarouselCoverSizeDp(): Int = 88
+
+internal fun favoriteCarouselBackgroundColor(): Color = MenuDadoColors.Surface
 ```
 
 - [ ] **Step 4: Ejecutar las pruebas focalizadas**
@@ -57,7 +61,7 @@ git add app/src/main/java/com/menudado/ui/MenuDadoScreen.kt app/src/test/java/co
 git commit -m "test: define favorite collection navigation"
 ```
 
-### Task 2: Carrusel circular y acción Ver más
+### Task 2: Carrusel horizontal compacto y acción Ver más
 
 **Files:**
 - Modify: `app/src/main/java/com/menudado/ui/MenuDadoScreen.kt`
@@ -71,11 +75,11 @@ Añadir `onViewMoreFavorites: () -> Unit` a `MenuCarouselSections` y `FavoriteMe
 
 - [ ] **Step 2: Crear el encabezado destacado**
 
-Envolver la sección en una superficie `favoriteCarouselBackgroundColor()`, con corazón, título, `menu_count` y `TextButton` usando `R.string.view_more`. Mostrar la acción siempre que la sección exista.
+Crear un encabezado sin contenedor pesado, con corazón, título, contador compacto y `TextButton` usando `R.string.view_more`. Mostrar la acción siempre que la sección exista.
 
-- [ ] **Step 3: Crear la tarjeta circular reutilizando acciones existentes**
+- [ ] **Step 3: Crear la tarjeta horizontal reutilizando acciones existentes**
 
-Crear `FavoriteMenuCarouselItem` con portada circular de `favoriteCarouselCoverSizeDp()`, borde `SoftSand`, `FavoriteMenuIconButton`, `MenuOverflowActionButton`, nombre a dos líneas y tipo de comida. Mantener `onOpenMenu`, `onOpenActions` y `onToggleFavorite`.
+Crear `FavoriteMenuCarouselItem` con tarjeta horizontal, portada redondeada de `favoriteCarouselCoverSizeDp()`, borde `SoftSand`, acento terracota, `FavoriteMenuIconButton`, `MenuOverflowActionButton`, nombre a dos líneas y tipo de comida. Mantener `onOpenMenu`, `onOpenActions` y `onToggleFavorite`.
 
 - [ ] **Step 4: Añadir texto de apoyo localizado**
 
@@ -140,7 +144,7 @@ git commit -m "feat: add full favorite menu collection"
 
 - [ ] **Step 1: Actualizar el contrato funcional**
 
-Documentar que Favoritos usa una colección circular destacada y que `Ver más` abre todos los favoritos en una grilla interna.
+Documentar que Favoritos usa una colección horizontal compacta destacada y que `Ver más` abre todos los favoritos en una grilla interna.
 
 - [ ] **Step 2: Ejecutar validación automatizada**
 
@@ -154,7 +158,7 @@ Expected: salida vacía.
 
 - [ ] **Step 3: Ejecutar QA manual en emulador**
 
-Instalar `app/build/outputs/apk/debug/app-debug.apk` y validar: diferenciación circular, encabezado/contador, `Ver más`, retroceso, detalle, menú contextual, quitar favorito y salida al quedar vacío.
+Instalar `app/build/outputs/apk/debug/app-debug.apk` y validar: diferenciación horizontal compacta, encabezado/contador, `Ver más`, retroceso, detalle, menú contextual, quitar favorito y salida al quedar vacío.
 
 - [ ] **Step 4: Commit**
 

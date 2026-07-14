@@ -11,7 +11,6 @@ import com.menudado.domain.MenuAudience
 import com.menudado.ui.theme.MenuDadoColors
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.shape.CircleShape
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -445,10 +444,13 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `carrusel favorito usa portada circular compacta y superficie de seleccion`() {
-        assertEquals(108, favoriteCarouselCoverSizeDp())
-        assertEquals(MenuDadoColors.SelectionGreen, favoriteCarouselBackgroundColor())
-        assertEquals(CircleShape, favoriteCarouselCoverShape())
+    fun `carrusel favorito usa tarjeta horizontal compacta y acento de marca`() {
+        assertEquals(252, favoriteCarouselCardWidthDp())
+        assertEquals(118, favoriteCarouselCardMinHeightDp())
+        assertEquals(88, favoriteCarouselCoverSizeDp())
+        assertEquals(18, favoriteCarouselCoverCornerRadiusDp())
+        assertEquals(MenuDadoColors.Surface, favoriteCarouselBackgroundColor())
+        assertEquals(MenuDadoColors.ActionTerracotta, favoriteCarouselAccentColor())
         assertEquals(R.string.favorite_menus_supporting, favoriteCarouselSupportingTextRes())
     }
 
@@ -465,6 +467,51 @@ class MenuCardUiStateTest {
         assertTrue(menuFavoriteCarouselShowsViewMore(listOf(favorite)))
         assertFalse(menuFavoriteCarouselShowsViewMore(listOf(favorite.copy(isFavorite = false))))
         assertFalse(menuFavoriteCarouselShowsViewMore(emptyList()))
+    }
+
+    @Test
+    fun `pantalla de favoritos vuelve a inicio cuando la coleccion queda vacia`() {
+        val favorite = FoodMenu(
+            id = 1L,
+            name = "Favorito",
+            mealType = MealType.LUNCH,
+            description = "A",
+            isFavorite = true
+        )
+        val favoritesRoute = menuFavoritesDetailRouteAfterViewMore()
+
+        assertFalse(menuShouldLeaveFavoritesDetail(favoritesRoute, listOf(favorite), hadVisibleFavorites = true))
+        assertTrue(menuShouldLeaveFavoritesDetail(favoritesRoute, emptyList(), hadVisibleFavorites = true))
+        assertFalse(menuShouldLeaveFavoritesDetail(favoritesRoute, emptyList(), hadVisibleFavorites = false))
+        assertFalse(menuShouldLeaveFavoritesDetail(MenuAudience.ADULT.name, emptyList(), hadVisibleFavorites = true))
+        assertFalse(menuShouldLeaveFavoritesDetail(null, emptyList(), hadVisibleFavorites = true))
+    }
+
+    @Test
+    fun `pantalla completa de favoritos conserva etiqueta de publico`() {
+        assertTrue(menuFavoriteDetailShowsAudienceLabel())
+    }
+
+    @Test
+    fun `contador de favoritos usa recurso plural localizado`() {
+        assertEquals(R.plurals.favorite_menu_count, favoriteMenuCountRes())
+    }
+
+    @Test
+    fun `carrusel favorito limita tarjetas sin recortar la coleccion completa`() {
+        val favorites = (1L..12L).map { id ->
+            FoodMenu(
+                id = id,
+                name = "Favorito $id",
+                mealType = MealType.LUNCH,
+                description = "A",
+                createdAt = id,
+                isFavorite = true
+            )
+        }
+
+        assertEquals(10, menuFavoriteCarouselVisibleMenus(favorites).size)
+        assertEquals(12, menuFavoriteDetailMenus(favorites).size)
     }
 
     @Test
