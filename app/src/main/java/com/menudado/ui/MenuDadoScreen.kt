@@ -5110,6 +5110,12 @@ internal fun menuFavoriteMenus(menus: List<FoodMenu>): List<FoodMenu> {
         .sortedByDescending { it.createdAt }
 }
 
+internal fun menuFavoriteDetailMenus(menus: List<FoodMenu>): List<FoodMenu> = menuFavoriteMenus(menus)
+
+internal fun favoriteCarouselCoverSizeDp(): Int = 108
+
+internal fun favoriteCarouselBackgroundColor(): Color = MenuDadoColors.SelectionGreen
+
 internal fun menuCarouselScrollResetKey(menus: List<FoodMenu>): Set<Long> = menus.map { it.id }.toSet()
 
 internal fun menuShouldShowFavoriteSection(menus: List<FoodMenu>): Boolean {
@@ -5141,6 +5147,12 @@ internal data class MenuAudienceMealGroup(
     val mealType: MealType,
     val menus: List<FoodMenu>
 )
+
+private const val FAVORITES_DETAIL_ROUTE = "FAVORITES"
+
+internal fun menuFavoritesDetailRouteAfterViewMore(): String = FAVORITES_DETAIL_ROUTE
+
+internal fun menuIsFavoritesDetailRoute(route: String?): Boolean = route == FAVORITES_DETAIL_ROUTE
 
 internal fun menuAudienceDetailRoute(audience: MenuAudience): String = audience.name
 

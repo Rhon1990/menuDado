@@ -424,6 +424,32 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `ver mas de favoritos abre una coleccion propia`() {
+        val route = menuFavoritesDetailRouteAfterViewMore()
+
+        assertTrue(menuIsFavoritesDetailRoute(route))
+        assertFalse(menuIsFavoritesDetailRoute(MenuAudience.ADULT.name))
+        assertFalse(menuIsFavoritesDetailRoute(null))
+    }
+
+    @Test
+    fun `coleccion completa conserva solo favoritos del mas reciente al mas antiguo`() {
+        val menus = listOf(
+            FoodMenu(id = 1L, name = "Normal", mealType = MealType.BREAKFAST, audience = MenuAudience.ADULT, description = "A", createdAt = 30L),
+            FoodMenu(id = 2L, name = "Favorito viejo", mealType = MealType.LUNCH, audience = MenuAudience.ADULT, description = "B", createdAt = 1L, isFavorite = true),
+            FoodMenu(id = 3L, name = "Favorito nuevo", mealType = MealType.DINNER, audience = MenuAudience.CHILD, description = "C", createdAt = 20L, isFavorite = true)
+        )
+
+        assertEquals(listOf(3L, 2L), menuFavoriteDetailMenus(menus).map { it.id })
+    }
+
+    @Test
+    fun `carrusel favorito usa portada circular compacta y superficie de seleccion`() {
+        assertEquals(108, favoriteCarouselCoverSizeDp())
+        assertEquals(MenuDadoColors.SelectionGreen, favoriteCarouselBackgroundColor())
+    }
+
+    @Test
     fun `carrusel muestra todos los menus del publico cuando esta expandido`() {
         val menus = listOf(
             FoodMenu(id = 1L, name = "Adulto antiguo", mealType = MealType.BREAKFAST, audience = MenuAudience.ADULT, description = "A", createdAt = 1L),
