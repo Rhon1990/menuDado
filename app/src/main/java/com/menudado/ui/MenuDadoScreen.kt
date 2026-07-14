@@ -603,9 +603,15 @@ fun MenuDadoScreen(
     generatedDetailMenu?.let { menu ->
         GeneratedMenuDetailDialog(
             menu = menu,
+            isGenerating = state.isGeneratingMenu,
+            aiUsesRemainingToday = state.aiGenerationUsesRemainingToday,
             onSave = {
-                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_SAVE_MENU)
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_SAVE_GENERATED_MENU)
                 viewModel.saveGeneratedMenuIdea()
+            },
+            onTryAnother = {
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_TRY_ANOTHER_GENERATED_MENU)
+                viewModel.tryAnotherGeneratedMenuIdea()
             },
             onDiscard = {
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_DISCARD_GENERATED_MENU)
@@ -4498,7 +4504,10 @@ private fun MenuDetailDialog(
 @Composable
 private fun GeneratedMenuDetailDialog(
     menu: FoodMenu,
+    isGenerating: Boolean,
+    aiUsesRemainingToday: Int,
     onSave: () -> Unit,
+    onTryAnother: () -> Unit,
     onDiscard: () -> Unit
 ) {
     Dialog(
@@ -4570,27 +4579,15 @@ private fun GeneratedMenuDetailDialog(
                     }
                 }
 
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = onDiscard,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.generated_menu_discard),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
                     Button(
                         onClick = onSave,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MenuDadoColors.BrandGreen,
@@ -4600,6 +4597,33 @@ private fun GeneratedMenuDetailDialog(
                         Text(
                             text = stringResource(id = R.string.generated_menu_save),
                             fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = onTryAnother,
+                        enabled = !isGenerating,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(
+                                id = R.string.generated_menu_try_another,
+                                aiUsesRemainingToday
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    TextButton(
+                        onClick = onDiscard,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.generated_menu_discard),
+                            color = MenuDadoColors.MutedInk,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -5757,6 +5781,8 @@ private const val ANALYTICS_CTA_DICE_EMPTY_GENERATE_AI = "dice_empty_generate_ai
 private const val ANALYTICS_CTA_DICE_EMPTY_BROADEN = "dice_empty_broaden_meal_type"
 private const val ANALYTICS_CTA_DICE_EMPTY_CHANGE_FILTERS = "dice_empty_change_filters"
 private const val ANALYTICS_CTA_SAVE_MENU = "save_menu"
+private const val ANALYTICS_CTA_SAVE_GENERATED_MENU = "save_generated_menu"
+private const val ANALYTICS_CTA_TRY_ANOTHER_GENERATED_MENU = "try_another_generated_menu"
 private const val ANALYTICS_CTA_DISCARD_GENERATED_MENU = "discard_generated_menu"
 private const val ANALYTICS_CTA_ANALYZE_PENDING = "analyze_pending"
 private const val ANALYTICS_CTA_VIEW_MORE = "view_more"

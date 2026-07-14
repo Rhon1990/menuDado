@@ -185,7 +185,8 @@
     <string name="ai_generation_loading_title">Generating a meal idea</string>
     <string name="ai_generation_loading_message">AI is preparing a menu suggestion for you.</string>
     <string name="generated_menu_detail_title">AI-generated idea</string>
-    <string name="generated_menu_save">Save menu</string>
+    <string name="generated_menu_save">Save to my menus</string>
+    <string name="generated_menu_try_another">Try another idea (%1$d)</string>
     <string name="generated_menu_discard">Discard</string>
     <string name="ai_resting">AI resting</string>
     <string name="ai_generate_with_count">Generate idea with AI (%1$d)</string>

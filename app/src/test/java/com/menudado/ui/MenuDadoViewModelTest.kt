@@ -768,6 +768,41 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `try another generated idea preserves intent and starts one protected request`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Idea inicial",
+            description = "Calabacín y arroz",
+            notes = "",
+            calories = 420
+        )
+        viewModel.setFormMealType(MealType.LUNCH)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        viewModel.updateAiBaseIngredients("calabacín")
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        aiRequestThrottleStore.clearLastRequest()
+        analytics.events.clear()
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Idea alternativa",
+            description = "Calabacín y quinoa",
+            notes = "",
+            calories = 450
+        )
+
+        viewModel.tryAnotherGeneratedMenuIdea()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Idea alternativa", state.name)
+        assertEquals("calabacín", state.aiBaseIngredients)
+        assertEquals(MealType.LUNCH, state.formMealType)
+        assertEquals(MenuAudience.ADULT, state.formAudience)
+        assertTrue(state.showGeneratedMenuDetail)
+        assertEquals(2, analyzer.generateCalls)
+        assertEquals(1, analytics.events.count { it.startsWith("ai_menu_generation_started") })
+    }
+
+    @Test
     fun `save generated IA idea from pending detail stores menu and closes detail`() = runTest(dispatcher) {
         analyzer.generatedMenu = GeneratedMenu(
             name = "Bowl de lentejas",

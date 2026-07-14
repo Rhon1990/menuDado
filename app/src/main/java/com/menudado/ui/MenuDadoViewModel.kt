@@ -418,6 +418,21 @@ class MenuDadoViewModel(
         _uiState.update { it.withoutMenuFormDraft().copy(showGeneratedMenuDetail = false) }
     }
 
+    fun tryAnotherGeneratedMenuIdea() {
+        if (_uiState.value.isGeneratingMenu) return
+        _uiState.update {
+            it.copy(
+                name = "",
+                description = "",
+                notes = "",
+                calories = null,
+                generatedHealthAnalysis = null,
+                showGeneratedMenuDetail = false
+            )
+        }
+        generateMenuIdea()
+    }
+
     fun saveGeneratedMenuIdea() {
         saveMenu()
     }
