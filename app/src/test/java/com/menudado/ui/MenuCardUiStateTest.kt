@@ -11,6 +11,7 @@ import com.menudado.domain.MenuAudience
 import com.menudado.ui.theme.MenuDadoColors
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.CircleShape
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -447,6 +448,23 @@ class MenuCardUiStateTest {
     fun `carrusel favorito usa portada circular compacta y superficie de seleccion`() {
         assertEquals(108, favoriteCarouselCoverSizeDp())
         assertEquals(MenuDadoColors.SelectionGreen, favoriteCarouselBackgroundColor())
+        assertEquals(CircleShape, favoriteCarouselCoverShape())
+        assertEquals(R.string.favorite_menus_supporting, favoriteCarouselSupportingTextRes())
+    }
+
+    @Test
+    fun `favoritos muestra ver mas solo cuando existe la coleccion`() {
+        val favorite = FoodMenu(
+            id = 1L,
+            name = "Favorito",
+            mealType = MealType.LUNCH,
+            description = "A",
+            isFavorite = true
+        )
+
+        assertTrue(menuFavoriteCarouselShowsViewMore(listOf(favorite)))
+        assertFalse(menuFavoriteCarouselShowsViewMore(listOf(favorite.copy(isFavorite = false))))
+        assertFalse(menuFavoriteCarouselShowsViewMore(emptyList()))
     }
 
     @Test

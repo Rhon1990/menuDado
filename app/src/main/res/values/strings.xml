@@ -16,6 +16,7 @@
     <string name="common_mark_favorite">Marcar como favorito</string>
     <string name="common_remove_favorite">Quitar de favoritos</string>
     <string name="favorite_menus">Favoritos</string>
+    <string name="favorite_menus_supporting">Tus elecciones guardadas</string>
     <string name="share_menu_chooser">Compartir menú</string>
     <string name="menu_actions_open">Abrir opciones del menú</string>
     <string name="menu_action_photo">Foto del menú</string>
