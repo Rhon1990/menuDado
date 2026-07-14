@@ -189,6 +189,13 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `dice empty recovery actions use closed analytics values`() {
+        analytics.trackDiceEmptyRecovery("change_filters")
+
+        assertEquals(listOf("dice_empty_recovery:change_filters"), analytics.events)
+    }
+
+    @Test
     fun `account and my zone analytics use closed values without personal data`() {
         viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
 
@@ -2803,6 +2810,10 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
 
     override fun trackDiceEmptyResult(filter: MealType?, availableCandidateCount: Int) {
         events += "dice_empty_result:${filter?.name ?: "ALL"}:$availableCandidateCount"
+    }
+
+    override fun trackDiceEmptyRecovery(action: String) {
+        events += "dice_empty_recovery:$action"
     }
 
     override fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int) {

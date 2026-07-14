@@ -190,6 +190,12 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
+    override fun trackDiceEmptyRecovery(action: String) {
+        logEvent(EVENT_DICE_EMPTY_RECOVERY) {
+            putString(PARAM_ACTION, action.sanitized())
+        }
+    }
+
     override fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int) {
         logEvent(EVENT_MENU_CARD_OPENED) {
             putString(PARAM_MEAL_TYPE, mealType.analyticsName())
@@ -374,6 +380,7 @@ class FirebaseMenuDadoAnalytics(
         const val EVENT_DICE_ROLLED = "dice_rolled"
         const val EVENT_DICE_FILTER_SELECTED = "dice_filter_selected"
         const val EVENT_DICE_EMPTY_RESULT = "dice_empty_result"
+        const val EVENT_DICE_EMPTY_RECOVERY = "dice_empty_recovery"
         const val EVENT_MENU_CARD_OPENED = "menu_card_opened"
         const val EVENT_ONBOARDING_SHOWN = "onboarding_shown"
         const val EVENT_ONBOARDING_COMPLETED = "onboarding_completed"

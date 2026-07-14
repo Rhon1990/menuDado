@@ -76,6 +76,8 @@ interface MenuDadoAnalytics {
 
     fun trackDiceEmptyResult(filter: MealType?, availableCandidateCount: Int)
 
+    fun trackDiceEmptyRecovery(action: String)
+
     fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int)
 
     fun trackOnboardingShown()
@@ -184,6 +186,8 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
     override fun trackDiceFilterSelected(filter: MealType?, menuCount: Int) = Unit
 
     override fun trackDiceEmptyResult(filter: MealType?, availableCandidateCount: Int) = Unit
+
+    override fun trackDiceEmptyRecovery(action: String) = Unit
 
     override fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int) = Unit
 
