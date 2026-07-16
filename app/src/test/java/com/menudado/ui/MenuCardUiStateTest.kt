@@ -588,10 +588,39 @@ class MenuCardUiStateTest {
         assertEquals(MenuAudience.ADULT, menuAudienceFromDetailRoute(MenuAudience.ADULT.name))
         assertNull(menuAudienceFromDetailRoute(null))
         assertNull(menuAudienceDetailRouteAfterBack(MenuAudience.ADULT.name))
-        assertEquals("home", menuListStateKeyForAudienceDetail(null))
-        assertEquals("audience-detail", menuListStateKeyForAudienceDetail(MenuAudience.ADULT.name))
         assertEquals(true, menuShouldResetAudienceDetailScroll(MenuAudience.ADULT.name))
         assertEquals(false, menuShouldResetAudienceDetailScroll(null))
+    }
+
+    @Test
+    fun `cada destino principal conserva su propio estado de scroll`() {
+        assertEquals(
+            MenuListStateOwner.HOME,
+            menuListStateOwner(MenuDadoDestination.HOME, route = null)
+        )
+        assertEquals(
+            MenuListStateOwner.PROFILE,
+            menuListStateOwner(MenuDadoDestination.PROFILE, route = null)
+        )
+        assertEquals(
+            MenuListStateOwner.MY_ZONE,
+            menuListStateOwner(MenuDadoDestination.MY_ZONE, route = null)
+        )
+        assertEquals(
+            MenuListStateOwner.ABOUT,
+            menuListStateOwner(MenuDadoDestination.ABOUT, route = null)
+        )
+        assertEquals(
+            MenuListStateOwner.AUDIENCE_DETAIL,
+            menuListStateOwner(MenuDadoDestination.HOME, MenuAudience.ADULT.name)
+        )
+    }
+
+    @Test
+    fun `pestanas reinician scroll pero ver mas conserva la posicion`() {
+        assertEquals(0, menuScrollTargetIndex(MenuNavigationSource.BOTTOM_TAB))
+        assertNull(menuScrollTargetIndex(MenuNavigationSource.VIEW_MORE))
+        assertNull(menuScrollTargetIndex(MenuNavigationSource.DETAIL_BACK))
     }
 
     @Test

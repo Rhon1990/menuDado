@@ -269,7 +269,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 ## Principios de UX
 
 - La primera pantalla debe ser la app usable, no una página de presentación.
-- La navegación principal vive en una barra inferior flotante de superficie cálida, con verde MenuDado para el destino seleccionado y accesos a Inicio, Perfil y Mi zona. `Acerca de la app` y `Privacidad` se acceden desde `Mi zona`.
+- La navegación principal vive en una barra inferior flotante de superficie cálida, con verde MenuDado para el destino seleccionado y accesos a Inicio, Perfil y Mi zona. `Acerca de la app` y `Privacidad` se acceden desde `Mi zona`. Cambiar mediante las pestañas inferiores abre siempre el destino desde arriba; en cambio, entrar a `Ver más` y volver conserva la posición previa de Inicio.
 - Una acción principal clara: `Qué comer hoy`, con `Generar con IA` visible por defecto, `Elegir un menú al azar` como secundaria y escritura manual como terciaria.
 - Una acción divertida y protagonista: tocar el dado IA para crear una idea saludable; la selección aleatoria local se presenta como una acción secundaria independiente y nunca mueve el dado IA.
 - La cabecera debe respetar el espacio de la barra de estado y usar colores de sistema coherentes con la marca.

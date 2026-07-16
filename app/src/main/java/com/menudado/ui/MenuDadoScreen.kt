@@ -54,6 +54,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -86,6 +87,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.key
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -216,11 +218,29 @@ fun MenuDadoScreen(
     val audienceDetail = menuAudienceFromDetailRoute(audienceDetailRoute)
     val isFavoritesDetail = menuIsFavoritesDetailRoute(audienceDetailRoute)
     val homeListState = rememberLazyListState()
+    val profileListState = rememberLazyListState()
+    val myZoneListState = rememberLazyListState()
+    val aboutListState = rememberLazyListState()
     val audienceDetailListState = remember(audienceDetailRoute) { LazyListState() }
-    val activeListState = if (menuListStateKeyForAudienceDetail(audienceDetailRoute) == "home") {
-        homeListState
-    } else {
-        audienceDetailListState
+    val screenScope = rememberCoroutineScope()
+    val activeListStateOwner = menuListStateOwner(destination, audienceDetailRoute)
+    val activeListState = when (activeListStateOwner) {
+        MenuListStateOwner.HOME -> homeListState
+        MenuListStateOwner.PROFILE -> profileListState
+        MenuListStateOwner.MY_ZONE -> myZoneListState
+        MenuListStateOwner.ABOUT -> aboutListState
+        MenuListStateOwner.AUDIENCE_DETAIL -> audienceDetailListState
+    }
+    fun resetDestinationScroll(destination: MenuDadoDestination) {
+        val targetIndex = menuScrollTargetIndex(MenuNavigationSource.BOTTOM_TAB) ?: return
+        val targetState = when (destination) {
+            MenuDadoDestination.HOME,
+            MenuDadoDestination.PRIVACY -> homeListState
+            MenuDadoDestination.PROFILE -> profileListState
+            MenuDadoDestination.MY_ZONE -> myZoneListState
+            MenuDadoDestination.ABOUT -> aboutListState
+        }
+        screenScope.launch { targetState.scrollToItem(targetIndex) }
     }
     val selectedDetailMenu = selectedDetailMenuId?.let { selectedId ->
         state.menus.firstOrNull { it.id == selectedId }
@@ -669,18 +689,10 @@ fun MenuDadoScreen(
     Box(
         modifier = Modifier.hideKeyboardOnTouch(focusManager, keyboardController)
     ) {
-        LazyColumn(
+        MenuDadoDestinationList(
             state = activeListState,
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MenuDadoColors.Background),
-            verticalArrangement = Arrangement.spacedBy(
-                if (destination == MenuDadoDestination.MY_ZONE) {
-                    0.dp
-                } else {
-                    12.dp
-                }
-            )
+            destination = destination,
+            owner = activeListStateOwner
         ) {
             item {
                 Header(
@@ -973,6 +985,9 @@ fun MenuDadoScreen(
             selectedDestination = destination,
             areAdsPrivacyOptionsRequired = areAdsPrivacyOptionsRequired,
             onDestinationSelected = { selected ->
+                if (selected != MenuDadoDestination.PRIVACY) {
+                    resetDestinationScroll(selected)
+                }
                 when (selected) {
                     MenuDadoDestination.HOME -> {
                         viewModel.trackCtaTapped(ANALYTICS_SCREEN_BOTTOM_NAV, ANALYTICS_CTA_NAV_HOME)
@@ -1125,6 +1140,45 @@ internal enum class MenuDadoDestination {
     ABOUT,
     MY_ZONE,
     PRIVACY
+}
+
+internal enum class MenuListStateOwner {
+    HOME,
+    PROFILE,
+    MY_ZONE,
+    ABOUT,
+    AUDIENCE_DETAIL
+}
+
+internal enum class MenuNavigationSource {
+    BOTTOM_TAB,
+    VIEW_MORE,
+    DETAIL_BACK
+}
+
+internal fun menuScrollTargetIndex(source: MenuNavigationSource): Int? {
+    return if (source == MenuNavigationSource.BOTTOM_TAB) 0 else null
+}
+
+@Composable
+private fun MenuDadoDestinationList(
+    state: LazyListState,
+    destination: MenuDadoDestination,
+    owner: MenuListStateOwner,
+    content: LazyListScope.() -> Unit
+) {
+    key(owner) {
+        LazyColumn(
+            state = state,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MenuDadoColors.Background),
+            verticalArrangement = Arrangement.spacedBy(
+                if (destination == MenuDadoDestination.MY_ZONE) 0.dp else 12.dp
+            ),
+            content = content
+        )
+    }
 }
 
 @Composable
@@ -5514,8 +5568,19 @@ internal fun menuAudienceDetailRouteAfterBack(currentRoute: String?): String? {
     return if (currentRoute == null) null else null
 }
 
-internal fun menuListStateKeyForAudienceDetail(route: String?): String {
-    return if (route == null) "home" else "audience-detail"
+internal fun menuListStateOwner(
+    destination: MenuDadoDestination,
+    route: String?
+): MenuListStateOwner {
+    if (route != null) return MenuListStateOwner.AUDIENCE_DETAIL
+
+    return when (destination) {
+        MenuDadoDestination.HOME,
+        MenuDadoDestination.PRIVACY -> MenuListStateOwner.HOME
+        MenuDadoDestination.PROFILE -> MenuListStateOwner.PROFILE
+        MenuDadoDestination.MY_ZONE -> MenuListStateOwner.MY_ZONE
+        MenuDadoDestination.ABOUT -> MenuListStateOwner.ABOUT
+    }
 }
 
 internal fun menuShouldResetAudienceDetailScroll(route: String?): Boolean {
