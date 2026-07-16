@@ -965,7 +965,7 @@ class MenuDadoViewModel(
         }
     }
 
-    private fun refreshDietaryProfile() {
+    internal fun refreshDietaryProfile() {
         val enabledAudiences = loadEnabledAudiences()
         _uiState.update {
             it.copy(

@@ -43,11 +43,17 @@ import com.menudado.domain.MenuAudience
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 
 class MenuDadoApplication : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val _dietaryProfileHydrationRevision = MutableStateFlow(0L)
+    val dietaryProfileHydrationRevision: StateFlow<Long> = _dietaryProfileHydrationRevision.asStateFlow()
     private val backendAccountPreferences by lazy {
         applicationContext.getSharedPreferences(BACKEND_ACCOUNT_PREFERENCES_NAME, Context.MODE_PRIVATE)
     }
@@ -208,7 +214,10 @@ class MenuDadoApplication : Application() {
             aiDailyUsageStore = localAiDailyUsageStore,
             onboardingStore = localOnboardingStore,
             pendingSyncStore = pendingSyncStore,
-            remoteDataSource = remoteDataSource
+            remoteDataSource = remoteDataSource,
+            onDietaryProfilesHydrated = {
+                _dietaryProfileHydrationRevision.update { revision -> revision + 1L }
+            }
         )
     }
 

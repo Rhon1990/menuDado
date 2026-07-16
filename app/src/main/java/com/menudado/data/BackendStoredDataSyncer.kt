@@ -7,7 +7,8 @@ class BackendStoredDataSyncer(
     private val aiDailyUsageStore: AiDailyUsageStore,
     private val onboardingStore: OnboardingStore,
     private val pendingSyncStore: BackendPendingSyncStore,
-    private val remoteDataSource: MenuDadoRemoteDataSource
+    private val remoteDataSource: MenuDadoRemoteDataSource,
+    private val onDietaryProfilesHydrated: () -> Unit = {}
 ) {
     suspend fun syncPending() {
         pendingSyncStore.getPendingDietaryProfileAudiences().forEach { audience ->
@@ -31,12 +32,15 @@ class BackendStoredDataSyncer(
 
     suspend fun hydrateRemoteStoredData() {
         val pendingProfileAudiences = pendingSyncStore.getPendingDietaryProfileAudiences()
-        runCatching { remoteDataSource.fetchDietaryProfiles() }
+        val hydratedProfiles = runCatching { remoteDataSource.fetchDietaryProfiles() }
             .getOrDefault(emptyMap())
             .filterKeys { audience -> audience !in pendingProfileAudiences }
-            .forEach { (audience, profile) ->
-                dietaryProfileStore.saveProfile(profile, audience)
-            }
+        hydratedProfiles.forEach { (audience, profile) ->
+            dietaryProfileStore.saveProfile(profile, audience)
+        }
+        if (hydratedProfiles.isNotEmpty()) {
+            onDietaryProfilesHydrated()
+        }
 
         if (pendingSyncStore.getPendingOnboardingVersion() == null) {
             runCatching { remoteDataSource.fetchOnboardingCompletedVersion() }

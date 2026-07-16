@@ -1397,6 +1397,27 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `remote profile refresh selects the only active audience`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+        assertNull(viewModel.uiState.value.formAudience)
+
+        dietaryProfileStore.saveProfile(
+            DietaryProfile(
+                isEnabled = false,
+                ageRange = MenuAudience.ADULT.defaultAgeRange
+            ),
+            MenuAudience.ADULT
+        )
+
+        viewModel.refreshDietaryProfile()
+
+        assertEquals(listOf(MenuAudience.CHILD), viewModel.uiState.value.enabledAudiences)
+        assertEquals(MenuAudience.CHILD, viewModel.uiState.value.formAudience)
+        assertEquals(MenuAudience.CHILD, viewModel.uiState.value.diceAudienceFilter)
+    }
+
+    @Test
     fun `dietary profile is stored independently per audience`() = runTest(dispatcher) {
         viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
         viewModel.setDietaryProfileAudienceEnabled(true)

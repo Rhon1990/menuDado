@@ -117,7 +117,15 @@ class RemoteSyncingStoresTest {
         val onboardingStore = FakeLocalOnboardingStore()
         val pending = FakeBackendPendingSyncStore()
         val remote = RecordingStoresRemoteDataSource()
-        val syncer = BackendStoredDataSyncer(profileStore, aiUsageStore, onboardingStore, pending, remote)
+        var dietaryProfileHydrationCount = 0
+        val syncer = BackendStoredDataSyncer(
+            profileStore,
+            aiUsageStore,
+            onboardingStore,
+            pending,
+            remote,
+            onDietaryProfilesHydrated = { dietaryProfileHydrationCount += 1 }
+        )
         val childProfile = DietaryProfile(
             isEnabled = true,
             ageRange = "2-12 anos",
@@ -130,6 +138,7 @@ class RemoteSyncingStoresTest {
 
         assertEquals(childProfile, profileStore.getProfile(MenuAudience.CHILD))
         assertEquals(true, onboardingStore.isOnboardingCompleted(2))
+        assertEquals(1, dietaryProfileHydrationCount)
     }
 }
 

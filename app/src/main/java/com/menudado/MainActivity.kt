@@ -31,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -117,6 +118,7 @@ class MainActivity : ComponentActivity() {
             MenuDadoTheme {
                 val showSplash by showStartupSplash
                 val authScope = rememberCoroutineScope()
+                val dietaryProfileHydrationRevision by app.dietaryProfileHydrationRevision.collectAsState()
                 var authSession by remember { mutableStateOf(app.authService.currentSession()) }
                 var isGuestModeSelected by remember { mutableStateOf(app.authStore.isGuestModeSelected()) }
                 var isAuthLoading by remember { mutableStateOf(false) }
@@ -129,6 +131,9 @@ class MainActivity : ComponentActivity() {
                 var pendingAppUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
                 var isAppUpdateDialogDismissed by remember { mutableStateOf(false) }
                 var isAppUpdateDownloaded by remember { mutableStateOf(false) }
+                LaunchedEffect(dietaryProfileHydrationRevision) {
+                    viewModel.refreshDietaryProfile()
+                }
                 val defaultAboutContent = remember {
                     MenuDadoAboutContent(
                         description = getString(R.string.about_reason),
