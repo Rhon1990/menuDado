@@ -3840,6 +3840,7 @@ private fun MenuCarouselSections(
                         audience = audience,
                         isExpanded = false
                     ),
+                    menuCount = menuCarouselAudienceMenuCount(menus, audience),
                     showToggle = menuCarouselShowsToggle(menus, audience),
                     onViewMore = { onViewMore(audience) },
                     onOpenMenu = onOpenMenu,
@@ -3881,25 +3882,7 @@ private fun FavoriteMenuCarouselSection(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
-                        .background(MenuDadoColors.SoftSand.copy(alpha = 0.5f))
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                ) {
-                    Text(
-                        text = pluralStringResource(
-                            id = favoriteMenuCountRes(),
-                            count = menus.size,
-                            menus.size
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MenuDadoColors.DeepGreen,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                MenuCountBadge(count = menus.size)
             }
             if (menuFavoriteCarouselShowsViewMore(menus)) {
                 TextButton(
@@ -3928,6 +3911,29 @@ private fun FavoriteMenuCarouselSection(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun MenuCountBadge(count: Int) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
+            .background(MenuDadoColors.SoftSand.copy(alpha = 0.5f))
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+    ) {
+        Text(
+            text = pluralStringResource(
+                id = favoriteMenuCountRes(),
+                count = count,
+                count
+            ),
+            style = MaterialTheme.typography.labelSmall,
+            color = MenuDadoColors.DeepGreen,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -4030,6 +4036,7 @@ private fun FavoriteMenuCarouselItem(
 private fun MenuCarouselSection(
     audience: MenuAudience,
     menus: List<FoodMenu>,
+    menuCount: Int,
     showToggle: Boolean,
     onViewMore: () -> Unit,
     onOpenMenu: (FoodMenu) -> Unit,
@@ -4045,12 +4052,21 @@ private fun MenuCarouselSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stringResource(id = menuAudienceLabelRes(audience)),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Black,
-                color = MenuDadoColors.Ink
-            )
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(id = menuAudienceLabelRes(audience)),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MenuDadoColors.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                MenuCountBadge(count = menuCount)
+            }
             if (showToggle) {
                 TextButton(
                     onClick = onViewMore,
@@ -4105,7 +4121,7 @@ private fun MenuCarouselItem(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(112.dp),
-                    showMealTypeLabel = true
+                    showMealTypeLabel = false
                 )
                 FavoriteMenuIconButton(
                     isFavorite = menu.isFavorite,
@@ -4127,17 +4143,19 @@ private fun MenuCarouselItem(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            if (showAudienceLabel) {
-                Text(
-                    text = "${stringResource(id = mealTypeLabelRes(menu.mealType))} · " +
-                        stringResource(id = menuAudienceLabelRes(menu.audience)),
-                    color = MenuDadoColors.MutedInk,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            val mealTypeLabel = stringResource(id = menuCarouselItemMealTypeRes(menu.mealType))
+            Text(
+                text = if (showAudienceLabel) {
+                    "$mealTypeLabel · ${stringResource(id = menuAudienceLabelRes(menu.audience))}"
+                } else {
+                    mealTypeLabel
+                },
+                color = MenuDadoColors.MutedInk,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             Row(
                 modifier = Modifier.height(menuCarouselItemMetaRowHeightDp().dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -5447,6 +5465,11 @@ internal fun menuCarouselAudiencesWithMenus(
     }
 }
 
+internal fun menuCarouselAudienceMenuCount(
+    menus: List<FoodMenu>,
+    audience: MenuAudience
+): Int = menus.count { it.audience == audience }
+
 internal fun menuCarouselShowsToggle(menus: List<FoodMenu>, audience: MenuAudience): Boolean {
     return menus.any { it.audience == audience }
 }
@@ -5551,6 +5574,9 @@ internal fun mealTypeLabelRes(mealType: MealType): Int {
         MealType.DINNER -> R.string.meal_dinner
     }
 }
+
+@StringRes
+internal fun menuCarouselItemMealTypeRes(mealType: MealType): Int = mealTypeLabelRes(mealType)
 
 @StringRes
 internal fun menuAudienceLabelRes(audience: MenuAudience): Int {

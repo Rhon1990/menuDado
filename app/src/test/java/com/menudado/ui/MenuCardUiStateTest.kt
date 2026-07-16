@@ -397,6 +397,36 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `cabecera de perfil cuenta todos sus menus aunque el carrusel este limitado`() {
+        val menus = (1L..12L).map { id ->
+            FoodMenu(
+                id = id,
+                name = "Adulto $id",
+                mealType = MealType.LUNCH,
+                audience = MenuAudience.ADULT,
+                description = "A"
+            )
+        } + FoodMenu(
+            id = 20L,
+            name = "Peques",
+            mealType = MealType.DINNER,
+            audience = MenuAudience.CHILD,
+            description = "P"
+        )
+
+        assertEquals(12, menuCarouselAudienceMenuCount(menus, MenuAudience.ADULT))
+        assertEquals(1, menuCarouselAudienceMenuCount(menus, MenuAudience.CHILD))
+        assertEquals(0, menuCarouselAudienceMenuCount(menus, MenuAudience.BABY))
+    }
+
+    @Test
+    fun `tarjeta de perfil expone desayuno almuerzo o cena`() {
+        assertEquals(R.string.meal_breakfast, menuCarouselItemMealTypeRes(MealType.BREAKFAST))
+        assertEquals(R.string.meal_lunch, menuCarouselItemMealTypeRes(MealType.LUNCH))
+        assertEquals(R.string.meal_dinner, menuCarouselItemMealTypeRes(MealType.DINNER))
+    }
+
+    @Test
     fun `carrusel mantiene llave de scroll cuando solo cambia el orden por favoritos`() {
         val previousMenus = listOf(
             FoodMenu(id = 1L, name = "Menu normal", mealType = MealType.LUNCH, audience = MenuAudience.CHILD, description = "A", createdAt = 1L),
