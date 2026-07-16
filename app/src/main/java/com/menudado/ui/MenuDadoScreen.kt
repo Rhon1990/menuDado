@@ -3968,42 +3968,39 @@ private fun FavoriteMenuCarouselItem(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
+                MenuCoverImage(
+                    menu = menu,
                     modifier = Modifier
                         .size(favoriteCarouselCoverSizeDp().dp)
-                ) {
-                    MenuCoverImage(
-                        menu = menu,
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clip(RoundedCornerShape(favoriteCarouselCoverCornerRadiusDp().dp))
-                            .border(
-                                1.dp,
-                                MenuDadoColors.SoftSand,
-                                RoundedCornerShape(favoriteCarouselCoverCornerRadiusDp().dp)
-                            ),
-                        showMealTypeLabel = false
-                    )
-                    MenuOverflowActionButton(
-                        onOpenActions = onOpenActions,
-                        modifier = Modifier.align(Alignment.TopEnd),
-                        containerColor = favoriteCarouselOverflowActionBackgroundColor(),
-                        iconTint = favoriteCarouselOverflowActionIconTint()
-                    )
-                }
+                        .clip(RoundedCornerShape(favoriteCarouselCoverCornerRadiusDp().dp))
+                        .border(
+                            1.dp,
+                            MenuDadoColors.SoftSand,
+                            RoundedCornerShape(favoriteCarouselCoverCornerRadiusDp().dp)
+                        ),
+                    showMealTypeLabel = false
+                )
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text(
-                        text = menu.name,
-                        color = MenuDadoColors.Ink,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 20.sp,
-                        maxLines = favoriteCarouselTitleMaxLines(),
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text(
+                            text = menu.name,
+                            modifier = Modifier.weight(1f),
+                            color = MenuDadoColors.Ink,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 20.sp,
+                            maxLines = favoriteCarouselTitleMaxLines(),
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        MenuOverflowActionButton(
+                            onOpenActions = onOpenActions,
+                            containerColor = favoriteCarouselOverflowActionBackgroundColor(),
+                            iconTint = favoriteCarouselOverflowActionIconTint()
+                        )
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -5419,9 +5416,9 @@ internal fun favoriteCarouselBackgroundColor(): Color = MenuDadoColors.Surface
 
 internal fun favoriteCarouselAccentColor(): Color = MenuDadoColors.ActionTerracotta
 
-internal fun favoriteCarouselOverflowActionBackgroundColor(): Color = MenuDadoColors.Surface
+internal fun favoriteCarouselOverflowActionBackgroundColor(): Color = Color.Transparent
 
-internal fun favoriteCarouselOverflowActionIconTint(): Color = MenuDadoColors.DeepGreen
+internal fun favoriteCarouselOverflowActionIconTint(): Color = menuOverflowActionIconTint()
 
 @StringRes
 internal fun favoriteCarouselSupportingTextRes(): Int = R.string.favorite_menus_supporting

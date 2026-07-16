@@ -15,7 +15,7 @@ Reducir la repetición visual de `Favoritos` en Inicio y convertir el nombre del
 - La cabecera conserva `Favoritos`, el contador y `Ver más`, pero elimina el corazón decorativo.
 - La tarjeta elimina el texto interno `Favoritos` porque el contexto de la sección ya comunica la colección.
 - El nombre usa una jerarquía tipográfica superior y admite hasta tres líneas.
-- El menú de tres puntos se coloca sobre la portada, dentro de un objetivo táctil accesible, para liberar todo el ancho de la columna de texto.
+- El menú de tres puntos permanece al final de la fila del nombre, con fondo transparente y fuera de la portada.
 - La fila inferior conserva únicamente el corazón como acción directa para quitar el menú de favoritos.
 - Tipo de comida y público permanecen como metadatos secundarios.
 - La tarjeta crece moderadamente para evitar truncados frecuentes sin convertir el carrusel en una lista pesada.

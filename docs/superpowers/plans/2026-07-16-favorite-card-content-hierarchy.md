@@ -63,9 +63,9 @@ Expected: `BUILD SUCCESSFUL` y todos los tests de la clase pasan.
 
 Eliminar el `Box` con `ic_favorite_filled` de `FavoriteMenuCarouselSection`, manteniendo título, contador y `Ver más` en la misma fila.
 
-- [ ] **Step 2: Liberar la columna del título**
+- [ ] **Step 2: Mantener las acciones fuera de la portada**
 
-En `FavoriteMenuCarouselItem`, superponer `MenuOverflowActionButton` en la esquina superior derecha de `MenuCoverImage`; retirar el botón de la fila del título.
+En `FavoriteMenuCarouselItem`, mantener `MenuOverflowActionButton` al final de la fila del título, con fondo transparente y fuera de `MenuCoverImage`.
 
 - [ ] **Step 3: Reforzar el título y eliminar la repetición**
 
@@ -110,4 +110,4 @@ Expected: salida vacía y código de retorno `0`.
 
 - [ ] **Step 5: Validar visualmente**
 
-Instalar/abrir la variante debug en emulador, navegar a Inicio con favoritos y comprobar: cabecera sin corazón decorativo, ausencia de la etiqueta `Favoritos` en tarjetas, nombre largo visible hasta tres líneas, menú de tres puntos sobre la portada y corazón operativo.
+Instalar/abrir la variante debug en emulador, navegar a Inicio con favoritos y comprobar: cabecera sin corazón decorativo, ausencia de la etiqueta `Favoritos` en tarjetas, nombre largo visible hasta tres líneas, menú de tres puntos junto al título y sin fondo, y corazón operativo.
