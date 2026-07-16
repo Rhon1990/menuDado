@@ -444,11 +444,12 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `carrusel favorito usa tarjeta horizontal compacta y acento de marca`() {
-        assertEquals(252, favoriteCarouselCardWidthDp())
-        assertEquals(118, favoriteCarouselCardMinHeightDp())
-        assertEquals(88, favoriteCarouselCoverSizeDp())
+    fun `carrusel favorito prioriza el nombre sin repetir la coleccion`() {
+        assertEquals(280, favoriteCarouselCardWidthDp())
+        assertEquals(132, favoriteCarouselCardMinHeightDp())
+        assertEquals(96, favoriteCarouselCoverSizeDp())
         assertEquals(18, favoriteCarouselCoverCornerRadiusDp())
+        assertEquals(3, favoriteCarouselTitleMaxLines())
         assertEquals(MenuDadoColors.Surface, favoriteCarouselBackgroundColor())
         assertEquals(MenuDadoColors.ActionTerracotta, favoriteCarouselAccentColor())
         assertEquals(R.string.favorite_menus_supporting, favoriteCarouselSupportingTextRes())
