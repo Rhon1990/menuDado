@@ -2929,17 +2929,23 @@ private fun SavedMenuRandomButton(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    OutlinedButton(
+    val contentColor = savedMenuRandomContentColor().copy(alpha = if (enabled) 1f else 0.72f)
+    Button(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius),
-        border = BorderStroke(1.dp, MenuDadoColors.BrandGreen)
+        colors = ButtonDefaults.buttonColors(
+            containerColor = savedMenuRandomContainerColor(),
+            contentColor = savedMenuRandomContentColor(),
+            disabledContainerColor = savedMenuRandomContainerColor().copy(alpha = 0.38f),
+            disabledContentColor = contentColor
+        )
     ) {
         if (isRolling) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
-                color = MenuDadoColors.BrandGreen,
+                color = contentColor,
                 strokeWidth = 2.dp
             )
             Spacer(modifier = Modifier.width(10.dp))
@@ -2950,19 +2956,23 @@ private fun SavedMenuRandomButton(
         ) {
             Text(
                 text = stringResource(id = savedMenuRandomPrimaryTextRes(isRolling)),
-                color = MenuDadoColors.DeepGreen,
+                color = contentColor,
                 fontWeight = FontWeight.Bold
             )
             if (!isRolling) {
                 Text(
                     text = stringResource(id = savedMenuRandomSupportingTextRes()),
-                    color = MenuDadoColors.MutedInk,
+                    color = contentColor.copy(alpha = if (enabled) 0.86f else 0.62f),
                     style = MaterialTheme.typography.bodySmall
                 )
             }
         }
     }
 }
+
+internal fun savedMenuRandomContainerColor(): Color = MenuDadoColors.BrandGreen
+
+internal fun savedMenuRandomContentColor(): Color = Color.White
 
 internal fun contextualDiceShouldAnimate(
     isGeneratingMenu: Boolean,

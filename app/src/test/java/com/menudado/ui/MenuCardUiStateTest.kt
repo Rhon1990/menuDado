@@ -830,6 +830,12 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `seleccion aleatoria usa fondo verde y texto blanco`() {
+        assertEquals(MenuDadoColors.BrandGreen, savedMenuRandomContainerColor())
+        assertEquals(Color.White, savedMenuRandomContentColor())
+    }
+
+    @Test
     fun `cabecera pone la marca al lado del menu sin espacio superior extra`() {
         assertEquals(0, menuDadoHeaderBrandTopPaddingDp())
         assertEquals(6, menuDadoHeaderBrandStartGapDp())

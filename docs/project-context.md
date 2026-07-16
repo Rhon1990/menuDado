@@ -54,7 +54,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - La generación y el análisis con IA deben pedir nombre, descripción, notas, razón y sugerencia en el mismo idioma visible de la app para evitar mezclar idiomas en menús creados por IA.
 
 1. Crear menús y decidir qué comer hoy.
-   - El bloque principal de Inicio se llama `Qué comer hoy` y prioriza `Generar con IA`; `Elegir un menú al azar` queda como acción secundaria directa, aclara que usa los menús guardados y `Escribir mi menú` revela el formulario manual.
+   - El bloque principal de Inicio se llama `Qué comer hoy` y prioriza `Generar con IA`; `Elegir un menú al azar` queda como segunda acción protagonista con fondo verde de marca y textos blancos, aclara que usa los menús guardados, y `Escribir mi menú` revela el formulario manual como acción terciaria.
    - `Generar con IA` es el estado inicial porque es la acción con mayor adopción observada y reduce decisiones antes de recibir una idea saludable.
    - El tipo de comida es obligatorio y viene sugerido automaticamente segun la hora local del movil: desayuno por la mañana, almuerzo al mediodia/tarde y cena por la noche; el usuario puede cambiarlo antes de guardar o generar.
    - El público objetivo también es obligatorio y no viene seleccionado por defecto; el usuario debe elegir persona adulta, peques o bebé entre los públicos activos del perfil alimentario.
