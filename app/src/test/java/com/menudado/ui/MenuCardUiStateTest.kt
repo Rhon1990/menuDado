@@ -452,6 +452,7 @@ class MenuCardUiStateTest {
         assertEquals(3, favoriteCarouselTitleMaxLines())
         assertEquals(MenuDadoColors.Surface, favoriteCarouselBackgroundColor())
         assertEquals(MenuDadoColors.ActionTerracotta, favoriteCarouselAccentColor())
+        assertEquals(MenuDadoColors.Surface, favoriteCarouselOverflowActionBackgroundColor())
         assertEquals(R.string.favorite_menus_supporting, favoriteCarouselSupportingTextRes())
     }
 

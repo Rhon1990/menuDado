@@ -3986,7 +3986,8 @@ private fun FavoriteMenuCarouselItem(
                     )
                     MenuOverflowActionButton(
                         onOpenActions = onOpenActions,
-                        modifier = Modifier.align(Alignment.TopEnd)
+                        modifier = Modifier.align(Alignment.TopEnd),
+                        containerColor = favoriteCarouselOverflowActionBackgroundColor()
                     )
                 }
                 Column(
@@ -4423,7 +4424,8 @@ private fun MenuPhotoActionButton(
 @Composable
 private fun MenuOverflowActionButton(
     onOpenActions: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    containerColor: Color = menuOverflowActionButtonBackgroundColor()
 ) {
     val actionDescription = stringResource(id = menuOverflowActionContentDescriptionRes())
     IconButton(
@@ -4431,7 +4433,7 @@ private fun MenuOverflowActionButton(
         modifier = modifier
             .padding(menuOverflowActionButtonInsetDp().dp)
             .size(menuOverflowActionButtonSizeDp().dp)
-            .background(menuOverflowActionButtonBackgroundColor(), CircleShape)
+            .background(containerColor, CircleShape)
             .semantics { contentDescription = actionDescription }
     ) {
         Icon(
@@ -5414,6 +5416,8 @@ internal fun favoriteCarouselTitleMaxLines(): Int = 3
 internal fun favoriteCarouselBackgroundColor(): Color = MenuDadoColors.Surface
 
 internal fun favoriteCarouselAccentColor(): Color = MenuDadoColors.ActionTerracotta
+
+internal fun favoriteCarouselOverflowActionBackgroundColor(): Color = MenuDadoColors.Surface
 
 @StringRes
 internal fun favoriteCarouselSupportingTextRes(): Int = R.string.favorite_menus_supporting
