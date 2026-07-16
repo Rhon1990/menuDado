@@ -396,11 +396,21 @@ fun MenuDadoScreen(
         }
     }
 
-    LaunchedEffect(state.menus, audienceDetailRoute) {
-        if (menuIsFavoritesDetailRoute(audienceDetailRoute) && menuFavoriteMenus(state.menus).isNotEmpty()) {
+    LaunchedEffect(state.menus, state.enabledAudiences, audienceDetailRoute) {
+        if (
+            menuIsFavoritesDetailRoute(audienceDetailRoute) &&
+            menuFavoriteMenus(state.menus, state.enabledAudiences).isNotEmpty()
+        ) {
             favoritesDetailHadVisibleMenus = true
         }
-        if (menuShouldLeaveFavoritesDetail(audienceDetailRoute, state.menus, favoritesDetailHadVisibleMenus)) {
+        if (
+            menuShouldLeaveFavoritesDetail(
+                route = audienceDetailRoute,
+                menus = state.menus,
+                hadVisibleFavorites = favoritesDetailHadVisibleMenus,
+                enabledAudiences = state.enabledAudiences
+            )
+        ) {
             audienceDetailRoute = null
             favoritesDetailHadVisibleMenus = false
         }
@@ -795,6 +805,7 @@ fun MenuDadoScreen(
                         item {
                             FavoriteMenusDetailScreen(
                                 menus = state.menus,
+                                enabledAudiences = state.enabledAudiences,
                                 onOpenMenu = { menu ->
                                     viewModel.trackCtaTapped(
                                         ANALYTICS_SCREEN_AUDIENCE_DETAIL,
@@ -3883,11 +3894,12 @@ private fun MenuCarouselSections(
     onOpenActions: (FoodMenu) -> Unit,
     onToggleFavorite: (FoodMenu) -> Unit
 ) {
+    val favoriteMenus = menuFavoriteMenus(menus, enabledAudiences)
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        if (menuShouldShowFavoriteSection(menus)) {
+        if (menuShouldShowFavoriteSection(favoriteMenus)) {
             key("favorite_menus") {
                 FavoriteMenuCarouselSection(
-                    menus = menuFavoriteMenus(menus),
+                    menus = favoriteMenus,
                     onViewMore = onViewMoreFavorites,
                     onOpenMenu = onOpenMenu,
                     onOpenActions = onOpenActions,
@@ -4282,11 +4294,12 @@ private fun MenuAudienceDetailScreen(
 @Composable
 private fun FavoriteMenusDetailScreen(
     menus: List<FoodMenu>,
+    enabledAudiences: List<MenuAudience>,
     onOpenMenu: (FoodMenu) -> Unit,
     onOpenActions: (FoodMenu) -> Unit,
     onToggleFavorite: (FoodMenu) -> Unit
 ) {
-    val favoriteMenus = menuFavoriteDetailMenus(menus)
+    val favoriteMenus = menuFavoriteDetailMenus(menus, enabledAudiences)
     Column(
         modifier = Modifier.padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
@@ -5472,13 +5485,19 @@ internal fun menuCarouselVisibleMenus(
     }
 }
 
-internal fun menuFavoriteMenus(menus: List<FoodMenu>): List<FoodMenu> {
+internal fun menuFavoriteMenus(
+    menus: List<FoodMenu>,
+    enabledAudiences: List<MenuAudience> = MenuAudience.entries
+): List<FoodMenu> {
     return menus
-        .filter { it.isFavorite }
+        .filter { menu -> menu.isFavorite && menu.audience in enabledAudiences }
         .sortedByDescending { it.createdAt }
 }
 
-internal fun menuFavoriteDetailMenus(menus: List<FoodMenu>): List<FoodMenu> = menuFavoriteMenus(menus)
+internal fun menuFavoriteDetailMenus(
+    menus: List<FoodMenu>,
+    enabledAudiences: List<MenuAudience> = MenuAudience.entries
+): List<FoodMenu> = menuFavoriteMenus(menus, enabledAudiences)
 
 internal fun menuFavoriteCarouselVisibleMenus(favoriteMenus: List<FoodMenu>): List<FoodMenu> {
     return favoriteMenus.take(MenuCarouselCollapsedLimit)
@@ -5559,9 +5578,12 @@ internal fun menuIsFavoritesDetailRoute(route: String?): Boolean = route == FAVO
 internal fun menuShouldLeaveFavoritesDetail(
     route: String?,
     menus: List<FoodMenu>,
-    hadVisibleFavorites: Boolean
+    hadVisibleFavorites: Boolean,
+    enabledAudiences: List<MenuAudience> = MenuAudience.entries
 ): Boolean {
-    return menuIsFavoritesDetailRoute(route) && hadVisibleFavorites && menuFavoriteMenus(menus).isEmpty()
+    return menuIsFavoritesDetailRoute(route) &&
+        hadVisibleFavorites &&
+        menuFavoriteMenus(menus, enabledAudiences).isEmpty()
 }
 
 internal fun menuAudienceDetailRoute(audience: MenuAudience): String = audience.name

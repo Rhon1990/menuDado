@@ -454,6 +454,21 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `favoritos excluye menus de perfiles inactivos sin eliminarlos`() {
+        val menus = listOf(
+            FoodMenu(id = 1L, name = "Adulto", mealType = MealType.LUNCH, audience = MenuAudience.ADULT, description = "A", createdAt = 10L, isFavorite = true),
+            FoodMenu(id = 2L, name = "Peques", mealType = MealType.DINNER, audience = MenuAudience.CHILD, description = "B", createdAt = 20L, isFavorite = true),
+            FoodMenu(id = 3L, name = "Bebe", mealType = MealType.BREAKFAST, audience = MenuAudience.BABY, description = "C", createdAt = 30L, isFavorite = true)
+        )
+
+        assertEquals(
+            listOf(1L),
+            menuFavoriteMenus(menus, enabledAudiences = listOf(MenuAudience.ADULT)).map { it.id }
+        )
+        assertEquals(3, menus.count { it.isFavorite })
+    }
+
+    @Test
     fun `ver mas de favoritos abre una coleccion propia`() {
         val route = menuFavoritesDetailRouteAfterViewMore()
 
@@ -518,6 +533,27 @@ class MenuCardUiStateTest {
         assertFalse(menuShouldLeaveFavoritesDetail(favoritesRoute, emptyList(), hadVisibleFavorites = false))
         assertFalse(menuShouldLeaveFavoritesDetail(MenuAudience.ADULT.name, emptyList(), hadVisibleFavorites = true))
         assertFalse(menuShouldLeaveFavoritesDetail(null, emptyList(), hadVisibleFavorites = true))
+    }
+
+    @Test
+    fun `pantalla de favoritos vuelve a inicio si sus menus pertenecen a perfiles inactivos`() {
+        val favoriteForChild = FoodMenu(
+            id = 1L,
+            name = "Favorito de peques",
+            mealType = MealType.LUNCH,
+            audience = MenuAudience.CHILD,
+            description = "A",
+            isFavorite = true
+        )
+
+        assertTrue(
+            menuShouldLeaveFavoritesDetail(
+                route = menuFavoritesDetailRouteAfterViewMore(),
+                menus = listOf(favoriteForChild),
+                hadVisibleFavorites = true,
+                enabledAudiences = listOf(MenuAudience.ADULT)
+            )
+        )
     }
 
     @Test
