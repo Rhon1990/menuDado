@@ -96,6 +96,11 @@ data class MenuDadoUiState(
     val diceEmptyRecovery: DiceEmptyRecovery? = null
 )
 
+internal fun menuVisibleMenus(
+    menus: List<FoodMenu>,
+    enabledAudiences: List<MenuAudience>
+): List<FoodMenu> = menus.filter { menu -> menu.audience in enabledAudiences }
+
 data class DiceEmptyRecovery(
     val mealType: MealType,
     val audience: MenuAudience,
@@ -360,8 +365,9 @@ class MenuDadoViewModel(
         _uiState.update {
             it.copy(
                 dietaryProfile = updated,
+                audienceAgeRanges = loadAudienceAgeRanges()
+            ).withAudienceVisibilityState(
                 enabledAudiences = enabledAudiences,
-                audienceAgeRanges = loadAudienceAgeRanges(),
                 formAudience = defaultAudience,
                 diceAudienceFilter = defaultAudience
             )
@@ -558,19 +564,30 @@ class MenuDadoViewModel(
             delay(DICE_ROLL_DURATION_MILLIS)
             val today = todayProvider()
             val currentState = _uiState.value
+            if (audience !in currentState.enabledAudiences) {
+                _uiState.update {
+                    it.copy(
+                        isRolling = false,
+                        result = null,
+                        diceEmptyRecovery = null
+                    )
+                }
+                return@launch
+            }
+            val visibleMenus = menuVisibleMenus(currentState.menus, currentState.enabledAudiences)
             val hasCandidates = DiceSelector.hasCandidates(
-                currentState.menus,
+                visibleMenus,
                 filter,
                 audience
             )
             val availableCandidateCountBeforeReset = DiceSelector.availableCandidateCount(
-                menus = currentState.menus,
+                menus = visibleMenus,
                 filter = filter,
                 audienceFilter = audience,
                 today = today
             )
             var selected = DiceSelector.select(
-                menus = currentState.menus,
+                menus = visibleMenus,
                 filter = filter,
                 audienceFilter = audience,
                 today = today
@@ -599,7 +616,7 @@ class MenuDadoViewModel(
             analytics.trackDiceRolled(
                 filter = filter,
                 resultMealType = selected?.mealType,
-                menuCount = currentState.menus.size,
+                menuCount = visibleMenus.size,
                 availableCandidateCount = availableCandidateCountBeforeReset
             )
             if (selected == null && !hasCandidates) {
@@ -612,7 +629,7 @@ class MenuDadoViewModel(
                 DiceEmptyRecovery(
                     mealType = recoveryMealType,
                     audience = audience,
-                    canBroadenMealType = currentState.menus.any { menu ->
+                    canBroadenMealType = visibleMenus.any { menu ->
                         menu.audience == audience && menu.mealType != recoveryMealType
                     }
                 ).also {
@@ -730,6 +747,10 @@ class MenuDadoViewModel(
         }
 
         if (audience == null) {
+            _uiState.update { it.copy(message = currentLanguage().audienceRequiredMessage(), isAiRetryNoticeVisible = false) }
+            return
+        }
+        if (audience !in state.enabledAudiences) {
             _uiState.update { it.copy(message = currentLanguage().audienceRequiredMessage(), isAiRetryNoticeVisible = false) }
             return
         }
@@ -860,15 +881,19 @@ class MenuDadoViewModel(
                         rememberGeneratedIdea(mealType, audience, generated.name, generated.description)
 
                         _uiState.update {
-                            it.copy(
-                                name = generated.name,
-                                description = generated.description,
-                                notes = generated.notes,
-                                calories = generated.calories,
-                                generatedHealthAnalysis = generated.healthAnalysis,
-                                isAiRetryNoticeVisible = false,
-                                showGeneratedMenuDetail = true
-                            )
+                            if (audience !in it.enabledAudiences || it.formAudience != audience) {
+                                it
+                            } else {
+                                it.copy(
+                                    name = generated.name,
+                                    description = generated.description,
+                                    notes = generated.notes,
+                                    calories = generated.calories,
+                                    generatedHealthAnalysis = generated.healthAnalysis,
+                                    isAiRetryNoticeVisible = false,
+                                    showGeneratedMenuDetail = true
+                                )
+                            }
                         }
 
                         runCatching {
@@ -970,8 +995,9 @@ class MenuDadoViewModel(
         _uiState.update {
             it.copy(
                 dietaryProfile = dietaryProfileStore.getProfile(it.dietaryProfileAudience),
+                audienceAgeRanges = loadAudienceAgeRanges()
+            ).withAudienceVisibilityState(
                 enabledAudiences = enabledAudiences,
-                audienceAgeRanges = loadAudienceAgeRanges(),
                 formAudience = it.formAudience.selectedOrSingleDefault(enabledAudiences),
                 diceAudienceFilter = it.diceAudienceFilter.selectedOrSingleDefault(enabledAudiences)
             )
@@ -994,8 +1020,9 @@ class MenuDadoViewModel(
         _uiState.update {
             it.copy(
                 dietaryProfile = updated,
+                audienceAgeRanges = loadAudienceAgeRanges()
+            ).withAudienceVisibilityState(
                 enabledAudiences = enabledAudiences,
-                audienceAgeRanges = loadAudienceAgeRanges(),
                 formAudience = it.formAudience.selectedOrSingleDefault(enabledAudiences),
                 diceAudienceFilter = it.diceAudienceFilter.selectedOrSingleDefault(enabledAudiences)
             )
@@ -1030,13 +1057,29 @@ class MenuDadoViewModel(
         return takeIf { it in enabledAudiences } ?: enabledAudiences.singleOrNull()
     }
 
+    private fun MenuDadoUiState.withAudienceVisibilityState(
+        enabledAudiences: List<MenuAudience>,
+        formAudience: MenuAudience?,
+        diceAudienceFilter: MenuAudience?
+    ): MenuDadoUiState {
+        val didFormAudienceChange = this.formAudience != formAudience
+        val updated = copy(
+            enabledAudiences = enabledAudiences,
+            formAudience = formAudience,
+            diceAudienceFilter = diceAudienceFilter,
+            result = result?.takeIf { it.audience in enabledAudiences },
+            diceEmptyRecovery = diceEmptyRecovery?.takeIf { it.audience in enabledAudiences }
+        )
+        return if (didFormAudienceChange) updated.withoutMenuFormDraft() else updated
+    }
+
     private fun HealthAnalysis?.manualEditNotice(language: AppLanguage): String? {
         return if (this == null) null else language.generatedAnalysisManualEditMessage()
     }
 
     fun analyzeExisting(menu: FoodMenu) {
         val state = _uiState.value
-        if (state.isAnalyzing) {
+        if (state.isAnalyzing || menu.audience !in state.enabledAudiences) {
             return
         }
         val activeRetryAtMillis = activeAiRetryAtMillis()
@@ -1109,7 +1152,7 @@ class MenuDadoViewModel(
         if (state.isAnalyzing) {
             return
         }
-        val pendingMenus = _uiState.value.menus
+        val pendingMenus = menuVisibleMenus(state.menus, state.enabledAudiences)
             .filter { it.healthAnalysis == null }
             .take(AI_BATCH_ANALYSIS_LIMIT)
 

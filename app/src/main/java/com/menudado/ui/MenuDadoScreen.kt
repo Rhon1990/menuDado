@@ -213,7 +213,8 @@ fun MenuDadoScreen(
     var authFormMode by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingCameraUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedDestination by rememberSaveable { mutableStateOf(MenuDadoDestination.HOME.name) }
-    val pendingAnalysisCount = state.menus.count { it.healthAnalysis == null }
+    val visibleMenus = menuVisibleMenus(state.menus, state.enabledAudiences)
+    val pendingAnalysisCount = menuPendingAnalysisCount(state.menus, state.enabledAudiences)
     val destination = MenuDadoDestination.valueOf(selectedDestination)
     val audienceDetail = menuAudienceFromDetailRoute(audienceDetailRoute)
     val isFavoritesDetail = menuIsFavoritesDetailRoute(audienceDetailRoute)
@@ -243,13 +244,13 @@ fun MenuDadoScreen(
         screenScope.launch { targetState.scrollToItem(targetIndex) }
     }
     val selectedDetailMenu = selectedDetailMenuId?.let { selectedId ->
-        state.menus.firstOrNull { it.id == selectedId }
+        visibleMenus.firstOrNull { it.id == selectedId }
     }
     val pendingDeleteMenu = pendingDeleteMenuId?.let { pendingId ->
-        state.menus.firstOrNull { it.id == pendingId }
+        visibleMenus.firstOrNull { it.id == pendingId }
     }
     val actionSheetMenu = actionSheetMenuId?.let { actionMenuId ->
-        state.menus.firstOrNull { it.id == actionMenuId }
+        visibleMenus.firstOrNull { it.id == actionMenuId }
     }
     val generatedDetailMenu = generatedMenuDetailPreview(state)
     fun openMenuDetail(menuId: Long, fromRandomSelection: Boolean = false) {
@@ -397,6 +398,9 @@ fun MenuDadoScreen(
     }
 
     LaunchedEffect(state.menus, state.enabledAudiences, audienceDetailRoute) {
+        if (menuShouldLeaveInactiveAudienceDetail(audienceDetailRoute, state.enabledAudiences)) {
+            audienceDetailRoute = null
+        }
         if (
             menuIsFavoritesDetailRoute(audienceDetailRoute) &&
             menuFavoriteMenus(state.menus, state.enabledAudiences).isNotEmpty()
@@ -414,19 +418,27 @@ fun MenuDadoScreen(
             audienceDetailRoute = null
             favoritesDetailHadVisibleMenus = false
         }
-        if (selectedDetailMenuId != null && state.menus.none { it.id == selectedDetailMenuId }) {
+        if (selectedDetailMenuId != null && visibleMenus.none { it.id == selectedDetailMenuId }) {
             closeMenuDetail()
         }
-        if (pendingDeleteMenuId != null && state.menus.none { it.id == pendingDeleteMenuId }) {
+        if (pendingDeleteMenuId != null && visibleMenus.none { it.id == pendingDeleteMenuId }) {
             pendingDeleteMenuId = null
         }
-        if (actionSheetMenuId != null && state.menus.none { it.id == actionSheetMenuId }) {
+        if (actionSheetMenuId != null && visibleMenus.none { it.id == actionSheetMenuId }) {
             actionSheetMenuId = null
+        }
+        if (photoPickerMenuId != null && visibleMenus.none { it.id == photoPickerMenuId }) {
+            photoPickerMenuId = null
+            isPhotoSourceDialogVisible = false
+        }
+        if (state.editingMenuId != null && visibleMenus.none { it.id == state.editingMenuId }) {
+            viewModel.cancelEditingMenu()
+            isPhotoSourceDialogVisible = false
         }
     }
 
-    LaunchedEffect(result?.id) {
-        if (menuShouldOpenDetailFromDiceResult(result)) {
+    LaunchedEffect(result?.id, state.enabledAudiences) {
+        if (menuShouldOpenDetailFromDiceResult(result, state.enabledAudiences)) {
             openedFromRandomSelection = true
             selectedDetailMenuId = menuDetailMenuIdAfterDiceResult(
                 currentDetailMenuId = selectedDetailMenuId,
@@ -563,7 +575,7 @@ fun MenuDadoScreen(
         )
     }
 
-    if (state.editingMenuId != null) {
+    if (state.editingMenuId != null && visibleMenus.any { it.id == state.editingMenuId }) {
         EditMenuDialog(
             state = state,
             onMealTypeChanged = viewModel::setEditMealType,
@@ -804,7 +816,7 @@ fun MenuDadoScreen(
                     if (isFavoritesDetail) {
                         item {
                             FavoriteMenusDetailScreen(
-                                menus = state.menus,
+                                menus = visibleMenus,
                                 enabledAudiences = state.enabledAudiences,
                                 onOpenMenu = { menu ->
                                     viewModel.trackCtaTapped(
@@ -834,7 +846,7 @@ fun MenuDadoScreen(
                         item {
                             MenuAudienceDetailScreen(
                                 audience = audienceDetail,
-                                menus = state.menus,
+                                menus = visibleMenus,
                                 onOpenMenu = { menu ->
                                     viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_OPEN_MENU)
                                     viewModel.trackMenuCardOpened(menu)
@@ -899,7 +911,7 @@ fun MenuDadoScreen(
                                 }
                             )
                         }
-                        mostRecentMenu(state.menus)?.let { recentMenu ->
+                        mostRecentMenu(state.menus, state.enabledAudiences)?.let { recentMenu ->
                             item {
                                 RecentMenuSection(
                                     menu = recentMenu,
@@ -941,14 +953,14 @@ fun MenuDadoScreen(
                                 )
                             }
                         }
-                        if (state.menus.isEmpty()) {
+                        if (menuShouldShowEmptyState(state.menus, state.enabledAudiences)) {
                             item {
                                 EmptyState()
                             }
                         } else {
                             item {
                                 MenuCarouselSections(
-                                    menus = state.menus,
+                                    menus = visibleMenus,
                                     enabledAudiences = state.enabledAudiences,
                                     onViewMoreFavorites = {
                                         viewModel.trackCtaTapped(
@@ -5426,14 +5438,18 @@ internal fun nextExpandedMenuIdAfterMenuClick(
     return if (currentExpandedMenuId == clickedMenuId) null else clickedMenuId
 }
 
-internal fun menuShouldOpenDetailFromDiceResult(result: FoodMenu?): Boolean {
-    return result != null
+internal fun menuShouldOpenDetailFromDiceResult(
+    result: FoodMenu?,
+    enabledAudiences: List<MenuAudience> = MenuAudience.entries
+): Boolean {
+    return result?.audience in enabledAudiences
 }
 
 internal fun generatedMenuDetailPreview(state: MenuDadoUiState): FoodMenu? {
     if (!state.showGeneratedMenuDetail) return null
     val mealType = state.formMealType ?: return null
     val audience = state.formAudience ?: return null
+    if (audience !in state.enabledAudiences) return null
     val name = state.name.trim()
     val description = state.description.trim()
     if (name.isBlank() || description.isBlank()) return null
@@ -5455,7 +5471,20 @@ internal fun menuDetailMenuIdAfterDiceResult(
     return result?.id ?: currentDetailMenuId
 }
 
-internal fun mostRecentMenu(menus: List<FoodMenu>): FoodMenu? = menus.maxByOrNull(FoodMenu::createdAt)
+internal fun mostRecentMenu(
+    menus: List<FoodMenu>,
+    enabledAudiences: List<MenuAudience> = MenuAudience.entries
+): FoodMenu? = menuVisibleMenus(menus, enabledAudiences).maxByOrNull(FoodMenu::createdAt)
+
+internal fun menuPendingAnalysisCount(
+    menus: List<FoodMenu>,
+    enabledAudiences: List<MenuAudience>
+): Int = menuVisibleMenus(menus, enabledAudiences).count { it.healthAnalysis == null }
+
+internal fun menuShouldShowEmptyState(
+    menus: List<FoodMenu>,
+    enabledAudiences: List<MenuAudience>
+): Boolean = menuVisibleMenus(menus, enabledAudiences).isEmpty()
 
 internal fun menuDeleteConfirmationMenuIdAfterDeleteClick(menu: FoodMenu): Long {
     return menu.id
@@ -5489,8 +5518,8 @@ internal fun menuFavoriteMenus(
     menus: List<FoodMenu>,
     enabledAudiences: List<MenuAudience> = MenuAudience.entries
 ): List<FoodMenu> {
-    return menus
-        .filter { menu -> menu.isFavorite && menu.audience in enabledAudiences }
+    return menuVisibleMenus(menus, enabledAudiences)
+        .filter { menu -> menu.isFavorite }
         .sortedByDescending { it.createdAt }
 }
 
@@ -5594,6 +5623,14 @@ internal fun menuAudienceDetailRouteAfterViewMore(audience: MenuAudience): Strin
 
 internal fun menuAudienceFromDetailRoute(route: String?): MenuAudience? {
     return route?.let { runCatching { MenuAudience.valueOf(it) }.getOrNull() }
+}
+
+internal fun menuShouldLeaveInactiveAudienceDetail(
+    route: String?,
+    enabledAudiences: List<MenuAudience>
+): Boolean {
+    val audience = menuAudienceFromDetailRoute(route) ?: return false
+    return audience !in enabledAudiences
 }
 
 internal fun menuAudienceDetailRouteAfterBack(currentRoute: String?): String? {

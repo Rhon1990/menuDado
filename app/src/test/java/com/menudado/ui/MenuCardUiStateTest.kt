@@ -900,13 +900,34 @@ class MenuCardUiStateTest {
             id = 8L,
             name = "Ravioli",
             mealType = MealType.LUNCH,
+            audience = MenuAudience.CHILD,
             description = "Ravioli con salsa"
         )
 
         assertTrue(menuShouldOpenDetailFromDiceResult(result))
+        assertFalse(
+            menuShouldOpenDetailFromDiceResult(
+                result = result,
+                enabledAudiences = listOf(MenuAudience.ADULT)
+            )
+        )
         assertFalse(menuShouldOpenDetailFromDiceResult(null))
         assertEquals(8L, menuDetailMenuIdAfterDiceResult(currentDetailMenuId = null, result = result))
         assertEquals(4L, menuDetailMenuIdAfterDiceResult(currentDetailMenuId = 4L, result = null))
+    }
+
+    @Test
+    fun `detalle generado no muestra contenido de un perfil inactivo`() {
+        val state = MenuDadoUiState(
+            showGeneratedMenuDetail = true,
+            formMealType = MealType.LUNCH,
+            formAudience = MenuAudience.CHILD,
+            name = "Menu de peques",
+            description = "Contenido infantil",
+            enabledAudiences = listOf(MenuAudience.ADULT)
+        )
+
+        assertNull(generatedMenuDetailPreview(state))
     }
 
     @Test
@@ -974,6 +995,73 @@ class MenuCardUiStateTest {
 
         assertEquals(2L, mostRecentMenu(listOf(recent.copy(createdAt = 20), old, recent))?.id)
         assertNull(mostRecentMenu(emptyList()))
+    }
+
+    @Test
+    fun `inicio solo usa menus de perfiles activos`() {
+        val adultMenu = FoodMenu(
+            id = 1,
+            name = "Adulto",
+            mealType = MealType.LUNCH,
+            audience = MenuAudience.ADULT,
+            description = "Visible",
+            createdAt = 10
+        )
+        val childMenu = FoodMenu(
+            id = 2,
+            name = "Peques",
+            mealType = MealType.DINNER,
+            audience = MenuAudience.CHILD,
+            description = "Oculto",
+            createdAt = 20
+        )
+
+        assertEquals(
+            listOf(1L),
+            menuVisibleMenus(listOf(adultMenu, childMenu), listOf(MenuAudience.ADULT)).map { it.id }
+        )
+        assertEquals(
+            1L,
+            mostRecentMenu(
+                menus = listOf(adultMenu, childMenu),
+                enabledAudiences = listOf(MenuAudience.ADULT)
+            )?.id
+        )
+        assertEquals(
+            1,
+            menuPendingAnalysisCount(
+                menus = listOf(adultMenu, childMenu),
+                enabledAudiences = listOf(MenuAudience.ADULT)
+            )
+        )
+        assertTrue(
+            menuShouldShowEmptyState(
+                menus = listOf(childMenu),
+                enabledAudiences = listOf(MenuAudience.ADULT)
+            )
+        )
+    }
+
+    @Test
+    fun `detalle de lista se cierra cuando su perfil queda inactivo`() {
+        assertTrue(
+            menuShouldLeaveInactiveAudienceDetail(
+                route = menuAudienceDetailRoute(MenuAudience.CHILD),
+                enabledAudiences = listOf(MenuAudience.ADULT)
+            )
+        )
+        assertFalse(
+            menuShouldLeaveInactiveAudienceDetail(
+                route = menuAudienceDetailRoute(MenuAudience.ADULT),
+                enabledAudiences = listOf(MenuAudience.ADULT)
+            )
+        )
+        assertFalse(
+            menuShouldLeaveInactiveAudienceDetail(
+                route = menuFavoritesDetailRouteAfterViewMore(),
+                enabledAudiences = listOf(MenuAudience.ADULT)
+            )
+        )
     }
 
     @Test

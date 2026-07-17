@@ -1491,6 +1491,67 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `dice discards result if its audience is disabled while rolling`() = runTest(dispatcher) {
+        dietaryProfileStore.saveProfile(
+            DietaryProfile(isEnabled = true, ageRange = MenuAudience.CHILD.defaultAgeRange),
+            MenuAudience.CHILD
+        )
+        viewModel.refreshDietaryProfile()
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setFormAudience(MenuAudience.CHILD)
+        viewModel.setDiceAudienceFilter(MenuAudience.CHILD)
+        viewModel.setDiceFilter(MealType.BREAKFAST)
+        dao.seed(
+            listOf(
+                FoodMenu(
+                    id = 1,
+                    name = "Desayuno peques",
+                    mealType = MealType.BREAKFAST,
+                    audience = MenuAudience.CHILD,
+                    description = "Oculto"
+                )
+            )
+        )
+        advanceUntilIdle()
+
+        viewModel.rollDice()
+        runCurrent()
+        viewModel.setDietaryProfileAudienceEnabled(false)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.result)
+        assertNull(dao.saved.single().toDomain().lastPickedDate)
+    }
+
+    @Test
+    fun `generated idea is discarded if its audience is disabled during request`() = runTest(dispatcher) {
+        dietaryProfileStore.saveProfile(
+            DietaryProfile(isEnabled = true, ageRange = MenuAudience.CHILD.defaultAgeRange),
+            MenuAudience.CHILD
+        )
+        viewModel.refreshDietaryProfile()
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setFormAudience(MenuAudience.CHILD)
+        analyzer.generateDelayMillis = 100L
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Idea para peques",
+            description = "Contenido infantil",
+            notes = "",
+            calories = 420
+        )
+
+        viewModel.generateMenuIdea()
+        runCurrent()
+        viewModel.setDietaryProfileAudienceEnabled(false)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.showGeneratedMenuDetail)
+        assertEquals("", state.name)
+        assertEquals(MenuAudience.ADULT, state.formAudience)
+    }
+
+    @Test
     fun `inactive audience ignores dietary restriction changes`() = runTest(dispatcher) {
         viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
 
@@ -2094,6 +2155,39 @@ class MenuDadoViewModelTest {
             ),
             analytics.events
         )
+    }
+
+    @Test
+    fun `analyze pending menus ignores inactive profiles`() = runTest(dispatcher) {
+        val adultMenu = FoodMenu(
+            id = 1,
+            name = "Adulto",
+            mealType = MealType.LUNCH,
+            audience = MenuAudience.ADULT,
+            description = "Visible"
+        )
+        val childMenu = FoodMenu(
+            id = 2,
+            name = "Peques",
+            mealType = MealType.LUNCH,
+            audience = MenuAudience.CHILD,
+            description = "Oculto"
+        )
+        dao.seed(listOf(adultMenu, childMenu))
+        analyzer.batchAnalyses = mapOf(
+            1L to HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Correcto.",
+                suggestion = "Mantener."
+            )
+        )
+        advanceUntilIdle()
+
+        viewModel.analyzePendingMenus()
+        advanceUntilIdle()
+
+        assertEquals(listOf(1L), analyzer.batchAnalyzeMenuIds)
+        assertNull(dao.saved.single { it.id == 2L }.toDomain().healthAnalysis)
     }
 
     @Test
