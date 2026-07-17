@@ -29,6 +29,7 @@ import com.menudado.data.OnboardingStore
 import com.menudado.domain.DiceSelector
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
+import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.AppLanguage
@@ -78,6 +79,7 @@ data class MenuDadoUiState(
     val aiBaseIngredients: String = "",
     val calories: Int? = null,
     val generatedHealthAnalysis: HealthAnalysis? = null,
+    val generatedCuisineInspiration: CuisineInspiration? = null,
     val isRolling: Boolean = false,
     val isAnalyzing: Boolean = false,
     val isGeneratingMenu: Boolean = false,
@@ -437,6 +439,7 @@ class MenuDadoViewModel(
                 notes = "",
                 calories = null,
                 generatedHealthAnalysis = null,
+                generatedCuisineInspiration = null,
                 showGeneratedMenuDetail = false
             )
         }
@@ -900,6 +903,7 @@ class MenuDadoViewModel(
                                     notes = generated.notes,
                                     calories = generated.calories,
                                     generatedHealthAnalysis = generated.healthAnalysis,
+                                    generatedCuisineInspiration = cuisineInspiration,
                                     isAiRetryNoticeVisible = false,
                                     showGeneratedMenuDetail = true
                                 )
@@ -1300,6 +1304,7 @@ class MenuDadoViewModel(
             aiBaseIngredients = "",
             calories = null,
             generatedHealthAnalysis = null,
+            generatedCuisineInspiration = null,
             message = null,
             isAiRetryNoticeVisible = false,
             showGeneratedMenuDetail = false
@@ -1329,6 +1334,7 @@ class MenuDadoViewModel(
                 aiBaseIngredients = "",
                 calories = null,
                 generatedHealthAnalysis = null,
+                generatedCuisineInspiration = null,
                 showGeneratedMenuDetail = false,
                 formMealType = suggestedMealTypeForDeviceTime(clockMillisProvider()),
                 formAudience = null.selectedOrSingleDefault(loadEnabledAudiences())

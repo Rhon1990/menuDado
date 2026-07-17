@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
@@ -145,6 +146,7 @@ import com.menudado.auth.MenuDadoAuthFormScreen
 import com.menudado.auth.MenuDadoAuthSession
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
+import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
@@ -705,6 +707,7 @@ fun MenuDadoScreen(
     generatedDetailMenu?.let { menu ->
         GeneratedMenuDetailDialog(
             menu = menu,
+            cuisineInspiration = state.generatedCuisineInspiration,
             isGenerating = state.isGeneratingMenu,
             aiUsesRemainingToday = state.aiGenerationUsesRemainingToday,
             onSave = {
@@ -3849,6 +3852,31 @@ private fun ProfileAudienceFilter(
 }
 
 @Composable
+private fun CuisineInspirationBadge(inspiration: CuisineInspiration) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
+            .background(generatedCuisineBadgeContainerColor())
+            .padding(horizontal = 12.dp, vertical = 7.dp)
+    ) {
+        Text(
+            text = stringResource(
+                id = generatedCuisineBadgeFormatRes(),
+                stringResource(id = cuisineInspirationLabelRes(inspiration))
+            ),
+            color = generatedCuisineBadgeContentColor(),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+    }
+}
+
+internal fun generatedCuisineBadgeContainerColor(): Color = MenuDadoColors.SelectionGreen
+
+internal fun generatedCuisineBadgeContentColor(): Color = MenuDadoColors.DeepGreen
+
+@Composable
 private fun CaloriesPill(calories: Int) {
     Box(
         modifier = Modifier
@@ -5129,6 +5157,7 @@ internal fun generatedMenuContainerCornerRadiusDp(): Int = menuDetailContainerCo
 @Composable
 private fun GeneratedMenuDetailDialog(
     menu: FoodMenu,
+    cuisineInspiration: CuisineInspiration?,
     isGenerating: Boolean,
     aiUsesRemainingToday: Int,
     onSave: () -> Unit,
@@ -5183,10 +5212,13 @@ private fun GeneratedMenuDetailDialog(
                         fontWeight = FontWeight.Black,
                         color = MenuDadoColors.DeepGreen
                     )
-                    Row(
+                    FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        cuisineInspiration?.let { inspiration ->
+                            CuisineInspirationBadge(inspiration = inspiration)
+                        }
                         HealthChip(status = menu.healthAnalysis?.status ?: HealthStatus.UNKNOWN)
                         menuVisibleCalories(menu)?.let { calories ->
                             CaloriesPill(calories = calories)
@@ -5745,6 +5777,31 @@ internal fun mealTypeLabelRes(mealType: MealType): Int {
 
 @StringRes
 internal fun menuCarouselItemMealTypeRes(mealType: MealType): Int = mealTypeLabelRes(mealType)
+
+@StringRes
+internal fun generatedCuisineBadgeFormatRes(): Int = R.string.generated_cuisine_badge
+
+@StringRes
+internal fun cuisineInspirationLabelRes(inspiration: CuisineInspiration): Int {
+    return when (inspiration) {
+        CuisineInspiration.MEDITERRANEAN -> R.string.cuisine_mediterranean
+        CuisineInspiration.INDIAN -> R.string.cuisine_indian
+        CuisineInspiration.MEXICAN -> R.string.cuisine_mexican
+        CuisineInspiration.JAPANESE -> R.string.cuisine_japanese
+        CuisineInspiration.GREEK -> R.string.cuisine_greek
+        CuisineInspiration.WEST_AFRICAN -> R.string.cuisine_west_african
+        CuisineInspiration.ITALIAN -> R.string.cuisine_italian
+        CuisineInspiration.KOREAN -> R.string.cuisine_korean
+        CuisineInspiration.CARIBBEAN -> R.string.cuisine_caribbean
+        CuisineInspiration.LEVANTINE -> R.string.cuisine_levantine
+        CuisineInspiration.ANDEAN_PERUVIAN -> R.string.cuisine_andean_peruvian
+        CuisineInspiration.NORDIC -> R.string.cuisine_nordic
+        CuisineInspiration.SPANISH -> R.string.cuisine_spanish
+        CuisineInspiration.SOUTHEAST_ASIAN -> R.string.cuisine_southeast_asian
+        CuisineInspiration.BRAZILIAN -> R.string.cuisine_brazilian
+        CuisineInspiration.MAGHREBI -> R.string.cuisine_maghrebi
+    }
+}
 
 @StringRes
 internal fun menuAudienceLabelRes(audience: MenuAudience): Int {

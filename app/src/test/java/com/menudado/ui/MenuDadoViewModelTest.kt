@@ -755,6 +755,7 @@ class MenuDadoViewModelTest {
 
         assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
         assertEquals("Bowl de lentejas", viewModel.uiState.value.name)
+        assertEquals(CuisineInspiration.MEXICAN, viewModel.uiState.value.generatedCuisineInspiration)
         assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
     }
 
@@ -778,6 +779,7 @@ class MenuDadoViewModelTest {
         assertEquals("", state.notes)
         assertNull(state.calories)
         assertNull(state.generatedHealthAnalysis)
+        assertNull(state.generatedCuisineInspiration)
     }
 
     @Test
@@ -816,6 +818,21 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `failed alternative clears cuisine from previous generated idea`() = runTest(dispatcher) {
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        assertEquals(CuisineInspiration.MEXICAN, viewModel.uiState.value.generatedCuisineInspiration)
+        aiRequestThrottleStore.clearLastRequest()
+        analyzer.generateFailure = IllegalStateException("offline")
+
+        viewModel.tryAnotherGeneratedMenuIdea()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.generatedCuisineInspiration)
+        assertFalse(viewModel.uiState.value.showGeneratedMenuDetail)
+    }
+
+    @Test
     fun `save generated IA idea from pending detail stores menu and closes detail`() = runTest(dispatcher) {
         analyzer.generatedMenu = GeneratedMenu(
             name = "Bowl de lentejas",
@@ -836,7 +853,9 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         val saved = dao.saved.single().toDomain()
-        assertFalse(viewModel.uiState.value.showGeneratedMenuDetail)
+        val state = viewModel.uiState.value
+        assertFalse(state.showGeneratedMenuDetail)
+        assertNull(state.generatedCuisineInspiration)
         assertEquals("Bowl de lentejas", saved.name)
         assertEquals(HealthStatus.HEALTHY, saved.healthAnalysis?.status)
         assertEquals(540, saved.calories)
@@ -1248,6 +1267,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(1, analyzer.generateCalls)
         assertEquals(CuisineInspiration.MEXICAN, analyzer.requestedCuisineInspiration)
+        assertEquals(CuisineInspiration.MEXICAN, viewModel.uiState.value.generatedCuisineInspiration)
         assertEquals(
             CuisineInspiration.JAPANESE,
             cuisineRotation.current(MealType.BREAKFAST, MenuAudience.ADULT)
@@ -1263,6 +1283,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(1, analyzer.generateCalls)
         assertEquals(CuisineInspiration.MEXICAN, analyzer.requestedCuisineInspiration)
+        assertNull(viewModel.uiState.value.generatedCuisineInspiration)
         assertEquals(
             CuisineInspiration.MEXICAN,
             cuisineRotation.current(MealType.BREAKFAST, MenuAudience.ADULT)

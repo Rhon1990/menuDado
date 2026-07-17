@@ -4,6 +4,7 @@ import com.menudado.BuildConfig
 import com.menudado.R
 import com.menudado.data.toEntity
 import com.menudado.domain.FoodMenu
+import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MealType
@@ -18,6 +19,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MenuCardUiStateTest {
+    @Test
+    fun `all cuisine inspirations have unique visible labels`() {
+        val labels = CuisineInspiration.entries.map(::cuisineInspirationLabelRes)
+
+        assertEquals(CuisineInspiration.entries.size, labels.toSet().size)
+        assertEquals(
+            R.string.cuisine_mexican,
+            cuisineInspirationLabelRes(CuisineInspiration.MEXICAN)
+        )
+        assertEquals(R.string.generated_cuisine_badge, generatedCuisineBadgeFormatRes())
+    }
+
     @Test
     fun `muestra chip de analisis en cabecera cuando la tarjeta esta colapsada`() {
         val menuWithoutAnalysis = FoodMenu(
@@ -1019,6 +1032,8 @@ class MenuCardUiStateTest {
         assertEquals(MenuDadoColors.ActionTerracotta, generatedMenuPrimaryActionColor())
         assertEquals(MenuDadoColors.Surface, generatedMenuContainerColor())
         assertEquals(28, generatedMenuContainerCornerRadiusDp())
+        assertEquals(MenuDadoColors.SelectionGreen, generatedCuisineBadgeContainerColor())
+        assertEquals(MenuDadoColors.DeepGreen, generatedCuisineBadgeContentColor())
     }
 
     @Test
