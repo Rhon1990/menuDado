@@ -9,14 +9,99 @@ import com.menudado.domain.GeneratedMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class MenuRepositorySyncTest {
+    @Test
+    fun `saving returns after local insert while remote sync continues`() = runTest {
+        val dao = FakeSyncMenuDao()
+        val remoteGate = CompletableDeferred<Unit>()
+        val remote = RecordingMenuRemoteDataSource().apply {
+            upsertGate = remoteGate
+        }
+        val repository = MenuRepository(dao, NoOpHealthAnalyzer, remote)
+        var returnedAfterLocalSave = false
+
+        val saveJob = launch {
+            repository.save(sampleMenu(id = 0L, name = "Menu local primero"))
+            returnedAfterLocalSave = true
+        }
+        runCurrent()
+
+        assertEquals("Menu local primero", dao.saved.single().name)
+        assertTrue(returnedAfterLocalSave)
+        assertEquals(1, remote.upsertAttempts)
+
+        remoteGate.complete(Unit)
+        saveJob.join()
+    }
+
+    @Test
+    fun `delete waits for pending upsert of same menu to preserve remote order`() = runTest {
+        val dao = FakeSyncMenuDao()
+        val remoteGate = CompletableDeferred<Unit>()
+        val remote = RecordingMenuRemoteDataSource().apply {
+            upsertGate = remoteGate
+        }
+        val repository = MenuRepository(dao, NoOpHealthAnalyzer, remote)
+        val menu = sampleMenu(id = 12L, name = "Menu temporal")
+        dao.seed(listOf(menu))
+
+        val saveJob = launch { repository.save(menu) }
+        runCurrent()
+        val deleteJob = launch { repository.delete(menu) }
+        runCurrent()
+
+        assertTrue(remote.deletedMenus.isEmpty())
+
+        remoteGate.complete(Unit)
+        advanceUntilIdle()
+        saveJob.join()
+        deleteJob.join()
+
+        assertEquals(listOf("upsert:12", "delete:12"), remote.events)
+        assertTrue(dao.saved.isEmpty())
+    }
+
+    @Test
+    fun `new save survives while remote delete of same menu is in flight`() = runTest {
+        val dao = FakeSyncMenuDao()
+        val deleteGate = CompletableDeferred<Unit>()
+        val remote = RecordingMenuRemoteDataSource().apply {
+            this.deleteGate = deleteGate
+        }
+        val repository = MenuRepository(dao, NoOpHealthAnalyzer, remote)
+        val original = sampleMenu(id = 12L, name = "Version eliminada")
+        dao.seed(listOf(original))
+
+        val deleteJob = launch { repository.delete(original) }
+        runCurrent()
+        val saveJob = launch {
+            repository.save(original.copy(name = "Version recuperada"))
+        }
+        runCurrent()
+
+        deleteGate.complete(Unit)
+        advanceUntilIdle()
+        deleteJob.join()
+        saveJob.join()
+
+        assertEquals("Version recuperada", dao.saved.single().name)
+        assertEquals(RemoteSyncState.SYNCED.name, dao.saved.single().remoteSyncState)
+        assertEquals(listOf("delete:12", "upsert:12"), remote.events)
+    }
+
     @Test
     fun `saving new menu syncs remote with generated local id`() = runTest {
         val dao = FakeSyncMenuDao()
@@ -233,6 +318,16 @@ private class FakeSyncMenuDao : MenuDao {
         return updatedCount
     }
 
+    override suspend fun deletePendingTombstone(id: Long, deletedAt: Long): Int {
+        val initialSize = menus.value.size
+        menus.value = menus.value.filterNot { entity ->
+            entity.id == id &&
+                entity.remoteSyncState == RemoteSyncState.PENDING_DELETE.name &&
+                entity.deletedAt == deletedAt
+        }
+        return initialSize - menus.value.size
+    }
+
     override suspend fun insert(menu: MenuEntity): Long {
         val insertedId = menu.id.takeIf { it != 0L } ?: ((menus.value.maxOfOrNull { it.id } ?: 0L) + 1L)
         menus.value = listOf(menu.copy(id = insertedId)) + menus.value.filterNot { it.id == insertedId }
@@ -253,8 +348,11 @@ private class FakeSyncMenuDao : MenuDao {
 private class RecordingMenuRemoteDataSource : MenuDadoRemoteDataSource {
     val upsertedMenus = mutableListOf<FoodMenu>()
     val deletedMenus = mutableListOf<FoodMenu>()
+    val events = mutableListOf<String>()
     var remoteMenus = emptyList<FoodMenu>()
     var upsertAttempts = 0
+    var upsertGate: CompletableDeferred<Unit>? = null
+    var deleteGate: CompletableDeferred<Unit>? = null
     var failUpsert = false
     var failDelete = false
 
@@ -268,13 +366,17 @@ private class RecordingMenuRemoteDataSource : MenuDadoRemoteDataSource {
 
     override suspend fun upsertMenu(menu: FoodMenu) {
         upsertAttempts += 1
+        upsertGate?.await()
         if (failUpsert) error("Remote unavailable")
         upsertedMenus += menu
+        events += "upsert:${menu.id}"
     }
 
     override suspend fun deleteMenu(menu: FoodMenu) {
+        deleteGate?.await()
         if (failDelete) error("Remote unavailable")
         deletedMenus += menu
+        events += "delete:${menu.id}"
     }
 
     override suspend fun upsertDietaryProfile(audience: MenuAudience, profile: DietaryProfile) = Unit

@@ -8,6 +8,7 @@
     <string name="common_no_options">No options</string>
     <string name="common_all">All</string>
     <string name="common_save_menu">Save menu</string>
+    <string name="menu_save_success">Menu saved successfully</string>
     <string name="common_save_changes">Update</string>
     <string name="common_edit">Edit</string>
     <string name="common_delete">Delete</string>

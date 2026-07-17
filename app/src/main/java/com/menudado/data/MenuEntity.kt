@@ -29,6 +29,7 @@ data class MenuEntity(
     val calories: Int?,
     val imageUri: String? = null,
     val isFavorite: Boolean = false,
+    val favoritedAt: Long? = null,
     val lastPickedDate: String?,
     val createdAt: Long = System.currentTimeMillis(),
     val remoteSyncState: String = RemoteSyncState.SYNCED.name,
@@ -55,6 +56,7 @@ data class MenuEntity(
             calories = calories,
             imageUri = imageUri,
             isFavorite = isFavorite,
+            favoritedAt = favoritedAt,
             lastPickedDate = lastPickedDate,
             createdAt = createdAt
         )
@@ -80,6 +82,7 @@ fun FoodMenu.toEntity(
         calories = calories,
         imageUri = imageUri,
         isFavorite = isFavorite,
+        favoritedAt = favoritedAt,
         lastPickedDate = lastPickedDate,
         createdAt = createdAt,
         remoteSyncState = remoteSyncState.name,

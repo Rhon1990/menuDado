@@ -81,6 +81,7 @@ data class MenuDadoUiState(
     val isGeneratingMenu: Boolean = false,
     val result: FoodMenu? = null,
     val message: String? = null,
+    val menuSaveSuccessRevision: Long = 0L,
     val aiRetryAtMillis: Long? = null,
     val isAiRequestThrottlePause: Boolean = false,
     val isAiRetryNoticeVisible: Boolean = false,
@@ -724,6 +725,9 @@ class MenuDadoViewModel(
                 pendingAnalysisCount = state.menus.countPendingAnalysis() + if (menu.healthAnalysis == null) 1 else 0
             )
             resetForm()
+            _uiState.update {
+                it.copy(menuSaveSuccessRevision = it.menuSaveSuccessRevision + 1L)
+            }
             hasTrackedMenuFormStarted = false
         }
     }
@@ -1260,7 +1264,13 @@ class MenuDadoViewModel(
 
     fun toggleFavorite(menu: FoodMenu) {
         viewModelScope.launch {
-            repository.save(menu.copy(isFavorite = !menu.isFavorite))
+            val isFavorite = !menu.isFavorite
+            repository.save(
+                menu.copy(
+                    isFavorite = isFavorite,
+                    favoritedAt = if (isFavorite) clockMillisProvider() else null
+                )
+            )
         }
     }
 

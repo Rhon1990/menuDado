@@ -76,6 +76,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -223,6 +225,10 @@ fun MenuDadoScreen(
     val myZoneListState = rememberLazyListState()
     val aboutListState = rememberLazyListState()
     val audienceDetailListState = remember(audienceDetailRoute) { LazyListState() }
+    val snackbarHostState = remember { SnackbarHostState() }
+    var handledMenuSaveSuccessRevision by rememberSaveable {
+        mutableLongStateOf(state.menuSaveSuccessRevision)
+    }
     val screenScope = rememberCoroutineScope()
     val activeListStateOwner = menuListStateOwner(destination, audienceDetailRoute)
     val activeListState = when (activeListStateOwner) {
@@ -353,6 +359,14 @@ fun MenuDadoScreen(
     LaunchedEffect(audienceDetailRoute) {
         if (menuShouldResetAudienceDetailScroll(audienceDetailRoute)) {
             audienceDetailListState.scrollToItem(0)
+        }
+    }
+
+    val menuSaveSuccessMessage = stringResource(id = R.string.menu_save_success)
+    LaunchedEffect(state.menuSaveSuccessRevision) {
+        if (state.menuSaveSuccessRevision > handledMenuSaveSuccessRevision) {
+            handledMenuSaveSuccessRevision = state.menuSaveSuccessRevision
+            snackbarHostState.showSnackbar(menuSaveSuccessMessage)
         }
     }
 
@@ -1051,6 +1065,12 @@ fun MenuDadoScreen(
                 .windowInsetsBottomHeight(WindowInsets.navigationBars)
                 .background(menuDadoNavigationBarScrimColor())
                 .align(Alignment.BottomCenter)
+        )
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 20.dp, vertical = 118.dp)
         )
         if (state.isGeneratingMenu) {
             AiGenerationLoadingOverlay(
@@ -3949,6 +3969,12 @@ private fun FavoriteMenuCarouselSection(
     onToggleFavorite: (FoodMenu) -> Unit
 ) {
     val listState = rememberLazyListState()
+    val firstFavoriteId = menuCarouselFirstId(menus)
+    LaunchedEffect(firstFavoriteId) {
+        if (firstFavoriteId != null) {
+            listState.scrollToItem(0)
+        }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             modifier = Modifier
@@ -4132,6 +4158,12 @@ private fun MenuCarouselSection(
     onToggleFavorite: (FoodMenu) -> Unit
 ) {
     val listState = rememberLazyListState()
+    val firstMenuId = menuCarouselFirstId(menus)
+    LaunchedEffect(firstMenuId) {
+        if (firstMenuId != null) {
+            listState.scrollToItem(0)
+        }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             modifier = Modifier
@@ -5520,13 +5552,20 @@ internal fun menuFavoriteMenus(
 ): List<FoodMenu> {
     return menuVisibleMenus(menus, enabledAudiences)
         .filter { menu -> menu.isFavorite }
-        .sortedByDescending { it.createdAt }
+        .sortedWith(
+            compareByDescending<FoodMenu> { it.favoritedAt ?: it.createdAt }
+                .thenByDescending { it.createdAt }
+        )
 }
 
 internal fun menuFavoriteDetailMenus(
     menus: List<FoodMenu>,
     enabledAudiences: List<MenuAudience> = MenuAudience.entries
 ): List<FoodMenu> = menuFavoriteMenus(menus, enabledAudiences)
+
+internal fun menuCarouselFirstId(menus: List<FoodMenu>): Long? {
+    return menus.firstOrNull()?.id
+}
 
 internal fun menuFavoriteCarouselVisibleMenus(favoriteMenus: List<FoodMenu>): List<FoodMenu> {
     return favoriteMenus.take(MenuCarouselCollapsedLimit)
@@ -5560,8 +5599,6 @@ internal fun menuFavoriteDetailShowsAudienceLabel(): Boolean = true
 internal fun menuFavoriteCarouselShowsViewMore(menus: List<FoodMenu>): Boolean {
     return menus.any { it.isFavorite }
 }
-
-internal fun menuCarouselScrollResetKey(menus: List<FoodMenu>): Set<Long> = menus.map { it.id }.toSet()
 
 internal fun menuShouldShowFavoriteSection(menus: List<FoodMenu>): Boolean {
     return menus.any { it.isFavorite }
@@ -5694,10 +5731,7 @@ internal fun menuShareText(menu: FoodMenu): String {
 }
 
 private fun List<FoodMenu>.menuSortedForDisplay(): List<FoodMenu> {
-    return sortedWith(
-        compareByDescending<FoodMenu> { it.isFavorite }
-            .thenByDescending { it.createdAt }
-    )
+    return sortedByDescending { it.createdAt }
 }
 
 @StringRes

@@ -237,6 +237,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
         assertEquals("Selecciona si el menú es para persona adulta, peques o bebé.", freshViewModel.uiState.value.message)
+        assertEquals(0L, freshViewModel.uiState.value.menuSaveSuccessRevision)
     }
 
     @Test
@@ -277,6 +278,7 @@ class MenuDadoViewModelTest {
         assertEquals("Pan, tomate y aguacate", saved.description)
         assertNull(saved.healthAnalysis)
         assertFalse(analyzer.wasCalled)
+        assertEquals(1L, viewModel.uiState.value.menuSaveSuccessRevision)
         assertEquals(MealType.BREAKFAST, viewModel.uiState.value.formMealType)
         assertEquals(MenuAudience.ADULT, viewModel.uiState.value.formAudience)
         assertEquals(
@@ -545,6 +547,7 @@ class MenuDadoViewModelTest {
 
         val saved = dao.saved.single().toDomain()
         assertTrue(saved.isFavorite)
+        assertEquals(localMillisAtHour(8), saved.favoritedAt)
         assertEquals(HealthStatus.HEALTHY, saved.healthAnalysis?.status)
         assertEquals(480, saved.calories)
         assertEquals("content://menu/photo/1", saved.imageUri)
@@ -552,7 +555,9 @@ class MenuDadoViewModelTest {
         viewModel.toggleFavorite(saved)
         advanceUntilIdle()
 
-        assertFalse(dao.saved.single().toDomain().isFavorite)
+        val unmarked = dao.saved.single().toDomain()
+        assertFalse(unmarked.isFavorite)
+        assertNull(unmarked.favoritedAt)
     }
 
     @Test
@@ -2762,6 +2767,16 @@ private class FakeMenuDao : MenuDao {
             }
         }
         return updatedCount
+    }
+
+    override suspend fun deletePendingTombstone(id: Long, deletedAt: Long): Int {
+        val initialSize = menus.value.size
+        menus.value = menus.value.filterNot { entity ->
+            entity.id == id &&
+                entity.remoteSyncState == RemoteSyncState.PENDING_DELETE.name &&
+                entity.deletedAt == deletedAt
+        }
+        return initialSize - menus.value.size
     }
 
     override suspend fun insert(menu: MenuEntity): Long {

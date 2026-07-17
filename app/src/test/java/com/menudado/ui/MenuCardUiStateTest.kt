@@ -67,11 +67,13 @@ class MenuCardUiStateTest {
             mealType = MealType.LUNCH,
             description = "Pasta con tomate",
             imageUri = "/local/menu-images/pasta.jpg",
-            isFavorite = true
+            isFavorite = true,
+            favoritedAt = 25L
         )
 
         assertEquals("/local/menu-images/pasta.jpg", menu.toEntity().toDomain().imageUri)
         assertEquals(true, menu.toEntity().toDomain().isFavorite)
+        assertEquals(25L, menu.toEntity().toDomain().favoritedAt)
     }
 
     @Test
@@ -380,7 +382,7 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `carrusel muestra favoritos primero y luego menus recientes`() {
+    fun `carrusel ordena por recientes sin priorizar favoritos`() {
         val menus = listOf(
             FoodMenu(id = 1L, name = "Reciente", mealType = MealType.BREAKFAST, audience = MenuAudience.ADULT, description = "A", createdAt = 30L),
             FoodMenu(id = 2L, name = "Favorito antiguo", mealType = MealType.BREAKFAST, audience = MenuAudience.ADULT, description = "B", createdAt = 1L, isFavorite = true),
@@ -393,7 +395,7 @@ class MenuCardUiStateTest {
             isExpanded = true
         )
 
-        assertEquals(listOf(3L, 2L, 1L), visible.map { it.id })
+        assertEquals(listOf(1L, 3L, 2L), visible.map { it.id })
     }
 
     @Test
@@ -427,7 +429,7 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `carrusel mantiene llave de scroll cuando solo cambia el orden por favoritos`() {
+    fun `marcar favorito conserva posicion y llave de scroll del carrusel`() {
         val previousMenus = listOf(
             FoodMenu(id = 1L, name = "Menu normal", mealType = MealType.LUNCH, audience = MenuAudience.CHILD, description = "A", createdAt = 1L),
             FoodMenu(id = 2L, name = "Menu favorito", mealType = MealType.LUNCH, audience = MenuAudience.CHILD, description = "B", createdAt = 2L)
@@ -437,20 +439,69 @@ class MenuCardUiStateTest {
             previousMenus[0]
         )
 
-        assertEquals(menuCarouselScrollResetKey(previousMenus), menuCarouselScrollResetKey(currentMenus))
+        assertEquals(
+            menuCarouselFirstId(menuCarouselVisibleMenus(previousMenus, MenuAudience.CHILD, isExpanded = true)),
+            menuCarouselFirstId(menuCarouselVisibleMenus(currentMenus, MenuAudience.CHILD, isExpanded = true))
+        )
+        assertEquals(
+            menuCarouselVisibleMenus(previousMenus, MenuAudience.CHILD, isExpanded = true).map { it.id },
+            menuCarouselVisibleMenus(currentMenus, MenuAudience.CHILD, isExpanded = true).map { it.id }
+        )
     }
 
     @Test
-    fun `seccion favoritos muestra solo menus favoritos ordenados por recientes`() {
+    fun `seccion favoritos prioriza la ultima seleccion y usa creacion como respaldo`() {
         val menus = listOf(
             FoodMenu(id = 1L, name = "Normal", mealType = MealType.BREAKFAST, audience = MenuAudience.ADULT, description = "A", createdAt = 30L),
-            FoodMenu(id = 2L, name = "Favorito viejo", mealType = MealType.LUNCH, audience = MenuAudience.ADULT, description = "B", createdAt = 1L, isFavorite = true),
-            FoodMenu(id = 3L, name = "Favorito nuevo", mealType = MealType.DINNER, audience = MenuAudience.CHILD, description = "C", createdAt = 20L, isFavorite = true)
+            FoodMenu(id = 2L, name = "Seleccionado último", mealType = MealType.LUNCH, audience = MenuAudience.ADULT, description = "B", createdAt = 1L, isFavorite = true, favoritedAt = 30L),
+            FoodMenu(id = 3L, name = "Creado después", mealType = MealType.DINNER, audience = MenuAudience.CHILD, description = "C", createdAt = 20L, isFavorite = true, favoritedAt = 10L),
+            FoodMenu(id = 4L, name = "Favorito heredado", mealType = MealType.BREAKFAST, audience = MenuAudience.ADULT, description = "D", createdAt = 15L, isFavorite = true)
         )
 
-        assertEquals(listOf(3L, 2L), menuFavoriteMenus(menus).map { it.id })
+        assertEquals(listOf(2L, 4L, 3L), menuFavoriteMenus(menus).map { it.id })
         assertTrue(menuShouldShowFavoriteSection(menus))
         assertFalse(menuShouldShowFavoriteSection(listOf(menus.first())))
+    }
+
+    @Test
+    fun `favoritos reinicia su scroll cuando cambia el primero`() {
+        val previousFavorites = listOf(
+            FoodMenu(id = 1L, name = "Anterior", mealType = MealType.LUNCH, description = "A", isFavorite = true, favoritedAt = 10L),
+            FoodMenu(id = 2L, name = "Otro", mealType = MealType.DINNER, description = "B", isFavorite = true, favoritedAt = 5L)
+        )
+        val currentFavorites = listOf(
+            FoodMenu(id = 3L, name = "Último seleccionado", mealType = MealType.BREAKFAST, description = "C", isFavorite = true, favoritedAt = 20L),
+            previousFavorites[0],
+            previousFavorites[1]
+        )
+
+        assertEquals(1L, menuCarouselFirstId(previousFavorites))
+        assertEquals(3L, menuCarouselFirstId(currentFavorites))
+    }
+
+    @Test
+    fun `perfil reinicia su scroll cuando se agrega un menu reciente`() {
+        val previousMenus = listOf(
+            FoodMenu(id = 1L, name = "Anterior", mealType = MealType.LUNCH, audience = MenuAudience.ADULT, description = "A", createdAt = 10L),
+            FoodMenu(id = 2L, name = "Más reciente", mealType = MealType.DINNER, audience = MenuAudience.ADULT, description = "B", createdAt = 20L)
+        )
+        val currentMenus = previousMenus + FoodMenu(
+            id = 3L,
+            name = "Nuevo menú",
+            mealType = MealType.BREAKFAST,
+            audience = MenuAudience.ADULT,
+            description = "C",
+            createdAt = 30L
+        )
+
+        assertEquals(
+            2L,
+            menuCarouselFirstId(menuCarouselVisibleMenus(previousMenus, MenuAudience.ADULT, isExpanded = false))
+        )
+        assertEquals(
+            3L,
+            menuCarouselFirstId(menuCarouselVisibleMenus(currentMenus, MenuAudience.ADULT, isExpanded = false))
+        )
     }
 
     @Test

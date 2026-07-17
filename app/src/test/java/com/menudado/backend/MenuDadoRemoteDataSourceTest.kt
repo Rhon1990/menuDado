@@ -89,6 +89,7 @@ class MenuDadoRemoteDataSourceTest {
             calories = 400,
             imageUri = "content://menu/42",
             isFavorite = true,
+            favoritedAt = 1_719_000_100_000L,
             lastPickedDate = "2026-06-22",
             createdAt = 1_719_000_000_000L
         )
@@ -106,6 +107,7 @@ class MenuDadoRemoteDataSourceTest {
         assertEquals(360, document["calories"])
         assertEquals("content://menu/42", document["imageUri"])
         assertEquals(true, document["isFavorite"])
+        assertEquals(1_719_000_100_000L, document["favoritedAt"])
         assertEquals("2026-06-22", document["lastPickedDate"])
         assertEquals(1_719_000_000_000L, document["createdAt"])
     }
@@ -124,6 +126,7 @@ class MenuDadoRemoteDataSourceTest {
             "calories" to 360L,
             "imageUri" to "content://menu/42",
             "isFavorite" to true,
+            "favoritedAt" to 1_719_000_100_000L,
             "lastPickedDate" to "2026-06-22",
             "createdAt" to 1_719_000_000_000L
         )
@@ -137,6 +140,7 @@ class MenuDadoRemoteDataSourceTest {
         assertEquals(HealthStatus.HEALTHY, menu?.healthAnalysis?.status)
         assertEquals(360, menu?.calories)
         assertEquals(true, menu?.isFavorite)
+        assertEquals(1_719_000_100_000L, menu?.favoritedAt)
         assertEquals(
             null,
             BackendFirestoreMapper.menuFromDocument("42", document + ("deletedAt" to Any()))

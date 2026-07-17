@@ -232,6 +232,7 @@ internal object BackendFirestoreMapper {
             "calories" to (healthAnalysis?.calories ?: menu.calories),
             "imageUri" to menu.imageUri,
             "isFavorite" to menu.isFavorite,
+            "favoritedAt" to menu.favoritedAt,
             "lastPickedDate" to menu.lastPickedDate,
             "createdAt" to menu.createdAt
         )
@@ -271,6 +272,7 @@ internal object BackendFirestoreMapper {
             calories = calories,
             imageUri = document["imageUri"] as? String,
             isFavorite = document["isFavorite"] as? Boolean ?: false,
+            favoritedAt = (document["favoritedAt"] as? Number)?.toLong(),
             lastPickedDate = document["lastPickedDate"] as? String,
             createdAt = (document["createdAt"] as? Number)?.toLong() ?: 0L
         )

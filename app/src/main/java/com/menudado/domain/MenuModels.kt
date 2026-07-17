@@ -37,6 +37,7 @@ data class FoodMenu(
     val calories: Int? = null,
     val imageUri: String? = null,
     val isFavorite: Boolean = false,
+    val favoritedAt: Long? = null,
     val lastPickedDate: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 )

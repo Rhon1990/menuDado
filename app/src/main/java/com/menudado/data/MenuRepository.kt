@@ -9,9 +9,16 @@ import com.menudado.domain.MealType
 import com.menudado.domain.DietaryProfile
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.AppLanguage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 class MenuRepository(
     private val menuDao: MenuDao,
@@ -20,6 +27,7 @@ class MenuRepository(
     private val clockMillisProvider: () -> Long = { System.currentTimeMillis() },
     private val syncTokenProvider: () -> String = { UUID.randomUUID().toString() }
 ) {
+    private val remoteMutationMutexes = ConcurrentHashMap<Long, Mutex>()
     val menus: Flow<List<FoodMenu>> = menuDao.observeMenus()
         .map { entities -> entities.map { it.toDomain() } }
 
@@ -54,7 +62,13 @@ class MenuRepository(
             menu
         }
         if (pendingSyncToken != null) {
-            syncMenuUpsert(savedMenu, pendingSyncToken)
+            CoroutineScope(currentCoroutineContext()).launch(start = CoroutineStart.UNDISPATCHED) {
+                remoteMutationMutex(savedMenu.id).withLock {
+                    if (isCurrentPendingUpsert(savedMenu.id, pendingSyncToken)) {
+                        syncMenuUpsert(savedMenu, pendingSyncToken)
+                    }
+                }
+            }
         }
     }
 
@@ -73,8 +87,12 @@ class MenuRepository(
         )
         menuDao.update(tombstone)
 
-        runCatching { remote.deleteMenu(menu) }
-            .onSuccess { menuDao.delete(tombstone) }
+        remoteMutationMutex(menu.id).withLock {
+            if (isCurrentPendingDelete(menu.id, deletedAt)) {
+                runCatching { remote.deleteMenu(menu) }
+                    .onSuccess { menuDao.deletePendingTombstone(menu.id, deletedAt) }
+            }
+        }
     }
 
     suspend fun syncPendingMenus() {
@@ -91,11 +109,20 @@ class MenuRepository(
                     val syncToken = entity.remoteSyncToken ?: syncTokenProvider().also { token ->
                         menuDao.update(entity.copy(remoteSyncToken = token))
                     }
-                    syncMenuUpsert(menu, syncToken)
+                    remoteMutationMutex(menu.id).withLock {
+                        if (isCurrentPendingUpsert(menu.id, syncToken)) {
+                            syncMenuUpsert(menu, syncToken)
+                        }
+                    }
                 }
                 RemoteSyncState.PENDING_DELETE -> {
-                    runCatching { remote.deleteMenu(menu) }
-                        .onSuccess { menuDao.delete(entity) }
+                    remoteMutationMutex(menu.id).withLock {
+                        val deletedAt = entity.deletedAt
+                        if (deletedAt != null && isCurrentPendingDelete(menu.id, deletedAt)) {
+                            runCatching { remote.deleteMenu(menu) }
+                                .onSuccess { menuDao.deletePendingTombstone(menu.id, deletedAt) }
+                        }
+                    }
                 }
             }
         }
@@ -146,5 +173,25 @@ class MenuRepository(
         val remote = remoteDataSource ?: return
         runCatching { remote.upsertMenu(menu) }
             .onSuccess { menuDao.markUpsertSynced(menu.id, syncToken) }
+    }
+
+    private fun remoteMutationMutex(menuId: Long): Mutex {
+        return remoteMutationMutexes.getOrPut(menuId) { Mutex() }
+    }
+
+    private suspend fun isCurrentPendingUpsert(menuId: Long, syncToken: String): Boolean {
+        return menuDao.getPendingSyncMenus().any { entity ->
+            entity.id == menuId &&
+                entity.remoteSyncState == RemoteSyncState.PENDING_UPSERT.name &&
+                entity.remoteSyncToken == syncToken
+        }
+    }
+
+    private suspend fun isCurrentPendingDelete(menuId: Long, deletedAt: Long): Boolean {
+        return menuDao.getPendingSyncMenus().any { entity ->
+            entity.id == menuId &&
+                entity.remoteSyncState == RemoteSyncState.PENDING_DELETE.name &&
+                entity.deletedAt == deletedAt
+        }
     }
 }
