@@ -9,6 +9,7 @@ import com.menudado.domain.MealType
 import com.menudado.domain.DietaryProfile
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.AppLanguage
+import com.menudado.domain.CuisineInspiration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.currentCoroutineContext
@@ -164,9 +165,18 @@ class MenuRepository(
         dietaryProfile: DietaryProfile,
         audience: MenuAudience,
         baseIngredients: String,
-        language: AppLanguage
+        language: AppLanguage,
+        cuisineInspiration: CuisineInspiration
     ): Result<GeneratedMenu> {
-        return healthAnalyzer.generateMenu(mealType, avoidIdeas, dietaryProfile, audience, baseIngredients, language)
+        return healthAnalyzer.generateMenu(
+            mealType,
+            avoidIdeas,
+            dietaryProfile,
+            audience,
+            baseIngredients,
+            language,
+            cuisineInspiration
+        )
     }
 
     private suspend fun syncMenuUpsert(menu: FoodMenu, syncToken: String) {

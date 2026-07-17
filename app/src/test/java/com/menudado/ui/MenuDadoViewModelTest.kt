@@ -9,6 +9,8 @@ import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiQuotaRetryState
 import com.menudado.data.AiRequestThrottleStore
+import com.menudado.data.CuisineRotation
+import com.menudado.data.CuisineRotationStateStore
 import com.menudado.data.GuestDailyUsageState
 import com.menudado.data.GuestUsageStore
 import com.menudado.data.MenuDao
@@ -26,6 +28,7 @@ import com.menudado.domain.MenuAudience
 import com.menudado.domain.AppLanguage
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
+import com.menudado.domain.CuisineInspiration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -62,6 +65,8 @@ class MenuDadoViewModelTest {
     private lateinit var guestUsageStore: FakeGuestUsageStore
     private lateinit var dietaryProfileStore: FakeDietaryProfileStore
     private lateinit var onboardingStore: FakeOnboardingStore
+    private lateinit var cuisineRotationStateStore: FakeCuisineRotationStateStore
+    private lateinit var cuisineRotation: CuisineRotation
     private lateinit var analytics: RecordingMenuDadoAnalytics
     private lateinit var viewModel: MenuDadoViewModel
     private lateinit var originalLocale: Locale
@@ -79,6 +84,8 @@ class MenuDadoViewModelTest {
         guestUsageStore = FakeGuestUsageStore()
         dietaryProfileStore = FakeDietaryProfileStore()
         onboardingStore = FakeOnboardingStore(completed = true)
+        cuisineRotationStateStore = FakeCuisineRotationStateStore()
+        cuisineRotation = CuisineRotation(cuisineRotationStateStore) { 2 }
         analytics = RecordingMenuDadoAnalytics()
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
@@ -90,7 +97,8 @@ class MenuDadoViewModelTest {
             aiDailyUsageStore = aiDailyUsageStore,
             guestUsageStore = guestUsageStore,
             dietaryProfileStore = dietaryProfileStore,
-            onboardingStore = onboardingStore
+            onboardingStore = onboardingStore,
+            cuisineRotation = cuisineRotation
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -1207,6 +1215,57 @@ class MenuDadoViewModelTest {
                 "Yogur con fruta: Yogur griego, fresas y avena"
             ),
             analyzer.avoidIdeas
+        )
+    }
+
+    @Test
+    fun `world cuisine generation keeps the existing limit of eight avoided ideas`() = runTest(dispatcher) {
+        dao.seed(
+            (1L..10L).map { id ->
+                FoodMenu(
+                    id = id,
+                    name = "Menu $id",
+                    mealType = MealType.BREAKFAST,
+                    audience = MenuAudience.ADULT,
+                    description = "Descripcion $id"
+                )
+            }
+        )
+        advanceUntilIdle()
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(8, analyzer.avoidIdeas.size)
+        assertEquals("Menu 3: Descripcion 3", analyzer.avoidIdeas.first())
+        assertEquals("Menu 10: Descripcion 10", analyzer.avoidIdeas.last())
+    }
+
+    @Test
+    fun `successful generation advances cuisine once while using one IA call`() = runTest(dispatcher) {
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals(CuisineInspiration.MEXICAN, analyzer.requestedCuisineInspiration)
+        assertEquals(
+            CuisineInspiration.JAPANESE,
+            cuisineRotation.current(MealType.BREAKFAST, MenuAudience.ADULT)
+        )
+    }
+
+    @Test
+    fun `failed generation keeps pending cuisine for retry`() = runTest(dispatcher) {
+        analyzer.generateFailure = IllegalStateException("offline")
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals(CuisineInspiration.MEXICAN, analyzer.requestedCuisineInspiration)
+        assertEquals(
+            CuisineInspiration.MEXICAN,
+            cuisineRotation.current(MealType.BREAKFAST, MenuAudience.ADULT)
         )
     }
 
@@ -2813,6 +2872,7 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
     var generateFailure: Throwable? = null
     var requestedAudience: MenuAudience? = null
     var requestedLanguage: AppLanguage? = null
+    var requestedCuisineInspiration: CuisineInspiration? = null
     var analysisDelayMillis: Long = 0L
     var generateDelayMillis: Long = 0L
     var generatedMenu = GeneratedMenu(
@@ -2854,7 +2914,8 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
         dietaryProfile: DietaryProfile,
         audience: MenuAudience,
         baseIngredients: String,
-        language: AppLanguage
+        language: AppLanguage,
+        cuisineInspiration: CuisineInspiration
     ): Result<GeneratedMenu> {
         generateCalls += 1
         requestedMealType = mealType
@@ -2862,12 +2923,23 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
         requestedAudience = audience
         requestedBaseIngredients = baseIngredients
         requestedLanguage = language
+        requestedCuisineInspiration = cuisineInspiration
         this.avoidIdeas = avoidIdeas
         if (generateDelayMillis > 0L) {
             delay(generateDelayMillis)
         }
         generateFailure?.let { return Result.failure(it) }
         return Result.success(generatedMenu)
+    }
+}
+
+private class FakeCuisineRotationStateStore : CuisineRotationStateStore {
+    private val indices = mutableMapOf<String, Int>()
+
+    override fun readIndex(key: String): Int? = indices[key]
+
+    override fun writeIndex(key: String, index: Int) {
+        indices[key] = index
     }
 }
 

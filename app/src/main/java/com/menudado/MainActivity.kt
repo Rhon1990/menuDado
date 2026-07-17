@@ -97,7 +97,8 @@ class MainActivity : ComponentActivity() {
                     aiDailyUsageStore = app.aiDailyUsageStore,
                     guestUsageStore = app.guestUsageStore,
                     dietaryProfileStore = app.dietaryProfileStore,
-                    onboardingStore = app.onboardingStore
+                    onboardingStore = app.onboardingStore,
+                    cuisineRotation = app.cuisineRotation
                 ) as T
             }
         }

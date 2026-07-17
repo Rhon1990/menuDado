@@ -15,6 +15,8 @@ import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiQuotaRetryState
 import com.menudado.data.AiRequestThrottleStore
+import com.menudado.data.CuisineRotation
+import com.menudado.data.InMemoryCuisineRotationStateStore
 import com.menudado.data.GuestDailyUsageState
 import com.menudado.data.GuestUsageStore
 import com.menudado.data.MenuRepository
@@ -123,7 +125,8 @@ class MenuDadoViewModel(
     private val aiDailyUsageStore: AiDailyUsageStore = NoOpAiDailyUsageStore,
     private val guestUsageStore: GuestUsageStore = NoOpGuestUsageStore,
     private val dietaryProfileStore: DietaryProfileStore = NoOpDietaryProfileStore,
-    private val onboardingStore: OnboardingStore = NoOpOnboardingStore
+    private val onboardingStore: OnboardingStore = NoOpOnboardingStore,
+    private val cuisineRotation: CuisineRotation = CuisineRotation(InMemoryCuisineRotationStateStore())
 ) : ViewModel() {
     private val suggestedMealType = suggestedMealTypeForDeviceTime(clockMillisProvider())
     private val _uiState = MutableStateFlow(
@@ -856,6 +859,7 @@ class MenuDadoViewModel(
             return
         }
         val avoidIdeas = state.buildAvoidIdeas(mealType, audience)
+        val cuisineInspiration = cuisineRotation.current(mealType, audience)
         analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
         startAiRequestThrottle()
         consumeAiDailyUse()
@@ -877,11 +881,13 @@ class MenuDadoViewModel(
                         dietaryProfile = profile,
                         audience = audience,
                         baseIngredients = state.aiBaseIngredients.trim(),
-                        language = AppLanguage.fromLocale()
+                        language = AppLanguage.fromLocale(),
+                        cuisineInspiration = cuisineInspiration
                     )
                 }
                     .onSuccess { generated ->
                         aiQuotaRetryStore.clearRetryState()
+                        cuisineRotation.advance(mealType, audience)
                         rememberGeneratedIdea(mealType, audience, generated.name, generated.description)
 
                         _uiState.update {

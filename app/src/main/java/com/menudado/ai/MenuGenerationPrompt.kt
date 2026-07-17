@@ -4,6 +4,7 @@ import com.menudado.domain.DietaryProfile
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import com.menudado.domain.AppLanguage
+import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.localizedLabel
 
 internal object MenuGenerationPrompt {
@@ -13,7 +14,8 @@ internal object MenuGenerationPrompt {
         dietaryProfile: DietaryProfile = DietaryProfile(),
         audience: MenuAudience = MenuAudience.ADULT,
         baseIngredients: String = "",
-        language: AppLanguage = AppLanguage.SPANISH
+        language: AppLanguage = AppLanguage.SPANISH,
+        cuisineInspiration: CuisineInspiration = CuisineInspiration.MEDITERRANEAN
     ): String {
         val guidance = mealType.generationGuidance(language)
         val audienceGuidance = audience.generationGuidance(dietaryProfile.ageRange, language)
@@ -37,7 +39,7 @@ internal object MenuGenerationPrompt {
             ${guidance.effortRule?.let { "- $it" }.orEmpty()}
             - Debe ser saludable, rica, simple y con ingredientes comunes.
             - Evita productos raros, caros o difíciles de conseguir.
-            - Variedad saludable: cremas, sopas, ensaladas completas, ensalada cesar saludable, bowls, salteados simples, tortillas, legumbres, wraps, tostas, pasta integral o arroz integral.
+            - Inspiracion culinaria: ${cuisineInspiration.promptName}.
 
             Prioridad obligatoria si dos instrucciones entran en tension:
             1. Seguridad alimentaria, alergias y restricciones dieteticas.

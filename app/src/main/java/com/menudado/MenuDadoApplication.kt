@@ -22,6 +22,7 @@ import com.menudado.auth.shouldStartMenuDadoBackendSync
 import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiRequestThrottleStore
+import com.menudado.data.CuisineRotation
 import com.menudado.data.BackendPendingSyncStore
 import com.menudado.data.BackendStoredDataSyncer
 import com.menudado.data.MenuDadoDatabase
@@ -36,6 +37,7 @@ import com.menudado.data.SharedPreferencesBackendPendingSyncStore
 import com.menudado.data.SharedPreferencesAiDailyUsageStore
 import com.menudado.data.SharedPreferencesAiQuotaRetryStore
 import com.menudado.data.SharedPreferencesAiRequestThrottleStore
+import com.menudado.data.SharedPreferencesCuisineRotationStateStore
 import com.menudado.data.SharedPreferencesDietaryProfileStore
 import com.menudado.data.SharedPreferencesGuestUsageStore
 import com.menudado.data.SharedPreferencesOnboardingStore
@@ -164,6 +166,10 @@ class MenuDadoApplication : Application() {
 
     val aiRequestThrottleStore: AiRequestThrottleStore by lazy {
         SharedPreferencesAiRequestThrottleStore(applicationContext)
+    }
+
+    val cuisineRotation: CuisineRotation by lazy {
+        CuisineRotation(SharedPreferencesCuisineRotationStateStore(applicationContext))
     }
 
     private val localAiDailyUsageStore: AiDailyUsageStore by lazy {

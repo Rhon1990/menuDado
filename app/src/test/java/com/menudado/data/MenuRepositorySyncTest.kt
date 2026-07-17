@@ -9,6 +9,7 @@ import com.menudado.domain.GeneratedMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
+import com.menudado.domain.CuisineInspiration
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -404,7 +405,8 @@ private object NoOpHealthAnalyzer : HealthAnalyzer {
         dietaryProfile: DietaryProfile,
         audience: MenuAudience,
         baseIngredients: String,
-        language: AppLanguage
+        language: AppLanguage,
+        cuisineInspiration: CuisineInspiration
     ): Result<GeneratedMenu> {
         error("Not needed")
     }

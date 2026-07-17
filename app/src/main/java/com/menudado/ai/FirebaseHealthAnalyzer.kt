@@ -12,6 +12,7 @@ import com.menudado.domain.GeneratedMenuParser
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthAnalysisParser
 import com.menudado.domain.AppLanguage
+import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import com.menudado.domain.isAiQuotaExceeded
@@ -48,14 +49,23 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
         dietaryProfile: DietaryProfile,
         audience: MenuAudience,
         baseIngredients: String,
-        language: AppLanguage
+        language: AppLanguage,
+        cuisineInspiration: CuisineInspiration
     ): Result<GeneratedMenu> {
         return runCatching {
             val model = Firebase.ai(backend = GenerativeBackend.googleAI())
                 .generativeModel(BuildConfig.GEMINI_MODEL)
 
             val response = model.generateContent(
-                MenuGenerationPrompt.build(mealType, avoidIdeas, dietaryProfile, audience, baseIngredients, language)
+                MenuGenerationPrompt.build(
+                    mealType = mealType,
+                    avoidIdeas = avoidIdeas,
+                    dietaryProfile = dietaryProfile,
+                    audience = audience,
+                    baseIngredients = baseIngredients,
+                    language = language,
+                    cuisineInspiration = cuisineInspiration
+                )
             )
             GeneratedMenuParser.parse(response.text.orEmpty())
         }.onFailure { error ->

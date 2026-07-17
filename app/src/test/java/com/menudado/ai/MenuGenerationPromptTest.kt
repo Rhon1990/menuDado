@@ -3,8 +3,10 @@ package com.menudado.ai
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.AppLanguage
+import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -117,14 +119,33 @@ class MenuGenerationPromptTest {
     }
 
     @Test
-    fun `prompt asks for broader healthy variety`() {
-        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+    fun `prompt uses one compact culinary inspiration instead of generic format list`() {
+        val prompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList(),
+            cuisineInspiration = CuisineInspiration.INDIAN
+        ).lowercase()
 
-        assertTrue(prompt.contains("cremas"))
-        assertTrue(prompt.contains("sopas"))
-        assertTrue(prompt.contains("ensaladas completas"))
-        assertTrue(prompt.contains("ensalada cesar saludable"))
-        assertTrue(prompt.contains("bowls"))
+        assertTrue(prompt.contains("inspiracion culinaria: india."))
+        assertEquals(1, prompt.split("inspiracion culinaria:").size - 1)
+        assertFalse(prompt.contains("variedad saludable: cremas"))
+        assertFalse(prompt.contains("bowls, salteados"))
+    }
+
+    @Test
+    fun `world cuisine prompt stays shorter than equivalent legacy prompt`() {
+        val newPrompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList(),
+            cuisineInspiration = CuisineInspiration.WEST_AFRICAN
+        )
+        val newRule = newPrompt.lineSequence()
+            .single { it.contains("Inspiracion culinaria:") }
+            .trim()
+        val removedRule = "- Variedad saludable: cremas, sopas, ensaladas completas, ensalada cesar saludable, bowls, salteados simples, tortillas, legumbres, wraps, tostas, pasta integral o arroz integral."
+        val equivalentLegacyPrompt = newPrompt.replace(newRule, removedRule)
+
+        assertTrue(newPrompt.length < equivalentLegacyPrompt.length)
     }
 
     @Test
