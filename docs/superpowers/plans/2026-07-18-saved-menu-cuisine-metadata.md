@@ -21,7 +21,7 @@
 - Test: `app/src/test/java/com/menudado/ui/MenuCardUiStateTest.kt`
 - Create: `app/src/test/java/com/menudado/data/MenuDadoMigrationsTest.kt`
 
-- [ ] **Step 1: Write failing conversion and migration-contract tests**
+- [x] **Step 1: Write failing conversion and migration-contract tests**
 
 Extend the entity round-trip test with a known cuisine and add a null compatibility assertion:
 
@@ -55,7 +55,7 @@ class MenuDadoMigrationsTest {
 }
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run:
 
@@ -65,7 +65,7 @@ Run:
 
 Expected: compilation fails because `FoodMenu.cuisineInspiration`, migration constants, and the Room column do not exist.
 
-- [ ] **Step 3: Implement nullable domain/entity storage and migration 9 to 10**
+- [x] **Step 3: Implement nullable domain/entity storage and migration 9 to 10**
 
 Add to `FoodMenu`:
 
@@ -109,11 +109,11 @@ internal val MIGRATION_9_TO_10 = object : Migration(9, 10) {
 
 Use `MENU_DADO_DATABASE_VERSION` in `@Database` and register `MIGRATION_9_TO_10` after the existing migration 8 to 9 in `MenuDadoApplication`.
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 Run the Task 1 command. Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/com/menudado/domain/MenuModels.kt app/src/main/java/com/menudado/data/MenuEntity.kt app/src/main/java/com/menudado/data/MenuDadoMigrations.kt app/src/main/java/com/menudado/data/MenuDadoDatabase.kt app/src/main/java/com/menudado/MenuDadoApplication.kt app/src/test/java/com/menudado/ui/MenuCardUiStateTest.kt app/src/test/java/com/menudado/data/MenuDadoMigrationsTest.kt
@@ -126,7 +126,7 @@ git commit -m "feat: persist menu cuisine locally"
 - Modify: `app/src/main/java/com/menudado/backend/MenuDadoRemoteDataSource.kt`
 - Test: `app/src/test/java/com/menudado/backend/MenuDadoRemoteDataSourceTest.kt`
 
-- [ ] **Step 1: Write failing mapper tests**
+- [x] **Step 1: Write failing mapper tests**
 
 Add assertions that `menuDocument` writes the enum name:
 
@@ -159,7 +159,7 @@ assertNull(
 )
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 ./gradlew :app:testDebugUnitTest --tests com.menudado.backend.MenuDadoRemoteDataSourceTest
@@ -167,7 +167,7 @@ assertNull(
 
 Expected: the write assertion returns `null` and parsed menus do not expose cuisine.
 
-- [ ] **Step 3: Add optional Firestore mapping**
+- [x] **Step 3: Add optional Firestore mapping**
 
 Write:
 
@@ -183,11 +183,11 @@ cuisineInspiration = (document["cuisineInspiration"] as? String)?.let { stored -
 },
 ```
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 Run the Task 2 command. Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/com/menudado/backend/MenuDadoRemoteDataSource.kt app/src/test/java/com/menudado/backend/MenuDadoRemoteDataSourceTest.kt
@@ -200,7 +200,7 @@ git commit -m "feat: sync menu cuisine metadata"
 - Modify: `app/src/main/java/com/menudado/ui/MenuDadoViewModel.kt`
 - Test: `app/src/test/java/com/menudado/ui/MenuDadoViewModelTest.kt`
 
-- [ ] **Step 1: Write failing save lifecycle tests**
+- [x] **Step 1: Write failing save lifecycle tests**
 
 Extend the generated save test:
 
@@ -220,7 +220,7 @@ advanceUntilIdle()
 assertNull(dao.saved.single().toDomain().cuisineInspiration)
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 ./gradlew :app:testDebugUnitTest --tests com.menudado.ui.MenuDadoViewModelTest
@@ -228,7 +228,7 @@ assertNull(dao.saved.single().toDomain().cuisineInspiration)
 
 Expected: the generated saved menu has `null` cuisine.
 
-- [ ] **Step 3: Copy the generated draft cuisine into the saved menu**
+- [x] **Step 3: Copy the generated draft cuisine into the saved menu**
 
 In the `FoodMenu` created by `saveMenu()` add:
 
@@ -238,11 +238,11 @@ cuisineInspiration = state.generatedCuisineInspiration,
 
 Keep manual mode and legacy paths nullable. Do not alter `generateMenu`, `CuisineRotation`, `MenuGenerationPrompt`, or the Gemini JSON parser.
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 Run the Task 3 command. Expected: `BUILD SUCCESSFUL` and the existing one-call cuisine rotation tests still pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/com/menudado/ui/MenuDadoViewModel.kt app/src/test/java/com/menudado/ui/MenuDadoViewModelTest.kt
@@ -256,7 +256,7 @@ git commit -m "feat: retain cuisine on generated menus"
 - Modify: `app/src/test/java/com/menudado/ui/MenuCardUiStateTest.kt`
 - Modify: `docs/project-context.md`
 
-- [ ] **Step 1: Write failing presentation-contract tests**
+- [x] **Step 1: Write failing presentation-contract tests**
 
 Add helpers to the expected UI contract:
 
@@ -280,7 +280,7 @@ assertEquals(
 )
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 ./gradlew :app:testDebugUnitTest --tests com.menudado.ui.MenuCardUiStateTest
@@ -288,7 +288,7 @@ assertEquals(
 
 Expected: presentation helpers are unresolved, favorite height remains 132, and preview cuisine is `null`.
 
-- [ ] **Step 3: Add reusable compact cuisine text**
+- [x] **Step 3: Add reusable compact cuisine text**
 
 Add:
 
@@ -314,7 +314,7 @@ private fun MenuCuisineMetadata(inspiration: CuisineInspiration) {
 }
 ```
 
-- [ ] **Step 4: Place cuisine without competing with names**
+- [x] **Step 4: Place cuisine without competing with names**
 
 Render `MenuCuisineMetadata` conditionally:
 
@@ -325,15 +325,15 @@ Render `MenuCuisineMetadata` conditionally:
 
 Pass `state.generatedCuisineInspiration` into `generatedMenuDetailPreview()` so the preview domain object matches the visible generated draft. Increase `favoriteCarouselCardMinHeightDp()` from 132 to 148 so three-line names, cuisine, and actions do not collide.
 
-- [ ] **Step 5: Update project context**
+- [x] **Step 5: Update project context**
 
 Document that known cuisine is persisted and shown after the title across recent, favorites, audience carousels, View More grids, and details; legacy/manual menus without a trustworthy cuisine omit it; no Gemini calls or tokens change.
 
-- [ ] **Step 6: Run GREEN**
+- [x] **Step 6: Run GREEN**
 
 Run the Task 4 command. Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add app/src/main/java/com/menudado/ui/MenuDadoScreen.kt app/src/test/java/com/menudado/ui/MenuCardUiStateTest.kt docs/project-context.md
@@ -345,7 +345,7 @@ git commit -m "feat: show cuisine across saved menus"
 **Files:**
 - Modify: `docs/superpowers/plans/2026-07-18-saved-menu-cuisine-metadata.md` (mark completed steps)
 
-- [ ] **Step 1: Check the complete diff**
+- [x] **Step 1: Check the complete diff**
 
 ```bash
 git diff --check release/Version_1.2.0...HEAD
@@ -354,7 +354,7 @@ git status --short --branch
 
 Expected: no whitespace errors and only the plan completion update remains uncommitted.
 
-- [ ] **Step 2: Run complete verification from scratch**
+- [x] **Step 2: Run complete verification from scratch**
 
 ```bash
 ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleReleaseDebuggable --rerun-tasks
@@ -362,11 +362,11 @@ Expected: no whitespace errors and only the plan completion update remains uncom
 
 Expected: `BUILD SUCCESSFUL` with no test failures.
 
-- [ ] **Step 3: Review regression risks**
+- [x] **Step 3: Review regression risks**
 
 Inspect the final diff for Room migration registration, null/unknown Firestore compatibility, unchanged Gemini request contract, cuisine preservation through `FoodMenu.copy`, conditional legacy UI, title priority, and all saved-menu surfaces.
 
-- [ ] **Step 4: Commit the completed plan locally**
+- [x] **Step 4: Commit the completed plan locally**
 
 ```bash
 git add docs/superpowers/plans/2026-07-18-saved-menu-cuisine-metadata.md
