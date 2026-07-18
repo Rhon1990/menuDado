@@ -1179,8 +1179,8 @@ class MenuCardUiStateTest {
         assertEquals("Rhonal A. Delgado Padilla", info.createdBy)
         assertEquals("rhonal.delgado@gmail.com", info.contact)
         assertEquals("1.2.0", BuildConfig.VERSION_NAME)
-        assertEquals(11, BuildConfig.VERSION_CODE)
-        assertEquals("1.2.0 (11)", aboutVersionLabel(versionName = "1.2.0", versionCode = 11))
+        assertEquals(12, BuildConfig.VERSION_CODE)
+        assertEquals("1.2.0 (12)", aboutVersionLabel(versionName = "1.2.0", versionCode = 12))
     }
 
     @Test
