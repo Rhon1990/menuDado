@@ -3092,6 +3092,9 @@ private fun RecentMenuSection(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
+                    menu.cuisineInspiration?.let { inspiration ->
+                        MenuCuisineMetadata(inspiration = inspiration)
+                    }
                     Text(
                         text = "${stringResource(id = mealTypeLabelRes(menu.mealType))} · " +
                             stringResource(id = menuAudienceLabelRes(menu.audience)),
@@ -3872,6 +3875,26 @@ private fun CuisineInspirationBadge(inspiration: CuisineInspiration) {
     }
 }
 
+@Composable
+private fun MenuCuisineMetadata(inspiration: CuisineInspiration) {
+    Text(
+        text = stringResource(
+            id = generatedCuisineBadgeFormatRes(),
+            stringResource(id = cuisineInspirationLabelRes(inspiration))
+        ),
+        color = menuCuisineMetadataColor(),
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
+}
+
+internal fun menuCuisineMetadataShouldShow(inspiration: CuisineInspiration?): Boolean =
+    inspiration != null
+
+internal fun menuCuisineMetadataColor(): Color = MenuDadoColors.DeepGreen
+
 internal fun generatedCuisineBadgeContainerColor(): Color = MenuDadoColors.SelectionGreen
 
 internal fun generatedCuisineBadgeContentColor(): Color = MenuDadoColors.DeepGreen
@@ -4149,6 +4172,9 @@ private fun FavoriteMenuCarouselItem(
                             iconTint = favoriteCarouselOverflowActionIconTint()
                         )
                     }
+                    menu.cuisineInspiration?.let { inspiration ->
+                        MenuCuisineMetadata(inspiration = inspiration)
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -4291,6 +4317,9 @@ private fun MenuCarouselItem(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+            menu.cuisineInspiration?.let { inspiration ->
+                MenuCuisineMetadata(inspiration = inspiration)
+            }
             val mealTypeLabel = stringResource(id = menuCarouselItemMealTypeRes(menu.mealType))
             Text(
                 text = if (showAudienceLabel) {
@@ -5059,10 +5088,13 @@ private fun MenuDetailDialog(
                         .padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Row(
+                    FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        menu.cuisineInspiration?.let { inspiration ->
+                            CuisineInspirationBadge(inspiration = inspiration)
+                        }
                         HealthChip(status = menu.healthAnalysis?.status ?: HealthStatus.UNKNOWN)
                         menuVisibleCalories(menu)?.let { calories ->
                             CaloriesPill(calories = calories)
@@ -5524,7 +5556,8 @@ internal fun generatedMenuDetailPreview(state: MenuDadoUiState): FoodMenu? {
         description = description,
         notes = state.notes.trim(),
         healthAnalysis = state.generatedHealthAnalysis,
-        calories = state.calories
+        calories = state.calories,
+        cuisineInspiration = state.generatedCuisineInspiration
     )
 }
 
@@ -5605,7 +5638,7 @@ internal fun menuFavoriteCarouselVisibleMenus(favoriteMenus: List<FoodMenu>): Li
 
 internal fun favoriteCarouselCardWidthDp(): Int = 280
 
-internal fun favoriteCarouselCardMinHeightDp(): Int = 132
+internal fun favoriteCarouselCardMinHeightDp(): Int = 148
 
 internal fun favoriteCarouselCoverSizeDp(): Int = 96
 

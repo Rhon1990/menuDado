@@ -32,6 +32,29 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `saved cuisine metadata stays secondary and hides when unknown`() {
+        assertTrue(menuCuisineMetadataShouldShow(CuisineInspiration.MEXICAN))
+        assertFalse(menuCuisineMetadataShouldShow(null))
+        assertEquals(MenuDadoColors.DeepGreen, menuCuisineMetadataColor())
+        assertEquals(148, favoriteCarouselCardMinHeightDp())
+
+        val previewState = MenuDadoUiState(
+            showGeneratedMenuDetail = true,
+            formMealType = MealType.LUNCH,
+            formAudience = MenuAudience.ADULT,
+            enabledAudiences = listOf(MenuAudience.ADULT),
+            name = "Ensalada mediterránea",
+            description = "Tomate, pepino y aceite de oliva",
+            generatedCuisineInspiration = CuisineInspiration.MEDITERRANEAN
+        )
+
+        assertEquals(
+            CuisineInspiration.MEDITERRANEAN,
+            generatedMenuDetailPreview(previewState)?.cuisineInspiration
+        )
+    }
+
+    @Test
     fun `muestra chip de analisis en cabecera cuando la tarjeta esta colapsada`() {
         val menuWithoutAnalysis = FoodMenu(
             name = "Tostada",
@@ -558,7 +581,7 @@ class MenuCardUiStateTest {
     @Test
     fun `carrusel favorito prioriza el nombre sin repetir la coleccion`() {
         assertEquals(280, favoriteCarouselCardWidthDp())
-        assertEquals(132, favoriteCarouselCardMinHeightDp())
+        assertEquals(148, favoriteCarouselCardMinHeightDp())
         assertEquals(96, favoriteCarouselCoverSizeDp())
         assertEquals(18, favoriteCarouselCoverCornerRadiusDp())
         assertEquals(3, favoriteCarouselTitleMaxLines())
