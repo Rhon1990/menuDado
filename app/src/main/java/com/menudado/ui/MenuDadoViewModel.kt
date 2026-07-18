@@ -711,7 +711,8 @@ class MenuDadoViewModel(
                 description = description,
                 notes = state.notes.trim(),
                 healthAnalysis = state.generatedHealthAnalysis,
-                calories = state.calories
+                calories = state.calories,
+                cuisineInspiration = state.generatedCuisineInspiration
             )
 
             repository.save(menu)

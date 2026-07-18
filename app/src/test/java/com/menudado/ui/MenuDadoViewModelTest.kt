@@ -285,6 +285,7 @@ class MenuDadoViewModelTest {
         assertEquals(MenuAudience.ADULT, saved.audience)
         assertEquals("Pan, tomate y aguacate", saved.description)
         assertNull(saved.healthAnalysis)
+        assertNull(saved.cuisineInspiration)
         assertFalse(analyzer.wasCalled)
         assertEquals(1L, viewModel.uiState.value.menuSaveSuccessRevision)
         assertEquals(MealType.BREAKFAST, viewModel.uiState.value.formMealType)
@@ -857,6 +858,7 @@ class MenuDadoViewModelTest {
         assertFalse(state.showGeneratedMenuDetail)
         assertNull(state.generatedCuisineInspiration)
         assertEquals("Bowl de lentejas", saved.name)
+        assertEquals(CuisineInspiration.MEXICAN, saved.cuisineInspiration)
         assertEquals(HealthStatus.HEALTHY, saved.healthAnalysis?.status)
         assertEquals(540, saved.calories)
     }
