@@ -2,6 +2,7 @@ package com.menudado
 
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.Lifecycle
+import com.google.android.play.core.install.model.AppUpdateType
 import com.menudado.ui.theme.MenuDadoColors
 import android.view.WindowManager
 import org.junit.Assert.assertEquals
@@ -73,25 +74,12 @@ class MainActivitySystemBarsTest {
     }
 
     @Test
-    fun `modal de actualizacion se muestra solo si Play indica update disponible y no fue pospuesto`() {
+    fun `actualizacion usa flexible sin convertir immediate en bloqueo`() {
         assertEquals(
-            true,
-            shouldShowAppUpdateDialog(isUpdateAvailable = true, wasDismissed = false)
+            AppUpdateType.FLEXIBLE,
+            preferredMenuDadoAppUpdateType(isFlexibleAllowed = true)
         )
-        assertEquals(
-            false,
-            shouldShowAppUpdateDialog(isUpdateAvailable = true, wasDismissed = true)
-        )
-        assertEquals(
-            false,
-            shouldShowAppUpdateDialog(isUpdateAvailable = false, wasDismissed = false)
-        )
-    }
-
-    @Test
-    fun `modal de instalacion se muestra si update flexible ya fue descargado`() {
-        assertEquals(true, shouldShowDownloadedAppUpdateDialog(isUpdateDownloaded = true))
-        assertEquals(false, shouldShowDownloadedAppUpdateDialog(isUpdateDownloaded = false))
+        assertEquals(null, preferredMenuDadoAppUpdateType(isFlexibleAllowed = false))
     }
 
     @Test

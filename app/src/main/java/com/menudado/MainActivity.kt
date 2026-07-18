@@ -73,8 +73,11 @@ import com.google.android.play.core.appupdate.AppUpdateManager
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.install.model.AppUpdateType
-import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
+import com.google.android.play.core.install.InstallStateUpdatedListener
+import com.menudado.update.MenuDadoAppUpdatePresentationState
+import com.menudado.update.MenuDadoAppUpdateStatus
+import com.menudado.update.menuDadoAppUpdateStatus
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -130,8 +133,9 @@ class MainActivity : ComponentActivity() {
                 var areAdsPrivacyOptionsRequired by remember { mutableStateOf(false) }
                 var adsPrivacyOptionsMessage by remember { mutableStateOf<String?>(null) }
                 var pendingAppUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
-                var isAppUpdateDialogDismissed by remember { mutableStateOf(false) }
-                var isAppUpdateDownloaded by remember { mutableStateOf(false) }
+                var appUpdatePresentation by remember {
+                    mutableStateOf(MenuDadoAppUpdatePresentationState())
+                }
                 LaunchedEffect(dietaryProfileHydrationRevision) {
                     viewModel.refreshDietaryProfile()
                 }
@@ -215,29 +219,27 @@ class MainActivity : ComponentActivity() {
                 fun refreshAvailableUpdate() {
                     refreshPlayStoreUpdateState(
                         appUpdateManager = appUpdateManager,
-                        onUpdateAvailable = { updateInfo ->
+                        onUpdateStateChanged = { updateInfo, status ->
                             pendingAppUpdateInfo = updateInfo
-                        },
-                        onDownloadedUpdateAvailable = { isDownloaded ->
-                            isAppUpdateDownloaded = isDownloaded
+                            appUpdatePresentation = appUpdatePresentation.withStatus(status)
                         },
                         onNoUpdateAvailable = {
                             pendingAppUpdateInfo = null
-                            isAppUpdateDownloaded = false
+                            appUpdatePresentation = MenuDadoAppUpdatePresentationState()
                         }
                     )
                 }
                 val appUpdateLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.StartIntentSenderForResult()
                 ) {
-                    pendingAppUpdateInfo = null
                     refreshAvailableUpdate()
                 }
                 fun startMenuDadoUpdate() {
                     app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionUpdate())
                     val updateInfo = pendingAppUpdateInfo
-                    pendingAppUpdateInfo = null
-                    isAppUpdateDialogDismissed = true
+                    appUpdatePresentation = appUpdatePresentation.copy(
+                        isAvailablePromptDismissed = true
+                    )
                     if (updateInfo == null) {
                         openMenuDadoPlayStore()
                         return
@@ -253,6 +255,16 @@ class MainActivity : ComponentActivity() {
                     }.getOrDefault(false)
                     if (!didStartUpdate) {
                         openMenuDadoPlayStore()
+                    }
+                }
+                val appUpdateInstallStateListener = remember {
+                    InstallStateUpdatedListener { installState ->
+                        appUpdatePresentation = appUpdatePresentation.withStatus(
+                            menuDadoAppUpdateStatus(
+                                updateAvailability = UpdateAvailability.UPDATE_AVAILABLE,
+                                installStatus = installState.installStatus()
+                            )
+                        )
                     }
                 }
                 LaunchedEffect(showSplash, authSession?.userId, authSession?.isAnonymous, isGuestModeSelected) {
@@ -320,9 +332,11 @@ class MainActivity : ComponentActivity() {
                             refreshAvailableUpdate()
                         }
                     }
+                    appUpdateManager.registerListener(appUpdateInstallStateListener)
                     lifecycleOwner.lifecycle.addObserver(observer)
                     onDispose {
                         lifecycleOwner.lifecycle.removeObserver(observer)
+                        appUpdateManager.unregisterListener(appUpdateInstallStateListener)
                     }
                 }
                 LaunchedEffect(adsController, areAdsEnabled) {
@@ -334,7 +348,7 @@ class MainActivity : ComponentActivity() {
                 if (showSplash) {
                     MenuDadoSplashScreen()
                 } else {
-                    if (shouldShowDownloadedAppUpdateDialog(isAppUpdateDownloaded)) {
+                    if (appUpdatePresentation.shouldShowDownloadedPrompt) {
                         LaunchedEffect("downloaded_app_update_prompt") {
                             app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionShown())
                         }
@@ -345,15 +359,12 @@ class MainActivity : ComponentActivity() {
                             },
                             onDismiss = {
                                 app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionLater())
-                                isAppUpdateDownloaded = false
+                                appUpdatePresentation = appUpdatePresentation.copy(
+                                    isDownloadedPromptDismissed = true
+                                )
                             }
                         )
-                    } else if (
-                        shouldShowAppUpdateDialog(
-                            isUpdateAvailable = pendingAppUpdateInfo != null,
-                            wasDismissed = isAppUpdateDialogDismissed
-                        )
-                    ) {
+                    } else if (appUpdatePresentation.shouldShowAvailablePrompt) {
                         LaunchedEffect("app_update_prompt") {
                             app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionShown())
                         }
@@ -361,7 +372,9 @@ class MainActivity : ComponentActivity() {
                             onUpdate = ::startMenuDadoUpdate,
                             onDismiss = {
                                 app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionLater())
-                                isAppUpdateDialogDismissed = true
+                                appUpdatePresentation = appUpdatePresentation.copy(
+                                    isAvailablePromptDismissed = true
+                                )
                             }
                         )
                     }
@@ -441,24 +454,20 @@ class MainActivity : ComponentActivity() {
 
 private fun refreshPlayStoreUpdateState(
     appUpdateManager: AppUpdateManager,
-    onUpdateAvailable: (AppUpdateInfo) -> Unit,
-    onDownloadedUpdateAvailable: (Boolean) -> Unit,
+    onUpdateStateChanged: (AppUpdateInfo, MenuDadoAppUpdateStatus) -> Unit,
     onNoUpdateAvailable: () -> Unit
 ) {
     appUpdateManager.appUpdateInfo
         .addOnSuccessListener { appUpdateInfo ->
-            if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
-                onDownloadedUpdateAvailable(true)
-                return@addOnSuccessListener
-            }
-            if (shouldOfferAppUpdate(appUpdateInfo)) {
-                onUpdateAvailable(appUpdateInfo)
+            val status = menuDadoAppUpdateStatus(
+                updateAvailability = appUpdateInfo.updateAvailability(),
+                installStatus = appUpdateInfo.installStatus()
+            )
+            if (status != MenuDadoAppUpdateStatus.NOT_AVAILABLE) {
+                onUpdateStateChanged(appUpdateInfo, status)
             } else {
                 onNoUpdateAvailable()
             }
-        }
-        .addOnFailureListener {
-            onNoUpdateAvailable()
         }
 }
 
@@ -560,17 +569,6 @@ internal fun shouldRefreshAdsRemoteConfigOnLifecycleEvent(event: Lifecycle.Event
     return event == Lifecycle.Event.ON_RESUME
 }
 
-internal fun shouldShowAppUpdateDialog(
-    isUpdateAvailable: Boolean,
-    wasDismissed: Boolean
-): Boolean {
-    return isUpdateAvailable && !wasDismissed
-}
-
-internal fun shouldShowDownloadedAppUpdateDialog(isUpdateDownloaded: Boolean): Boolean {
-    return isUpdateDownloaded
-}
-
 internal fun appUpdateAnalyticsScreen(): String = "app_update_prompt"
 
 internal fun appUpdateAnalyticsActionShown(): String = "shown"
@@ -591,17 +589,14 @@ internal fun menuDadoPlayStoreWebUrl(): String {
     return "https://play.google.com/store/apps/details?id=${menuDadoPlayStorePackageName()}"
 }
 
-private fun shouldOfferAppUpdate(appUpdateInfo: AppUpdateInfo): Boolean {
-    return appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
-        appUpdateOptionsFor(appUpdateInfo) != null
+internal fun preferredMenuDadoAppUpdateType(isFlexibleAllowed: Boolean): Int? {
+    return AppUpdateType.FLEXIBLE.takeIf { isFlexibleAllowed }
 }
 
 private fun appUpdateOptionsFor(appUpdateInfo: AppUpdateInfo): AppUpdateOptions? {
-    val appUpdateType = when {
-        appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE) -> AppUpdateType.FLEXIBLE
-        appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE) -> AppUpdateType.IMMEDIATE
-        else -> return null
-    }
+    val appUpdateType = preferredMenuDadoAppUpdateType(
+        isFlexibleAllowed = appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
+    ) ?: return null
     return AppUpdateOptions.newBuilder(appUpdateType).build()
 }
 
