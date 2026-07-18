@@ -455,6 +455,8 @@ git add docs/project-context.md docs/superpowers/plans/2026-07-18-nonblocking-ap
 git commit -m "docs: record nonblocking update flow"
 ```
 
-- [ ] **Step 6: Validate current-branch artifact**
+- [x] **Step 6: Validate current-branch artifact**
 
 Install `app/build/outputs/apk/releaseDebuggable/app-releaseDebuggable.apk` on the selected emulator. Confirm normal MenuDado use remains available when Play reports no update. Google Play update availability cannot be forced reliably for an ADB-installed package; use the automated state tests as evidence for available/downloading/downloaded states and document this limitation rather than simulating production data.
+
+Actual: `releaseDebuggable` installed successfully on `S24plus` (`emulator-5556`), opened `com.menudado/.MainActivity`, dismissed onboarding, and rendered usable Home content without a false update prompt or reminder.
