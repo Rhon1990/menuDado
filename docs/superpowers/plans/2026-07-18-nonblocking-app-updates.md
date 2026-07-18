@@ -30,7 +30,7 @@
 - Create: `app/src/main/java/com/menudado/update/MenuDadoAppUpdateState.kt`
 - Create: `app/src/test/java/com/menudado/update/MenuDadoAppUpdateStateTest.kt`
 
-- [ ] **Step 1: Write failing state translation tests**
+- [x] **Step 1: Write failing state translation tests**
 
 Create tests that require the missing model:
 
@@ -113,7 +113,7 @@ class MenuDadoAppUpdateStateTest {
 }
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 Run:
 
@@ -123,7 +123,7 @@ Run:
 
 Expected: compilation fails because the update presentation types and functions do not exist.
 
-- [ ] **Step 3: Implement the minimal state model**
+- [x] **Step 3: Implement the minimal state model**
 
 Create:
 
@@ -192,11 +192,11 @@ internal fun menuDadoAppUpdateStatus(
 }
 ```
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 Run the Task 1 command. Expected: `BUILD SUCCESSFUL` and 4 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/com/menudado/update/MenuDadoAppUpdateState.kt app/src/test/java/com/menudado/update/MenuDadoAppUpdateStateTest.kt
@@ -209,7 +209,7 @@ git commit -m "feat: model nonblocking app update state"
 - Modify: `app/src/main/java/com/menudado/MainActivity.kt`
 - Modify: `app/src/test/java/com/menudado/MainActivitySystemBarsTest.kt`
 
-- [ ] **Step 1: Write the failing flexible-only contract test**
+- [x] **Step 1: Write the failing flexible-only contract test**
 
 Add:
 
@@ -221,7 +221,7 @@ fun `actualizacion usa flexible sin convertir immediate en bloqueo`() {
 }
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 ./gradlew :app:testDebugUnitTest --tests com.menudado.MainActivitySystemBarsTest
@@ -229,7 +229,7 @@ fun `actualizacion usa flexible sin convertir immediate en bloqueo`() {
 
 Expected: compilation fails because `preferredMenuDadoAppUpdateType` does not exist.
 
-- [ ] **Step 3: Add the flexible-only selector**
+- [x] **Step 3: Add the flexible-only selector**
 
 Replace the current flexible/immediate fallback with:
 
@@ -246,7 +246,7 @@ private fun appUpdateOptionsFor(appUpdateInfo: AppUpdateInfo): AppUpdateOptions?
 }
 ```
 
-- [ ] **Step 4: Replace booleans with presentation state**
+- [x] **Step 4: Replace booleans with presentation state**
 
 In `setContent`, keep `pendingAppUpdateInfo` and replace `isAppUpdateDialogDismissed` / `isAppUpdateDownloaded` with:
 
@@ -258,7 +258,7 @@ var appUpdatePresentation by remember {
 
 Update `refreshPlayStoreUpdateState` so success passes both the `AppUpdateInfo` and `menuDadoAppUpdateStatus(...)`. A failed Play query must leave the current presentation unchanged; a confirmed `NOT_AVAILABLE` clears the pending info and resets presentation.
 
-- [ ] **Step 5: Register Play install-state listener**
+- [x] **Step 5: Register Play install-state listener**
 
 Create one listener with `remember`:
 
@@ -276,7 +276,7 @@ val appUpdateInstallStateListener = remember {
 
 Register it inside the existing lifecycle `DisposableEffect` and unregister it in `onDispose`. Refresh on startup, `ON_RESUME`, and launcher completion.
 
-- [ ] **Step 6: Keep the app usable during update**
+- [x] **Step 6: Keep the app usable during update**
 
 In `startMenuDadoUpdate()`:
 
@@ -288,11 +288,11 @@ In `startMenuDadoUpdate()`:
 
 For install, track `install` and call `appUpdateManager.completeUpdate()`. Dismissing either prompt tracks `later` and only flips its session flag; it must never hide the reminder.
 
-- [ ] **Step 7: Run GREEN**
+- [x] **Step 7: Run GREEN**
 
 Run the Task 2 command. Expected: `BUILD SUCCESSFUL` and the existing MainActivity tests plus the new flexible-only contract pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add app/src/main/java/com/menudado/MainActivity.kt app/src/test/java/com/menudado/MainActivitySystemBarsTest.kt
@@ -310,7 +310,7 @@ git commit -m "feat: run app updates in flexible mode"
 - Modify: `app/src/main/res/values-en/strings.xml`
 - Modify: `app/src/main/res/values-fr/strings.xml`
 
-- [ ] **Step 1: Write failing UI content contract tests**
+- [x] **Step 1: Write failing UI content contract tests**
 
 Create tests that expect a resource contract:
 
@@ -355,7 +355,7 @@ class MenuDadoAppUpdateUiTest {
 }
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```bash
 ./gradlew :app:testDebugUnitTest --tests com.menudado.update.MenuDadoAppUpdateUiTest
@@ -363,7 +363,7 @@ class MenuDadoAppUpdateUiTest {
 
 Expected: compilation fails because the content mapper and new resource names do not exist.
 
-- [ ] **Step 3: Add localized resources**
+- [x] **Step 3: Add localized resources**
 
 Add in all three locales:
 
@@ -377,7 +377,7 @@ Add in all three locales:
 
 Use equivalent natural English and French translations. Keep `app_update_action` and `app_update_install_action` as the action labels.
 
-- [ ] **Step 4: Implement reusable update UI**
+- [x] **Step 4: Implement reusable update UI**
 
 Create `MenuDadoAppUpdateContent` and `menuDadoAppUpdateContent(status)`. Add:
 
@@ -387,7 +387,7 @@ Create `MenuDadoAppUpdateContent` and `menuDadoAppUpdateContent(status)`. Add:
 
 The reminder uses a Material 3 `Card`, `MenuDadoColors.SelectionGreen`, `MenuDadoColors.Ink`, and a compact green action. For `DOWNLOADING`, show `CircularProgressIndicator` and no button.
 
-- [ ] **Step 5: Insert the reminder without competing with the main CTA**
+- [x] **Step 5: Insert the reminder without competing with the main CTA**
 
 Extend `MenuDadoScreen` with defaults:
 
@@ -399,15 +399,15 @@ onAppUpdateInstallClick: () -> Unit = {},
 
 Inside the root Home branch, after the header and before `TodayMenuSection`, add one `item` only when `appUpdateStatus != NOT_AVAILABLE`. Do not render it in Profile, My Zone, About, favorites detail, or audience detail.
 
-- [ ] **Step 6: Wire dialogs and reminder from MainActivity**
+- [x] **Step 6: Wire dialogs and reminder from MainActivity**
 
 Replace the private update dialogs in `MainActivity` with the new update UI. Pass `appUpdatePresentation.status` and callbacks to `MenuDadoScreen`. Available and downloaded dialogs depend on `shouldShowAvailablePrompt` and `shouldShowDownloadedPrompt`; dismissing them never changes `status`.
 
-- [ ] **Step 7: Run GREEN**
+- [x] **Step 7: Run GREEN**
 
 Run the Task 3 command. Expected: `BUILD SUCCESSFUL` and 4 UI contract tests pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add app/src/main/java/com/menudado/update/MenuDadoAppUpdateUi.kt app/src/test/java/com/menudado/update/MenuDadoAppUpdateUiTest.kt app/src/main/java/com/menudado/MainActivity.kt app/src/main/java/com/menudado/ui/MenuDadoScreen.kt app/src/main/res/values/strings.xml app/src/main/res/values-en/strings.xml app/src/main/res/values-fr/strings.xml
@@ -420,15 +420,15 @@ git commit -m "feat: keep update reminder visible on home"
 - Modify: `docs/project-context.md`
 - Modify: `docs/superpowers/plans/2026-07-18-nonblocking-app-updates.md`
 
-- [ ] **Step 1: Update project context**
+- [x] **Step 1: Update project context**
 
 Replace the current publication update paragraph with the new contract: flexible-only, initial prompt once per session, persistent Home reminder, downloaded install reminder, Play Store fallback, and no app blocking.
 
-- [ ] **Step 2: Check regression boundaries**
+- [x] **Step 2: Check regression boundaries**
 
 Confirm with `git diff` that the change does not touch Room, Firestore, AI prompts, authentication, versionCode, versionName, or navigation state.
 
-- [ ] **Step 3: Run complete verification from scratch**
+- [x] **Step 3: Run complete verification from scratch**
 
 ```bash
 ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleReleaseDebuggable --rerun-tasks
@@ -436,7 +436,7 @@ Confirm with `git diff` that the change does not touch Room, Firestore, AI promp
 
 Expected: `BUILD SUCCESSFUL` with zero test failures and both APKs generated.
 
-- [ ] **Step 4: Verify Android resources and diff**
+- [x] **Step 4: Verify Android resources and diff**
 
 ```bash
 ./gradlew :app:lintDebug
@@ -446,7 +446,9 @@ git status --short --branch
 
 Expected: lint/build succeeds, no whitespace errors, and only the completed plan/context are pending.
 
-- [ ] **Step 5: Commit documentation and completed checklist**
+Actual: tests and both APK builds succeeded with 90 tasks executed. `git diff --check` passed. `lintDebug` executed and reported only two pre-existing errors outside this feature (`MenuDadoApplication.kt` missing-permission inference and `styles.xml` API-level placement); the new update files and changed UI contain no lint errors.
+
+- [x] **Step 5: Commit documentation and completed checklist**
 
 ```bash
 git add docs/project-context.md docs/superpowers/plans/2026-07-18-nonblocking-app-updates.md
