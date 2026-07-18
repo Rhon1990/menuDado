@@ -12,9 +12,9 @@ Mejorar la legibilidad y el equilibrio vertical de la tarjeta horizontal de `Fav
 
 ## Diseño aprobado
 
-- La tarjeta pasa de 280 dp a 300 dp de ancho y mantiene 148 dp como altura mínima.
+- La tarjeta pasa de 280 dp a 300 dp de ancho y mantiene 148 dp como altura mínima, pudiendo crecer cuando la escala de fuente necesita más espacio.
 - La portada pasa de 96 dp a 92 dp para recuperar ancho útil sin perder protagonismo visual.
-- El contenido usa 12 dp de margen vertical y conserva un máximo de tres líneas para el nombre.
+- El bloque de contenido se centra verticalmente, usa 12 dp de margen interno y conserva un máximo de tres líneas para el nombre, de modo que el aire superior e inferior sea equivalente.
 - El menú de tres puntos permanece en la esquina superior derecha y el corazón en la inferior derecha, ambos con su objetivo táctil mínimo de 48 dp, pero dejan de determinar la altura de las filas de texto.
 - El título reserva el espacio necesario para el menú de acciones sin quedar pegado al borde superior.
 - `Cocina …` y `Cena · Persona adulta` se muestran consecutivamente, con una separación visual corta y constante.
@@ -34,6 +34,7 @@ Mejorar la legibilidad y el equilibrio vertical de la tarjeta horizontal de `Fav
 - El nombre mantiene elipsis tras tres líneas para que textos extremos no expandan la tarjeta indefinidamente.
 - La anchura de 300 dp mantiene visible parte de la tarjeta siguiente en teléfonos habituales, conservando la señal visual del carrusel.
 - Los textos localizados largos siguen limitados por líneas y elipsis, sin solaparse con las acciones.
+- La altura no se fija: el contenido ampliado puede hacer crecer la tarjeta y el acento terracota acompaña toda la altura resultante.
 
 ## Validación
 

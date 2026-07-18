@@ -100,6 +100,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.geometry.Offset
@@ -4126,7 +4127,7 @@ private fun FavoriteMenuCarouselItem(
     Card(
         modifier = Modifier
             .width(favoriteCarouselCardWidthDp().dp)
-            .defaultMinSize(minHeight = favoriteCarouselCardMinHeightDp().dp)
+            .favoriteCarouselCardMinHeight()
             .clickable(onClick = onOpenMenu)
             .semantics { contentDescription = menu.name },
         colors = CardDefaults.cardColors(containerColor = favoriteCarouselBackgroundColor()),
@@ -4134,82 +4135,78 @@ private fun FavoriteMenuCarouselItem(
         border = BorderStroke(1.dp, MenuDadoColors.SoftSand),
         shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .defaultMinSize(minHeight = favoriteCarouselCardMinHeightDp().dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .height(favoriteCarouselCardMinHeightDp().dp)
-                    .background(favoriteCarouselAccentColor())
-            )
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 8.dp, top = 6.dp, end = 4.dp, bottom = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MenuCoverImage(
-                    menu = menu,
-                    modifier = Modifier
-                        .size(favoriteCarouselCoverSizeDp().dp)
-                        .clip(RoundedCornerShape(favoriteCarouselCoverCornerRadiusDp().dp))
-                        .border(
-                            1.dp,
-                            MenuDadoColors.SoftSand,
-                            RoundedCornerShape(favoriteCarouselCoverCornerRadiusDp().dp)
-                        ),
-                    showMealTypeLabel = false
-                )
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.Top) {
-                        Text(
-                            text = menu.name,
-                            modifier = Modifier.weight(1f),
-                            color = MenuDadoColors.Ink,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = 20.sp,
-                            maxLines = favoriteCarouselTitleMaxLines(),
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        MenuOverflowActionButton(
-                            onOpenActions = onOpenActions,
-                            containerColor = favoriteCarouselOverflowActionBackgroundColor(),
-                            iconTint = favoriteCarouselOverflowActionIconTint()
-                        )
-                    }
-                    menu.cuisineInspiration?.let { inspiration ->
-                        MenuCuisineMetadata(inspiration = inspiration)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "${stringResource(id = mealTypeLabelRes(menu.mealType))} · " +
-                                stringResource(id = menuAudienceLabelRes(menu.audience)),
-                            modifier = Modifier.weight(1f),
-                            color = MenuDadoColors.MutedInk,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        FavoriteMenuIconButton(
-                            isFavorite = true,
-                            onToggleFavorite = onToggleFavorite
-                        )
-                    }
+                .favoriteCarouselCardMinHeight()
+                .drawBehind {
+                    drawRect(
+                        color = favoriteCarouselAccentColor(),
+                        size = size.copy(width = 4.dp.toPx())
+                    )
                 }
+                .padding(start = 12.dp, end = 4.dp)
+        ) {
+            MenuCoverImage(
+                menu = menu,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .size(favoriteCarouselCoverSizeDp().dp)
+                    .clip(RoundedCornerShape(favoriteCarouselCoverCornerRadiusDp().dp))
+                    .border(
+                        1.dp,
+                        MenuDadoColors.SoftSand,
+                        RoundedCornerShape(favoriteCarouselCoverCornerRadiusDp().dp)
+                    ),
+                showMealTypeLabel = false
+            )
+            Column(
+                modifier = Modifier
+                    .align(favoriteCarouselContentAlignment())
+                    .fillMaxWidth()
+                    .padding(
+                        start = (favoriteCarouselCoverSizeDp() + 10).dp,
+                        top = favoriteCarouselContentVerticalPaddingDp().dp,
+                        end = favoriteCarouselActionReserveWidthDp().dp,
+                        bottom = favoriteCarouselContentVerticalPaddingDp().dp
+                    ),
+                verticalArrangement = Arrangement.spacedBy(
+                    favoriteCarouselMetadataSpacingDp().dp
+                )
+            ) {
+                Text(
+                    text = menu.name,
+                    color = MenuDadoColors.Ink,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 20.sp,
+                    maxLines = favoriteCarouselTitleMaxLines(),
+                    overflow = TextOverflow.Ellipsis
+                )
+                menu.cuisineInspiration?.let { inspiration ->
+                    MenuCuisineMetadata(inspiration = inspiration)
+                }
+                Text(
+                    text = "${stringResource(id = mealTypeLabelRes(menu.mealType))} · " +
+                        stringResource(id = menuAudienceLabelRes(menu.audience)),
+                    color = MenuDadoColors.MutedInk,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
+            MenuOverflowActionButton(
+                onOpenActions = onOpenActions,
+                modifier = Modifier.align(Alignment.TopEnd),
+                containerColor = favoriteCarouselOverflowActionBackgroundColor(),
+                iconTint = favoriteCarouselOverflowActionIconTint()
+            )
+            FavoriteMenuIconButton(
+                isFavorite = true,
+                onToggleFavorite = onToggleFavorite,
+                modifier = Modifier.align(Alignment.BottomEnd)
+            )
         }
     }
 }
@@ -5650,15 +5647,26 @@ internal fun menuFavoriteCarouselVisibleMenus(favoriteMenus: List<FoodMenu>): Li
     return favoriteMenus.take(MenuCarouselCollapsedLimit)
 }
 
-internal fun favoriteCarouselCardWidthDp(): Int = 280
+internal fun favoriteCarouselCardWidthDp(): Int = 300
 
 internal fun favoriteCarouselCardMinHeightDp(): Int = 148
 
-internal fun favoriteCarouselCoverSizeDp(): Int = 96
+internal fun Modifier.favoriteCarouselCardMinHeight(): Modifier =
+    defaultMinSize(minHeight = favoriteCarouselCardMinHeightDp().dp)
+
+internal fun favoriteCarouselCoverSizeDp(): Int = 92
 
 internal fun favoriteCarouselCoverCornerRadiusDp(): Int = 18
 
 internal fun favoriteCarouselTitleMaxLines(): Int = 3
+
+internal fun favoriteCarouselContentVerticalPaddingDp(): Int = 12
+
+internal fun favoriteCarouselMetadataSpacingDp(): Int = 2
+
+internal fun favoriteCarouselActionReserveWidthDp(): Int = 52
+
+internal fun favoriteCarouselContentAlignment(): Alignment = Alignment.CenterStart
 
 internal fun favoriteCarouselBackgroundColor(): Color = MenuDadoColors.Surface
 

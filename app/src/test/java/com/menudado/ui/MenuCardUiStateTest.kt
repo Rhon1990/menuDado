@@ -11,7 +11,10 @@ import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
 import com.menudado.ui.theme.MenuDadoColors
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -580,11 +583,19 @@ class MenuCardUiStateTest {
 
     @Test
     fun `carrusel favorito prioriza el nombre sin repetir la coleccion`() {
-        assertEquals(280, favoriteCarouselCardWidthDp())
+        assertEquals(300, favoriteCarouselCardWidthDp())
         assertEquals(148, favoriteCarouselCardMinHeightDp())
-        assertEquals(96, favoriteCarouselCoverSizeDp())
+        assertEquals(92, favoriteCarouselCoverSizeDp())
         assertEquals(18, favoriteCarouselCoverCornerRadiusDp())
         assertEquals(3, favoriteCarouselTitleMaxLines())
+        assertEquals(12, favoriteCarouselContentVerticalPaddingDp())
+        assertEquals(2, favoriteCarouselMetadataSpacingDp())
+        assertEquals(52, favoriteCarouselActionReserveWidthDp())
+        assertEquals(Alignment.CenterStart, favoriteCarouselContentAlignment())
+        assertEquals(
+            Modifier.defaultMinSize(minHeight = 148.dp),
+            Modifier.favoriteCarouselCardMinHeight()
+        )
         assertEquals(MenuDadoColors.Surface, favoriteCarouselBackgroundColor())
         assertEquals(MenuDadoColors.ActionTerracotta, favoriteCarouselAccentColor())
         assertEquals(Color.Transparent, favoriteCarouselOverflowActionBackgroundColor())

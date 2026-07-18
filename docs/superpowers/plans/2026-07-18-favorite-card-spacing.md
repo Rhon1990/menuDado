@@ -21,7 +21,7 @@
 **Files:**
 - Modify: `app/src/test/java/com/menudado/ui/MenuCardUiStateTest.kt:582-595`
 
-- [ ] **Step 1: Escribir la prueba que exige la nueva geometría**
+- [x] **Step 1: Escribir la prueba que exige la nueva geometría**
 
 Actualizar `carrusel favorito prioriza el nombre sin repetir la coleccion` con estas aserciones:
 
@@ -34,11 +34,16 @@ assertEquals(3, favoriteCarouselTitleMaxLines())
 assertEquals(12, favoriteCarouselContentVerticalPaddingDp())
 assertEquals(2, favoriteCarouselMetadataSpacingDp())
 assertEquals(52, favoriteCarouselActionReserveWidthDp())
+assertEquals(Alignment.CenterStart, favoriteCarouselContentAlignment())
+assertEquals(
+    Modifier.defaultMinSize(minHeight = 148.dp),
+    Modifier.favoriteCarouselCardMinHeight()
+)
 ```
 
 Mantener las aserciones existentes de colores y acciones.
 
-- [ ] **Step 2: Ejecutar la prueba y confirmar el estado RED**
+- [x] **Step 2: Ejecutar la prueba y confirmar el estado RED**
 
 Run:
 
@@ -54,12 +59,15 @@ Expected: `FAILED`; el ancho y la portada conservan 280/96 y los nuevos helpers 
 - Modify: `app/src/main/java/com/menudado/ui/MenuDadoScreen.kt:4120-4215`
 - Modify: `app/src/main/java/com/menudado/ui/MenuDadoScreen.kt:5653-5663`
 
-- [ ] **Step 1: Añadir los tokens mínimos de presentación**
+- [x] **Step 1: Añadir los tokens mínimos de presentación**
 
 ```kotlin
 internal fun favoriteCarouselCardWidthDp(): Int = 300
 
 internal fun favoriteCarouselCardMinHeightDp(): Int = 148
+
+internal fun Modifier.favoriteCarouselCardMinHeight(): Modifier =
+    defaultMinSize(minHeight = favoriteCarouselCardMinHeightDp().dp)
 
 internal fun favoriteCarouselCoverSizeDp(): Int = 92
 
@@ -72,18 +80,26 @@ internal fun favoriteCarouselContentVerticalPaddingDp(): Int = 12
 internal fun favoriteCarouselMetadataSpacingDp(): Int = 2
 
 internal fun favoriteCarouselActionReserveWidthDp(): Int = 52
+
+internal fun favoriteCarouselContentAlignment(): Alignment = Alignment.CenterStart
 ```
 
-- [ ] **Step 2: Sustituir la fila de contenido por una composición desacoplada**
+- [x] **Step 2: Sustituir la fila de contenido por una composición desacoplada**
 
-Dentro de la fila que sigue al acento terracota, usar un `Box` de altura fija. Centrar la portada a la izquierda, reservar su ancho más 10 dp para la columna, reservar 52 dp al final para las acciones y anclar estas de forma independiente:
+Usar un `Box` con altura mínima flexible. Dibujar el acento terracota sobre toda la altura resultante, centrar la portada a la izquierda, reservar su ancho más 10 dp para la columna, reservar 52 dp al final para las acciones y anclar estas de forma independiente:
 
 ```kotlin
 Box(
     modifier = Modifier
-        .weight(1f)
-        .height(favoriteCarouselCardMinHeightDp().dp)
-        .padding(start = 8.dp, end = 4.dp)
+        .fillMaxWidth()
+        .favoriteCarouselCardMinHeight()
+        .drawBehind {
+            drawRect(
+                color = favoriteCarouselAccentColor(),
+                size = size.copy(width = 4.dp.toPx())
+            )
+        }
+        .padding(start = 12.dp, end = 4.dp)
 ) {
     MenuCoverImage(
         menu = menu,
@@ -100,6 +116,7 @@ Box(
     )
     Column(
         modifier = Modifier
+            .align(favoriteCarouselContentAlignment())
             .fillMaxWidth()
             .padding(
                 start = (favoriteCarouselCoverSizeDp() + 10).dp,
@@ -145,7 +162,7 @@ Box(
 }
 ```
 
-- [ ] **Step 3: Ejecutar la prueba y confirmar el estado GREEN**
+- [x] **Step 3: Ejecutar la prueba y confirmar el estado GREEN**
 
 Run:
 
@@ -160,11 +177,11 @@ Expected: `BUILD SUCCESSFUL` y cero pruebas fallidas.
 **Files:**
 - Modify: `docs/project-context.md`
 
-- [ ] **Step 1: Actualizar el contexto funcional**
+- [x] **Step 1: Actualizar el contexto funcional**
 
 En la descripción de `Favoritos`, mantener el texto existente y añadir que las acciones están ancladas fuera del flujo textual y que inspiración, tipo y público forman un bloque compacto sin huecos artificiales.
 
-- [ ] **Step 2: Ejecutar pruebas unitarias de debug**
+- [x] **Step 2: Ejecutar pruebas unitarias de debug**
 
 Run:
 
@@ -174,7 +191,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL` y cero pruebas fallidas.
 
-- [ ] **Step 3: Compilar el APK debug**
+- [x] **Step 3: Compilar el APK debug**
 
 Run:
 
@@ -184,7 +201,7 @@ Run:
 
 Expected: `BUILD SUCCESSFUL` y APK generado en `app/build/outputs/apk/debug/`.
 
-- [ ] **Step 4: Revisar el diff final**
+- [x] **Step 4: Revisar el diff final**
 
 Run:
 
@@ -195,7 +212,7 @@ git diff -- app/src/main/java/com/menudado/ui/MenuDadoScreen.kt app/src/test/jav
 
 Expected: sin errores de espacios; el diff solo contiene la tarjeta, sus tokens, su prueba y el contexto funcional.
 
-- [ ] **Step 5: Commit de implementación**
+- [x] **Step 5: Commit de implementación**
 
 ```bash
 git add app/src/main/java/com/menudado/ui/MenuDadoScreen.kt app/src/test/java/com/menudado/ui/MenuCardUiStateTest.kt docs/project-context.md docs/superpowers/plans/2026-07-18-favorite-card-spacing.md
