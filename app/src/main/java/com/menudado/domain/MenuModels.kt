@@ -39,7 +39,8 @@ data class FoodMenu(
     val isFavorite: Boolean = false,
     val favoritedAt: Long? = null,
     val lastPickedDate: String? = null,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val cuisineInspiration: CuisineInspiration? = null
 )
 
 data class GeneratedMenu(

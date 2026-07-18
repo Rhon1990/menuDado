@@ -79,11 +79,14 @@ class MenuCardUiStateTest {
             name = "Pasta",
             mealType = MealType.LUNCH,
             description = "Pasta con tomate",
+            cuisineInspiration = CuisineInspiration.ITALIAN,
             imageUri = "/local/menu-images/pasta.jpg",
             isFavorite = true,
             favoritedAt = 25L
         )
 
+        assertEquals(CuisineInspiration.ITALIAN, menu.toEntity().toDomain().cuisineInspiration)
+        assertNull(menu.copy(cuisineInspiration = null).toEntity().toDomain().cuisineInspiration)
         assertEquals("/local/menu-images/pasta.jpg", menu.toEntity().toDomain().imageUri)
         assertEquals(true, menu.toEntity().toDomain().isFavorite)
         assertEquals(25L, menu.toEntity().toDomain().favoritedAt)

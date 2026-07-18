@@ -26,6 +26,7 @@ import com.menudado.data.CuisineRotation
 import com.menudado.data.BackendPendingSyncStore
 import com.menudado.data.BackendStoredDataSyncer
 import com.menudado.data.MenuDadoDatabase
+import com.menudado.data.MIGRATION_9_TO_10
 import com.menudado.data.MenuRepository
 import com.menudado.data.DietaryProfileStore
 import com.menudado.data.GuestUsageStore
@@ -135,7 +136,8 @@ class MenuDadoApplication : Application() {
                 migration5To6,
                 migration6To7,
                 migration7To8,
-                migration8To9
+                migration8To9,
+                MIGRATION_9_TO_10
             )
             .build()
     }

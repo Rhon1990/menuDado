@@ -3,6 +3,7 @@ package com.menudado.data
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.menudado.domain.FoodMenu
+import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MenuAudience
@@ -35,7 +36,8 @@ data class MenuEntity(
     val remoteSyncState: String = RemoteSyncState.SYNCED.name,
     val updatedAt: Long = createdAt,
     val deletedAt: Long? = null,
-    val remoteSyncToken: String? = null
+    val remoteSyncToken: String? = null,
+    val cuisineInspiration: String? = null
 ) {
     fun toDomain(): FoodMenu {
         return FoodMenu(
@@ -58,7 +60,10 @@ data class MenuEntity(
             isFavorite = isFavorite,
             favoritedAt = favoritedAt,
             lastPickedDate = lastPickedDate,
-            createdAt = createdAt
+            createdAt = createdAt,
+            cuisineInspiration = cuisineInspiration?.let { stored ->
+                runCatching { CuisineInspiration.valueOf(stored) }.getOrNull()
+            }
         )
     }
 }
@@ -88,6 +93,7 @@ fun FoodMenu.toEntity(
         remoteSyncState = remoteSyncState.name,
         updatedAt = updatedAt,
         deletedAt = deletedAt,
-        remoteSyncToken = remoteSyncToken
+        remoteSyncToken = remoteSyncToken,
+        cuisineInspiration = cuisineInspiration?.name
     )
 }
