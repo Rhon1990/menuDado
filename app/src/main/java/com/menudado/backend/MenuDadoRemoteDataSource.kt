@@ -10,6 +10,7 @@ import com.menudado.auth.MenuDadoAuthSession
 import com.menudado.data.AiDailyUsageState
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
+import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
@@ -234,7 +235,8 @@ internal object BackendFirestoreMapper {
             "isFavorite" to menu.isFavorite,
             "favoritedAt" to menu.favoritedAt,
             "lastPickedDate" to menu.lastPickedDate,
-            "createdAt" to menu.createdAt
+            "createdAt" to menu.createdAt,
+            "cuisineInspiration" to menu.cuisineInspiration?.name
         )
     }
 
@@ -274,7 +276,10 @@ internal object BackendFirestoreMapper {
             isFavorite = document["isFavorite"] as? Boolean ?: false,
             favoritedAt = (document["favoritedAt"] as? Number)?.toLong(),
             lastPickedDate = document["lastPickedDate"] as? String,
-            createdAt = (document["createdAt"] as? Number)?.toLong() ?: 0L
+            createdAt = (document["createdAt"] as? Number)?.toLong() ?: 0L,
+            cuisineInspiration = (document["cuisineInspiration"] as? String)?.let { stored ->
+                runCatching { CuisineInspiration.valueOf(stored) }.getOrNull()
+            }
         )
     }
 

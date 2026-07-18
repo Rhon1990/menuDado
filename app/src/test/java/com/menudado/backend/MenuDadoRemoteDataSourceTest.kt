@@ -5,6 +5,7 @@ import com.menudado.auth.MenuDadoAuthSession
 import com.menudado.data.AiDailyUsageState
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
+import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
@@ -12,6 +13,7 @@ import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class MenuDadoRemoteDataSourceTest {
@@ -91,7 +93,8 @@ class MenuDadoRemoteDataSourceTest {
             isFavorite = true,
             favoritedAt = 1_719_000_100_000L,
             lastPickedDate = "2026-06-22",
-            createdAt = 1_719_000_000_000L
+            createdAt = 1_719_000_000_000L,
+            cuisineInspiration = CuisineInspiration.MEXICAN
         )
 
         val document = BackendFirestoreMapper.menuDocument(menu)
@@ -110,6 +113,7 @@ class MenuDadoRemoteDataSourceTest {
         assertEquals(1_719_000_100_000L, document["favoritedAt"])
         assertEquals("2026-06-22", document["lastPickedDate"])
         assertEquals(1_719_000_000_000L, document["createdAt"])
+        assertEquals("MEXICAN", document["cuisineInspiration"])
     }
 
     @Test
@@ -128,7 +132,8 @@ class MenuDadoRemoteDataSourceTest {
             "isFavorite" to true,
             "favoritedAt" to 1_719_000_100_000L,
             "lastPickedDate" to "2026-06-22",
-            "createdAt" to 1_719_000_000_000L
+            "createdAt" to 1_719_000_000_000L,
+            "cuisineInspiration" to "GREEK"
         )
 
         val menu = BackendFirestoreMapper.menuFromDocument("42", document)
@@ -141,9 +146,27 @@ class MenuDadoRemoteDataSourceTest {
         assertEquals(360, menu?.calories)
         assertEquals(true, menu?.isFavorite)
         assertEquals(1_719_000_100_000L, menu?.favoritedAt)
+        assertEquals(CuisineInspiration.GREEK, menu?.cuisineInspiration)
         assertEquals(
             null,
             BackendFirestoreMapper.menuFromDocument("42", document + ("deletedAt" to Any()))
+        )
+    }
+
+    @Test
+    fun `menu document accepts missing and unknown cuisine values`() {
+        val document = mapOf(
+            "name" to "Cena ligera",
+            "mealType" to "DINNER",
+            "description" to "Tortilla francesa con tomate."
+        )
+
+        assertNull(BackendFirestoreMapper.menuFromDocument("42", document)?.cuisineInspiration)
+        assertNull(
+            BackendFirestoreMapper.menuFromDocument(
+                "42",
+                document + ("cuisineInspiration" to "FUTURE_VALUE")
+            )?.cuisineInspiration
         )
     }
 
