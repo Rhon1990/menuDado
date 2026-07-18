@@ -96,9 +96,13 @@
     <string name="app_update_title">Mise à jour disponible</string>
     <string name="app_update_body">Une nouvelle version de MenuDado est disponible. Mettez à jour pour profiter des dernières améliorations.</string>
     <string name="app_update_action">Mettre à jour</string>
-    <string name="app_update_later">Plus tard</string>
+    <string name="app_update_later">Pas maintenant</string>
+    <string name="app_update_reminder_body">Vous pouvez effectuer la mise à jour en arrière-plan et continuer à utiliser MenuDado.</string>
+    <string name="app_update_downloading_title">Mise à jour de MenuDado</string>
+    <string name="app_update_downloading_body">La nouvelle version se télécharge en arrière-plan.</string>
     <string name="app_update_downloaded_title">Mise à jour prête</string>
     <string name="app_update_downloaded_body">La mise à jour a été téléchargée. Installez-la pour redémarrer MenuDado avec la nouvelle version.</string>
+    <string name="app_update_downloaded_reminder_body">La nouvelle version est prête. Installez-la lorsque vous souhaitez redémarrer MenuDado.</string>
     <string name="app_update_install_action">Installer</string>
     <string name="about_reason">MenuDado a été créé pour aider dans ces moments où vous ne savez pas quoi manger. L’app permet d’enregistrer vos menus, de choisir une option avec le dé et de vous aider avec l’IA pour trouver des idées pratiques sans vous compliquer la vie.</string>
     <string name="about_health_disclaimer_title">Avis de santé</string>

@@ -152,6 +152,8 @@ import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
+import com.menudado.update.MenuDadoAppUpdateReminder
+import com.menudado.update.MenuDadoAppUpdateStatus
 import com.menudado.ui.theme.MenuDadoColors
 import com.menudado.ui.theme.MenuDadoUiTokens
 import kotlinx.coroutines.delay
@@ -183,6 +185,9 @@ fun MenuDadoScreen(
     onAuthRegister: (String, String) -> Unit = { _, _ -> },
     onAuthGoogleSignIn: () -> Unit = {},
     onAuthSignOut: () -> Unit = {},
+    appUpdateStatus: MenuDadoAppUpdateStatus = MenuDadoAppUpdateStatus.NOT_AVAILABLE,
+    onAppUpdateClick: () -> Unit = {},
+    onAppUpdateInstallClick: () -> Unit = {},
     aboutContent: MenuDadoAboutContent = MenuDadoAboutContent(
         description = "",
         createdBy = "",
@@ -880,6 +885,15 @@ fun MenuDadoScreen(
                             )
                         }
                     } else {
+                        if (appUpdateStatus != MenuDadoAppUpdateStatus.NOT_AVAILABLE) {
+                            item {
+                                MenuDadoAppUpdateReminder(
+                                    status = appUpdateStatus,
+                                    onUpdate = onAppUpdateClick,
+                                    onInstall = onAppUpdateInstallClick
+                                )
+                            }
+                        }
                         item {
                             TodayMenuSection(
                                 state = state,

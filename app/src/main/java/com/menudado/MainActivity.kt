@@ -23,11 +23,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -44,7 +39,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -77,6 +71,8 @@ import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.android.play.core.install.InstallStateUpdatedListener
 import com.menudado.update.MenuDadoAppUpdatePresentationState
 import com.menudado.update.MenuDadoAppUpdateStatus
+import com.menudado.update.MenuDadoAppUpdateAvailableDialog
+import com.menudado.update.MenuDadoAppUpdateDownloadedDialog
 import com.menudado.update.menuDadoAppUpdateStatus
 import kotlinx.coroutines.launch
 
@@ -352,7 +348,7 @@ class MainActivity : ComponentActivity() {
                         LaunchedEffect("downloaded_app_update_prompt") {
                             app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionShown())
                         }
-                        MenuDadoDownloadedAppUpdateDialog(
+                        MenuDadoAppUpdateDownloadedDialog(
                             onInstall = {
                                 app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionInstall())
                                 appUpdateManager.completeUpdate()
@@ -368,7 +364,7 @@ class MainActivity : ComponentActivity() {
                         LaunchedEffect("app_update_prompt") {
                             app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionShown())
                         }
-                        MenuDadoAppUpdateDialog(
+                        MenuDadoAppUpdateAvailableDialog(
                             onUpdate = ::startMenuDadoUpdate,
                             onDismiss = {
                                 app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionLater())
@@ -384,6 +380,12 @@ class MainActivity : ComponentActivity() {
                     )
                     MenuDadoScreen(
                         viewModel = viewModel,
+                        appUpdateStatus = appUpdatePresentation.status,
+                        onAppUpdateClick = ::startMenuDadoUpdate,
+                        onAppUpdateInstallClick = {
+                            app.analytics.trackAppUpdatePrompt(appUpdateAnalyticsActionInstall())
+                            appUpdateManager.completeUpdate()
+                        },
                         areAdsReady = shouldShowAds,
                         areAdsEnabled = areAdsEnabled,
                         areAdsPrivacyOptionsRequired = shouldShowAdsPrivacyOptionsInNavigation(
@@ -469,64 +471,6 @@ private fun refreshPlayStoreUpdateState(
                 onNoUpdateAvailable()
             }
         }
-}
-
-@Composable
-private fun MenuDadoAppUpdateDialog(
-    onUpdate: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            Button(
-                onClick = onUpdate,
-                colors = ButtonDefaults.buttonColors(containerColor = MenuDadoColors.BrandGreen)
-            ) {
-                Text(stringResource(id = R.string.app_update_action))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(id = R.string.app_update_later))
-            }
-        },
-        title = {
-            Text(stringResource(id = R.string.app_update_title))
-        },
-        text = {
-            Text(stringResource(id = R.string.app_update_body))
-        }
-    )
-}
-
-@Composable
-private fun MenuDadoDownloadedAppUpdateDialog(
-    onInstall: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            Button(
-                onClick = onInstall,
-                colors = ButtonDefaults.buttonColors(containerColor = MenuDadoColors.BrandGreen)
-            ) {
-                Text(stringResource(id = R.string.app_update_install_action))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(id = R.string.app_update_later))
-            }
-        },
-        title = {
-            Text(stringResource(id = R.string.app_update_downloaded_title))
-        },
-        text = {
-            Text(stringResource(id = R.string.app_update_downloaded_body))
-        }
-    )
 }
 
 internal fun menuDadoStatusBarColor(): Int = MenuDadoColors.HeaderGreen.toArgb()

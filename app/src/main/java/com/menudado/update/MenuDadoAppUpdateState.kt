@@ -3,7 +3,7 @@ package com.menudado.update
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
 
-internal enum class MenuDadoAppUpdateStatus {
+enum class MenuDadoAppUpdateStatus {
     NOT_AVAILABLE,
     AVAILABLE,
     DOWNLOADING,

@@ -96,9 +96,13 @@
     <string name="app_update_title">Actualización disponible</string>
     <string name="app_update_body">Hay una versión nueva de MenuDado. Actualiza para tener las últimas mejoras.</string>
     <string name="app_update_action">Actualizar</string>
-    <string name="app_update_later">Luego</string>
+    <string name="app_update_later">Ahora no</string>
+    <string name="app_update_reminder_body">Puedes actualizar en segundo plano y seguir usando MenuDado.</string>
+    <string name="app_update_downloading_title">Actualizando MenuDado</string>
+    <string name="app_update_downloading_body">La nueva versión se está descargando en segundo plano.</string>
     <string name="app_update_downloaded_title">Actualización lista</string>
     <string name="app_update_downloaded_body">La actualización ya se descargó. Instálala para reiniciar MenuDado con la nueva versión.</string>
+    <string name="app_update_downloaded_reminder_body">La nueva versión está lista. Instálala cuando quieras reiniciar MenuDado.</string>
     <string name="app_update_install_action">Instalar</string>
     <string name="about_reason">MenuDado se hizo para ayudar en esos momentos en los que no sabes qué comer. La app te permite guardar tus menús, elegir una opción con el dado y apoyarte con IA para encontrar ideas prácticas sin complicarte.</string>
     <string name="about_health_disclaimer_title">Aviso de salud</string>

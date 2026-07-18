@@ -96,9 +96,13 @@
     <string name="app_update_title">Update available</string>
     <string name="app_update_body">A new version of MenuDado is available. Update to get the latest improvements.</string>
     <string name="app_update_action">Update</string>
-    <string name="app_update_later">Later</string>
+    <string name="app_update_later">Not now</string>
+    <string name="app_update_reminder_body">You can update in the background and keep using MenuDado.</string>
+    <string name="app_update_downloading_title">Updating MenuDado</string>
+    <string name="app_update_downloading_body">The new version is downloading in the background.</string>
     <string name="app_update_downloaded_title">Update ready</string>
     <string name="app_update_downloaded_body">The update has been downloaded. Install it to restart MenuDado with the new version.</string>
+    <string name="app_update_downloaded_reminder_body">The new version is ready. Install it when you are ready to restart MenuDado.</string>
     <string name="app_update_install_action">Install</string>
     <string name="about_reason">MenuDado was made to help in those moments when you do not know what to eat. The app lets you save menus, choose an option with the dice and use AI to find practical ideas without overcomplicating things.</string>
     <string name="about_health_disclaimer_title">Health notice</string>
