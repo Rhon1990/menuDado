@@ -16,6 +16,7 @@ import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiQuotaRetryState
 import com.menudado.data.AiRequestThrottleStore
 import com.menudado.data.AiMenuHiveGateway
+import com.menudado.data.AiMenuHiveContribution
 import com.menudado.data.AiMenuHiveSearchRequest
 import com.menudado.data.NoOpAiMenuHiveGateway
 import com.menudado.data.CuisineRotation
@@ -34,6 +35,7 @@ import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.FoodMenu
+import com.menudado.domain.GeneratedMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.MarketProduct
 import com.menudado.domain.ShoppingProduct
@@ -317,6 +319,9 @@ class MenuDadoViewModel(
                 name = value,
                 generatedHealthAnalysis = null,
                 generatedShoppingProducts = emptyList(),
+                generatedDeduplicationKey = null,
+                generatedOrigin = null,
+                generatedSemanticHash = null,
                 message = notice ?: it.message,
                 isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
@@ -331,6 +336,9 @@ class MenuDadoViewModel(
                 description = value,
                 generatedHealthAnalysis = null,
                 generatedShoppingProducts = emptyList(),
+                generatedDeduplicationKey = null,
+                generatedOrigin = null,
+                generatedSemanticHash = null,
                 message = notice ?: it.message,
                 isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
@@ -345,6 +353,9 @@ class MenuDadoViewModel(
                 notes = value,
                 generatedHealthAnalysis = null,
                 generatedShoppingProducts = emptyList(),
+                generatedDeduplicationKey = null,
+                generatedOrigin = null,
+                generatedSemanticHash = null,
                 message = notice ?: it.message,
                 isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
@@ -358,6 +369,9 @@ class MenuDadoViewModel(
                 aiBaseIngredients = value,
                 generatedHealthAnalysis = null,
                 generatedShoppingProducts = emptyList(),
+                generatedDeduplicationKey = null,
+                generatedOrigin = null,
+                generatedSemanticHash = null,
                 message = notice ?: it.message,
                 isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
@@ -479,6 +493,9 @@ class MenuDadoViewModel(
                 generatedHealthAnalysis = null,
                 generatedShoppingProducts = emptyList(),
                 generatedCuisineInspiration = null,
+                generatedDeduplicationKey = null,
+                generatedOrigin = null,
+                generatedSemanticHash = null,
                 showGeneratedMenuDetail = false
             )
         }
@@ -773,6 +790,32 @@ class MenuDadoViewModel(
             return
         }
 
+        val hiveContribution = if (
+            state.generatedOrigin == GeneratedMenuOrigin.LIVE_AI &&
+            state.generatedDeduplicationKey != null &&
+            state.generatedHealthAnalysis != null &&
+            state.calories != null
+        ) {
+            AiMenuHiveContribution(
+                language = AppLanguage.fromLocale(),
+                mealType = mealType,
+                audience = audience,
+                profile = dietaryProfileStore.getProfile(audience),
+                generatedMenu = GeneratedMenu(
+                    name = name,
+                    description = description,
+                    notes = state.notes.trim(),
+                    calories = state.calories,
+                    healthAnalysis = state.generatedHealthAnalysis,
+                    shoppingProducts = state.generatedShoppingProducts,
+                    deduplicationKey = state.generatedDeduplicationKey
+                ),
+                cuisineInspiration = state.generatedCuisineInspiration
+            )
+        } else {
+            null
+        }
+
         viewModelScope.launch {
             val menu = FoodMenu(
                 name = name,
@@ -812,6 +855,11 @@ class MenuDadoViewModel(
                 it.copy(menuSaveSuccessRevision = it.menuSaveSuccessRevision + 1L)
             }
             hasTrackedMenuFormStarted = false
+            hiveContribution?.let { contribution ->
+                viewModelScope.launch {
+                    aiMenuHive.contribute(contribution)
+                }
+            }
         }
     }
 
@@ -1458,6 +1506,9 @@ class MenuDadoViewModel(
             generatedShoppingProducts = emptyList(),
             addGeneratedMenuToMarketList = true,
             generatedCuisineInspiration = null,
+            generatedDeduplicationKey = null,
+            generatedOrigin = null,
+            generatedSemanticHash = null,
             message = null,
             isAiRetryNoticeVisible = false,
             showGeneratedMenuDetail = false
@@ -1490,6 +1541,9 @@ class MenuDadoViewModel(
                 generatedShoppingProducts = emptyList(),
                 addGeneratedMenuToMarketList = true,
                 generatedCuisineInspiration = null,
+                generatedDeduplicationKey = null,
+                generatedOrigin = null,
+                generatedSemanticHash = null,
                 showGeneratedMenuDetail = false,
                 formMealType = suggestedMealTypeForDeviceTime(clockMillisProvider()),
                 formAudience = null.selectedOrSingleDefault(loadEnabledAudiences())

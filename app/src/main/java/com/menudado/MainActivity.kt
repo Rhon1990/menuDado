@@ -51,6 +51,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.menudado.analytics.AndroidDeviceInfoProvider
 import com.menudado.ads.MenuDadoAdsController
 import com.menudado.ads.MenuDadoAdsRemoteConfig
+import com.menudado.ai.AiMenuHiveRemoteConfig
 import com.menudado.about.MenuDadoAboutContent
 import com.menudado.about.MenuDadoAboutRemoteConfig
 import com.menudado.auth.authErrorMessageResId
@@ -97,7 +98,8 @@ class MainActivity : ComponentActivity() {
                     guestUsageStore = app.guestUsageStore,
                     dietaryProfileStore = app.dietaryProfileStore,
                     onboardingStore = app.onboardingStore,
-                    cuisineRotation = app.cuisineRotation
+                    cuisineRotation = app.cuisineRotation,
+                    aiMenuHive = app.aiMenuHiveGateway
                 ) as T
             }
         }
@@ -310,21 +312,42 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+                val aiMenuHiveRemoteConfig = remember {
+                    AiMenuHiveRemoteConfig(
+                        onEnabledChanged = { isEnabled ->
+                            app.aiMenuHiveFeatureToggle.isEnabled = isEnabled
+                        }
+                    )
+                }
                 val lifecycleOwner = LocalLifecycleOwner.current
-                LaunchedEffect(adsRemoteConfig, aboutRemoteConfig, guestLimitsRemoteConfig) {
+                LaunchedEffect(
+                    adsRemoteConfig,
+                    aboutRemoteConfig,
+                    guestLimitsRemoteConfig,
+                    aiMenuHiveRemoteConfig
+                ) {
                     adsRemoteConfig.fetchAdsEnabled()
                     aboutRemoteConfig.fetchAboutContent()
                     guestLimitsRemoteConfig.fetchGuestLimitsEnabled()
+                    aiMenuHiveRemoteConfig.fetchEnabled()
                 }
                 LaunchedEffect(appUpdateManager) {
                     refreshAvailableUpdate()
                 }
-                DisposableEffect(lifecycleOwner, adsRemoteConfig, aboutRemoteConfig, guestLimitsRemoteConfig, appUpdateManager) {
+                DisposableEffect(
+                    lifecycleOwner,
+                    adsRemoteConfig,
+                    aboutRemoteConfig,
+                    guestLimitsRemoteConfig,
+                    aiMenuHiveRemoteConfig,
+                    appUpdateManager
+                ) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (shouldRefreshAdsRemoteConfigOnLifecycleEvent(event)) {
                             adsRemoteConfig.fetchAdsEnabled()
                             aboutRemoteConfig.fetchAboutContent()
                             guestLimitsRemoteConfig.fetchGuestLimitsEnabled()
+                            aiMenuHiveRemoteConfig.fetchEnabled()
                             refreshAvailableUpdate()
                         }
                     }

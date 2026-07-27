@@ -12,6 +12,7 @@ import com.menudado.ai.FirebaseHealthAnalyzer
 import com.menudado.appcheck.installMenuDadoAppCheckProvider
 import com.menudado.backend.BackendAppMetadata
 import com.menudado.backend.FirebaseMenuDadoRemoteDataSource
+import com.menudado.backend.FirebaseAiMenuHiveDataSource
 import com.menudado.backend.MenuDadoRemoteDataSource
 import com.menudado.auth.FirebaseMenuDadoAuthService
 import com.menudado.auth.MenuDadoAuthSession
@@ -22,6 +23,9 @@ import com.menudado.auth.shouldStartMenuDadoBackendSync
 import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiRequestThrottleStore
+import com.menudado.data.AiMenuHiveFeatureToggle
+import com.menudado.data.AiMenuHiveGateway
+import com.menudado.data.AiMenuHiveRepository
 import com.menudado.data.CuisineRotation
 import com.menudado.data.BackendPendingSyncStore
 import com.menudado.data.BackendStoredDataSyncer
@@ -162,6 +166,17 @@ class MenuDadoApplication : Application() {
             marketDao = database.marketDao(),
             healthAnalyzer = FirebaseHealthAnalyzer(),
             remoteDataSource = remoteDataSource
+        )
+    }
+
+    val aiMenuHiveFeatureToggle by lazy {
+        AiMenuHiveFeatureToggle(isEnabled = true)
+    }
+
+    val aiMenuHiveGateway: AiMenuHiveGateway by lazy {
+        AiMenuHiveRepository(
+            dataSource = FirebaseAiMenuHiveDataSource(),
+            featureToggle = aiMenuHiveFeatureToggle
         )
     }
 

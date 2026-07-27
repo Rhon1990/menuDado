@@ -184,6 +184,52 @@ class MenuDadoViewModelTest {
         assertTrue(hive.searches.isEmpty())
     }
 
+    @Test
+    fun `saving untouched live AI idea contributes after local save`() = runTest(dispatcher) {
+        analyzer.generatedMenu = sampleGeneratedMenu(
+            name = "Pasta con tomate",
+            deduplicationKey = "pasta|tomato|sauce"
+        )
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        viewModel.saveGeneratedMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, dao.saved.size)
+        assertEquals(1, hive.contributions.size)
+        assertEquals(
+            "pasta|tomato|sauce",
+            hive.contributions.single().generatedMenu.deduplicationKey
+        )
+    }
+
+    @Test
+    fun `editing generated recipe clears identity and never contributes`() = runTest(dispatcher) {
+        analyzer.generatedMenu = sampleGeneratedMenu()
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        viewModel.updateDescription("Texto cambiado por el usuario")
+        viewModel.saveGeneratedMenuIdea()
+        advanceUntilIdle()
+
+        assertTrue(hive.contributions.isEmpty())
+    }
+
+    @Test
+    fun `saving hive fallback does not write it again`() = runTest(dispatcher) {
+        analyzer.generateFailure = IllegalStateException("internal")
+        hive.searchResult = Result.success(sampleHiveCandidate())
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        viewModel.saveGeneratedMenuIdea()
+        advanceUntilIdle()
+
+        assertTrue(hive.contributions.isEmpty())
+    }
+
     private fun localMillisAtHour(hourOfDay: Int): Long {
         return Calendar.getInstance().apply {
             set(Calendar.YEAR, 2026)
