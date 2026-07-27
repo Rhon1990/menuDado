@@ -148,7 +148,7 @@
     <string name="dice_roll">Lancer le dé</string>
     <string name="dice_rolling">Lancement...</string>
     <string name="dice_action">Choisir quoi manger aujourd’hui</string>
-    <string name="dice_roll_ai_with_count">Lancer avec l’IA (%1$d)</string>
+    <string name="dice_roll_ai_with_count">Aidez-moi à choisir (%1$d)</string>
     <string name="dice_ai_action">Créer une idée saine</string>
     <string name="dice_ai_blocked_notice_title">Pour utiliser l’IA</string>
     <string name="dice_ai_blocked_missing_meal_and_audience">Choisissez le repas et pour qui est le menu. Vous pouvez aussi utiliser Écrire un menu.</string>
@@ -156,9 +156,9 @@
     <string name="dice_ai_blocked_missing_audience">Choisissez pour qui est ce menu. Vous pouvez aussi utiliser Écrire un menu.</string>
     <string name="dice_ai_blocked_ai_paused">L’usage gratuit de l’IA est limité. Attendez un peu ou utilisez Écrire un menu.</string>
     <string name="dice_mixing">Mélange de vos menus</string>
-    <string name="home_today_title">Que manger aujourd’hui</string>
-    <string name="home_today_subtitle">Générez une idée saine avec l’IA ou écrivez votre propre menu.</string>
-    <string name="home_ai_dice_title">Générer une idée saine</string>
+    <string name="home_today_title">Vous ne savez pas quoi préparer aujourd’hui ?</string>
+    <string name="home_today_subtitle">Pas de souci. Choisissez pour qui vous cuisinez et l’IA vous proposera une idée équilibrée.</string>
+    <string name="home_ai_dice_title">Trouvons quelque chose de bon</string>
     <string name="home_ai_dice_body">Lancez le dé et MenuDado crée une nouvelle idée selon votre profil.</string>
     <string name="home_choose_saved_action">Choisir un menu au hasard</string>
     <string name="home_choose_saved_supporting">Parmi vos menus enregistrés</string>
@@ -176,8 +176,8 @@
     <string name="form_add_subtitle">Choisissez de l’écrire vous-même ou de générer une idée de repas.</string>
     <string name="form_select_meal">Choisissez petit-déjeuner, déjeuner ou dîner.</string>
     <string name="form_select_audience">Choisissez pour qui est ce menu.</string>
-    <string name="form_base_ingredients">Ingrédients de base optionnels</string>
-    <string name="form_base_ingredients_placeholder">Ex. aubergine, tomate</string>
+    <string name="form_base_ingredients">Qu’avez-vous à la maison ? (Facultatif)</string>
+    <string name="form_base_ingredients_placeholder">Ex. tomate, riz ou poulet</string>
     <string name="field_menu_name">Nom du plat ou du menu</string>
     <string name="field_menu_description">Ingrédients ou description</string>
     <string name="field_menu_notes">Notes optionnelles</string>

@@ -148,7 +148,7 @@
     <string name="dice_roll">Roll dice</string>
     <string name="dice_rolling">Rolling...</string>
     <string name="dice_action">Choose what to eat today</string>
-    <string name="dice_roll_ai_with_count">Roll with AI (%1$d)</string>
+    <string name="dice_roll_ai_with_count">Help me choose (%1$d)</string>
     <string name="dice_ai_action">Create healthy idea</string>
     <string name="dice_ai_blocked_notice_title">To use AI</string>
     <string name="dice_ai_blocked_missing_meal_and_audience">Choose a meal and who it is for. You can also use Write menu.</string>
@@ -156,9 +156,9 @@
     <string name="dice_ai_blocked_missing_audience">Choose who this menu is for. You can also use Write menu.</string>
     <string name="dice_ai_blocked_ai_paused">Free AI use is limited. Wait a bit or use Write menu.</string>
     <string name="dice_mixing">Mixing your menus</string>
-    <string name="home_today_title">What to eat today</string>
-    <string name="home_today_subtitle">Generate a healthy idea with AI or write your own menu.</string>
-    <string name="home_ai_dice_title">Generate healthy idea</string>
+    <string name="home_today_title">Not sure what to make today?</string>
+    <string name="home_today_subtitle">No worries. Choose who you\'re cooking for and AI will help with a healthy idea.</string>
+    <string name="home_ai_dice_title">Let\'s find something tasty</string>
     <string name="home_ai_dice_body">Roll the dice and MenuDado creates a new idea based on your profile.</string>
     <string name="home_choose_saved_action">Choose a random menu</string>
     <string name="home_choose_saved_supporting">From your saved menus</string>
@@ -176,8 +176,8 @@
     <string name="form_add_subtitle">Choose whether to write it yourself or generate a meal idea.</string>
     <string name="form_select_meal">Choose breakfast, lunch or dinner.</string>
     <string name="form_select_audience">Choose who this menu is for.</string>
-    <string name="form_base_ingredients">Optional base ingredients</string>
-    <string name="form_base_ingredients_placeholder">E.g. eggplant, tomato</string>
+    <string name="form_base_ingredients">What do you have at home? (Optional)</string>
+    <string name="form_base_ingredients_placeholder">E.g. tomato, rice or chicken</string>
     <string name="field_menu_name">Dish or menu name</string>
     <string name="field_menu_description">Ingredients or description</string>
     <string name="field_menu_notes">Optional notes</string>
