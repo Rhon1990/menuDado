@@ -17,6 +17,7 @@ import com.menudado.data.AiQuotaRetryState
 import com.menudado.data.AiRequestThrottleStore
 import com.menudado.data.AiMenuHiveGateway
 import com.menudado.data.AiMenuHiveContribution
+import com.menudado.data.AiMenuHiveLookupSource
 import com.menudado.data.AiMenuHiveSearchRequest
 import com.menudado.data.NoOpAiMenuHiveGateway
 import com.menudado.data.CuisineRotation
@@ -1075,7 +1076,8 @@ class MenuDadoViewModel(
                     val notice = error.toAiFailureNotice(clockMillisProvider(), currentLanguage())
                     showAiFailureNotice(notice)
                     _uiState.update { it.copy(aiGenerationPhase = AiGenerationPhase.SEARCHING_HIVE) }
-                    val fallback = aiMenuHive.findCompatibleMenu(
+                    val hiveStartedAtMillis = clockMillisProvider()
+                    val hiveResult = aiMenuHive.findCompatibleMenu(
                         AiMenuHiveSearchRequest(
                             language = AppLanguage.fromLocale(),
                             mealType = mealType,
@@ -1084,7 +1086,8 @@ class MenuDadoViewModel(
                             baseIngredients = state.aiBaseIngredients.trim(),
                             recentSemanticHashes = recentHiveSemanticHashes.toSet()
                         )
-                    ).getOrNull()
+                    )
+                    val fallback = hiveResult.getOrNull()
                     fallback?.let { candidate ->
                         rememberHiveSemanticHash(candidate.semanticHash)
                         _uiState.update {
@@ -1105,6 +1108,21 @@ class MenuDadoViewModel(
                                 showGeneratedMenuDetail = true
                             )
                         }
+                    }
+                    runCatching {
+                        analytics.trackAiMenuHiveFallback(
+                            mealType = mealType,
+                            result = when {
+                                hiveResult.isFailure -> HIVE_RESULT_ERROR
+                                fallback?.source == AiMenuHiveLookupSource.CACHE -> HIVE_RESULT_CACHE_HIT
+                                fallback != null -> HIVE_RESULT_HIT
+                                else -> HIVE_RESULT_MISS
+                            },
+                            triggerFailureType = error.analyticsFailureType(),
+                            durationMillis = (
+                                clockMillisProvider() - hiveStartedAtMillis
+                            ).coerceAtLeast(0L)
+                        )
                     }
                     runCatching {
                         analytics.trackAiMenuGenerationFinished(
@@ -2268,6 +2286,10 @@ private const val AI_REQUEST_THROTTLE_MILLIS = 1 * 1000L
 private const val AI_REQUEST_TIMEOUT_MILLIS = 45 * 1000L
 private const val AI_GENERATION_SLOW_NOTICE_MILLIS = 12 * 1000L
 private const val MAX_RECENT_HIVE_HASHES = 8
+private const val HIVE_RESULT_HIT = "hit"
+private const val HIVE_RESULT_CACHE_HIT = "cache_hit"
+private const val HIVE_RESULT_MISS = "miss"
+private const val HIVE_RESULT_ERROR = "error"
 private fun AiQuotaLimitType.message(language: AppLanguage): String {
     return when (this) {
         AiQuotaLimitType.REQUESTS_PER_MINUTE -> language.aiRequestsPerMinuteMessage()

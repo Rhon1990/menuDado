@@ -230,6 +230,22 @@ class MenuDadoViewModelTest {
         assertTrue(hive.contributions.isEmpty())
     }
 
+    @Test
+    fun `hive fallback analytics contains outcome and failure type only`() = runTest(dispatcher) {
+        analyzer.generateFailure = IllegalStateException("internal")
+        hive.searchResult = Result.success(sampleHiveCandidate(name = "Nombre privado"))
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertTrue(
+            analytics.events.any {
+                it == "ai_menu_hive_fallback:BREAKFAST:hit:temporary:0"
+            }
+        )
+        assertTrue(analytics.events.none { "Nombre privado" in it })
+    }
+
     private fun localMillisAtHour(hourOfDay: Int): Long {
         return Calendar.getInstance().apply {
             set(Calendar.YEAR, 2026)
@@ -2454,6 +2470,7 @@ class MenuDadoViewModelTest {
         assertEquals(
             listOf(
                 "ai_menu_generation_started:BREAKFAST:0",
+                "ai_menu_hive_fallback:BREAKFAST:miss:generic:0",
                 "ai_menu_generation_finished:BREAKFAST:false:unknown:generic"
             ),
             analytics.events
@@ -3444,6 +3461,15 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
             throw IllegalStateException("tracking failed")
         }
         events += "ai_menu_generation_finished:${mealType.name}:$success:${healthStatus?.name?.lowercase() ?: "unknown"}:${failureType ?: "none"}"
+    }
+
+    override fun trackAiMenuHiveFallback(
+        mealType: MealType,
+        result: String,
+        triggerFailureType: String,
+        durationMillis: Long
+    ) {
+        events += "ai_menu_hive_fallback:${mealType.name}:$result:$triggerFailureType:$durationMillis"
     }
 
     override fun trackAiAnalysisStarted(scope: String, mealType: MealType?, menuCount: Int) {

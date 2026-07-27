@@ -5,7 +5,7 @@ permalink: /privacy-policy/
 
 # Politica de Privacidad de MenuDado
 
-Ultima actualizacion: 6 de julio de 2026
+Ultima actualizacion: 27 de julio de 2026
 
 MenuDado es una app Android creada por Rhonal A. Delgado Padilla para ayudar a guardar menus, elegir que comer y obtener apoyo opcional de IA para generar ideas de menu o analizar si un menu puede ser saludable.
 
@@ -47,6 +47,8 @@ Las contrasenas son gestionadas por Firebase Authentication. MenuDado no muestra
 MenuDado usa conexion a internet solo para funciones que la necesitan, como crear o iniciar sesion, sincronizar datos, generar ideas con IA, analizar menus con Firebase AI Logic y Gemini, obtener configuracion remota, analitica o publicidad si esta habilitada.
 
 Cuando el usuario solicita una funcion de IA, la app puede enviar a Google/Firebase la informacion necesaria para completar esa accion, por ejemplo el tipo de comida, publico objetivo, descripcion del menu, notas, ingredientes base y preferencias alimentarias configuradas. Esta informacion se usa para generar la respuesta solicitada.
+
+Cuando guardas sin modificar una propuesta creada por la IA, MenuDado puede reutilizar de forma anonima el contenido de esa propuesta para ofrecer una alternativa compatible si la IA no responde a otra persona. No se comparte tu identificador, correo, foto, ingredientes escritos inicialmente ni el contenido legible de tu perfil alimentario.
 
 No uses la app para introducir informacion medica sensible, datos financieros, documentos oficiales, contrasenas u otra informacion confidencial.
 

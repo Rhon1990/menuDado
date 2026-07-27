@@ -287,6 +287,20 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
+    override fun trackAiMenuHiveFallback(
+        mealType: MealType,
+        result: String,
+        triggerFailureType: String,
+        durationMillis: Long
+    ) {
+        logEvent(EVENT_AI_MENU_HIVE_FALLBACK) {
+            putString(PARAM_MEAL_TYPE, mealType.analyticsName())
+            putString(PARAM_STATUS, result.sanitized())
+            putString(PARAM_FAILURE_TYPE, triggerFailureType.sanitized())
+            putLong(PARAM_DURATION_MS, durationMillis.coerceAtLeast(0L))
+        }
+    }
+
     override fun trackAiAnalysisStarted(scope: String, mealType: MealType?, menuCount: Int) {
         logEvent(EVENT_AI_ANALYSIS_STARTED) {
             putString(PARAM_SCOPE, scope)
@@ -394,6 +408,7 @@ class FirebaseMenuDadoAnalytics(
         const val EVENT_BACKEND_SYNC_FINISHED = "backend_sync_finished"
         const val EVENT_AI_MENU_GENERATION_STARTED = "ai_menu_gen_started"
         const val EVENT_AI_MENU_GENERATION_FINISHED = "ai_menu_gen_finished"
+        const val EVENT_AI_MENU_HIVE_FALLBACK = "ai_menu_hive_fallback"
         const val EVENT_AI_ANALYSIS_STARTED = "ai_analysis_started"
         const val EVENT_AI_ANALYSIS_FINISHED = "ai_analysis_finished"
         const val EVENT_AI_DAILY_LIMIT_REACHED = "ai_daily_limit_reached"
@@ -439,6 +454,7 @@ class FirebaseMenuDadoAnalytics(
         const val PARAM_FIELD_GROUP = "field_group"
         const val PARAM_ACTIVE_AUDIENCE_COUNT = "active_audience_count"
         const val PARAM_PENDING_MENU_COUNT = "pending_menu_count"
+        const val PARAM_DURATION_MS = "duration_ms"
 
         const val VALUE_ALL = "all"
         const val VALUE_NONE = "none"
