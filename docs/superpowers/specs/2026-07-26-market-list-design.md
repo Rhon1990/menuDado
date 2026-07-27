@@ -55,6 +55,15 @@ Cada menú conserva sus productos y el usuario decide si activarlos. La pantalla
 - Eliminar un menú elimina sus relaciones. Un producto global permanece si otro menú activo todavía lo utiliza.
 - Reanalizar o editar mediante IA reemplaza la lista original. Los productos sin cambios conservan su estado; los nuevos empiezan pendientes.
 
+### Cobertura en tarjetas
+
+- El bloque existente `Productos para este menú` es la única referencia visual y funcional; no se crea una variante nueva.
+- Las tarjetas del carrusel `Favoritos` muestran ese bloque cuando el menú tiene productos.
+- Las tarjetas de `Ver más`, tanto en `Favoritos` como en cada público, muestran el mismo bloque.
+- Los carruseles normales por público conservan su composición actual.
+- El bloque muestra únicamente nombres de productos, sin cantidades, unidades ni marcas.
+- Si el menú no tiene productos, la tarjeta no reserva espacio ni muestra un estado vacío.
+
 ### Pantalla Mercado
 
 - Se añade `MERCADO` como cuarto destino persistente de la navegación inferior: `Inicio`, `Perfil`, `Mercado` y `Mi zona`.
