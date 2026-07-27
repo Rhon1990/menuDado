@@ -24,8 +24,6 @@
     </plurals>
     <string name="share_menu_chooser">Compartir menú</string>
     <string name="menu_actions_open">Abrir opciones del menú</string>
-    <string name="menu_expand_description">Ver detalles de %1$s</string>
-    <string name="menu_collapse_description">Ocultar detalles de %1$s</string>
     <string name="menu_action_photo">Foto del menú</string>
     <string name="delete_menu_confirmation_title">Eliminar menú</string>
     <string name="delete_menu_confirmation_message">¿Quieres eliminar \"%1$s\"? No podrás recuperarlo.</string>
