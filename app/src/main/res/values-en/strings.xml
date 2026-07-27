@@ -201,6 +201,10 @@
     <string name="ai_generating">Generating idea...</string>
     <string name="ai_generation_loading_title">Generating a meal idea</string>
     <string name="ai_generation_loading_message">AI is preparing a menu suggestion for you.</string>
+    <string name="ai_generation_slow_title">We’re still preparing your idea</string>
+    <string name="ai_generation_slow_message">AI is taking longer than usual. We’re still looking for an idea for you.</string>
+    <string name="ai_generation_hive_title">Finding a compatible idea</string>
+    <string name="ai_generation_hive_message">We’re looking for another idea that fits your profile.</string>
     <string name="generated_menu_detail_title">AI-generated idea</string>
     <string name="generated_cuisine_badge">%1$s cuisine</string>
     <string name="cuisine_mediterranean">Mediterranean</string>

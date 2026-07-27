@@ -862,11 +862,21 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `generacion IA muestra overlay bloqueante con dado 3D de MenuDado`() {
+    fun `generacion IA mantiene overlay y cambia copy por fase`() {
         assertTrue(aiGenerationLoadingUsesMenuDadoDiceCube())
         assertEquals(4, aiGenerationLoadingDiceFaceIndex(buttonDiceFaceIndex = 4))
-        assertEquals(R.string.ai_generation_loading_title, aiGenerationLoadingTitleRes())
-        assertEquals(R.string.ai_generation_loading_message, aiGenerationLoadingMessageRes())
+        assertEquals(
+            R.string.ai_generation_loading_message,
+            aiGenerationLoadingMessageRes(AiGenerationPhase.GENERATING)
+        )
+        assertEquals(
+            R.string.ai_generation_slow_message,
+            aiGenerationLoadingMessageRes(AiGenerationPhase.GENERATING_SLOW)
+        )
+        assertEquals(
+            R.string.ai_generation_hive_message,
+            aiGenerationLoadingMessageRes(AiGenerationPhase.SEARCHING_HIVE)
+        )
         assertEquals(MenuDadoColors.DeepGreen.copy(alpha = 0.72f), aiGenerationLoadingOverlayColor())
         assertEquals(MenuDadoColors.Surface, aiGenerationLoadingCardColor())
         assertEquals(true, aiGenerationLoadingBlocksTouches())

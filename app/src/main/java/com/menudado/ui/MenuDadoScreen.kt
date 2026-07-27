@@ -1144,6 +1144,7 @@ fun MenuDadoScreen(
         )
         if (state.isGeneratingMenu) {
             AiGenerationLoadingOverlay(
+                phase = state.aiGenerationPhase,
                 diceFaceIndex = diceFaceIndex,
                 diceRollProgress = contextualDiceRollProgress.value,
                 diceContinuousRollCycles = aiDiceRollCycles,
@@ -1173,6 +1174,7 @@ private fun Modifier.hideKeyboardOnTouch(
 
 @Composable
 private fun AiGenerationLoadingOverlay(
+    phase: AiGenerationPhase,
     diceFaceIndex: Int,
     diceRollProgress: Float,
     diceContinuousRollCycles: Float,
@@ -1211,14 +1213,14 @@ private fun AiGenerationLoadingOverlay(
                     manualDiceRotation = manualDiceRotation
                 )
                 Text(
-                    text = stringResource(id = aiGenerationLoadingTitleRes()),
+                    text = stringResource(id = aiGenerationLoadingTitleRes(phase)),
                     color = MenuDadoColors.DeepGreen,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = stringResource(id = aiGenerationLoadingMessageRes()),
+                    text = stringResource(id = aiGenerationLoadingMessageRes(phase)),
                     color = MenuDadoColors.MutedInk,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
@@ -1644,10 +1646,20 @@ internal fun contextualDiceDisabledReasonContainerColor(): Color = MenuDadoColor
 internal fun contextualDiceDisabledReasonBorderColor(): Color = MenuDadoColors.OutlineBrown.copy(alpha = 0.24f)
 
 @StringRes
-internal fun aiGenerationLoadingTitleRes(): Int = R.string.ai_generation_loading_title
+internal fun aiGenerationLoadingTitleRes(phase: AiGenerationPhase): Int = when (phase) {
+    AiGenerationPhase.GENERATING -> R.string.ai_generation_loading_title
+    AiGenerationPhase.GENERATING_SLOW -> R.string.ai_generation_slow_title
+    AiGenerationPhase.SEARCHING_HIVE -> R.string.ai_generation_hive_title
+    AiGenerationPhase.IDLE -> R.string.ai_generation_loading_title
+}
 
 @StringRes
-internal fun aiGenerationLoadingMessageRes(): Int = R.string.ai_generation_loading_message
+internal fun aiGenerationLoadingMessageRes(phase: AiGenerationPhase): Int = when (phase) {
+    AiGenerationPhase.GENERATING -> R.string.ai_generation_loading_message
+    AiGenerationPhase.GENERATING_SLOW -> R.string.ai_generation_slow_message
+    AiGenerationPhase.SEARCHING_HIVE -> R.string.ai_generation_hive_message
+    AiGenerationPhase.IDLE -> R.string.ai_generation_loading_message
+}
 
 internal fun aiGenerationLoadingOverlayColor(): Color = MenuDadoColors.DeepGreen.copy(alpha = 0.72f)
 
