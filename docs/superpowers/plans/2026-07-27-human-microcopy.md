@@ -4,7 +4,7 @@
 
 **Goal:** Reescribir y auditar todos los textos visibles de MenuDado para conectar con la necesidad cotidiana de la persona antes de presentar la acción y el valor de la IA.
 
-**Architecture:** Los cambios se concentran en recursos Android localizados y mantienen intactos navegación, lógica, analítica, Firebase e IA. Un test de contrato leerá los XML reales para fijar la voz principal, paridad de claves y placeholders entre español, inglés y francés; los dos únicos textos accesibles hardcodeados se moverán a recursos.
+**Architecture:** Los textos estáticos se concentran en recursos Android localizados y los mensajes dinámicos existentes se mantienen en los helpers `AppLanguage` del `ViewModel`, sin alterar navegación, lógica, analítica, Firebase ni IA. Un contrato leerá los XML reales para fijar voz, paridad de claves y placeholders; otro validará directamente los mensajes dinámicos sensibles en español, inglés y francés. Los textos accesibles hardcodeados de Compose se moverán a recursos.
 
 **Tech Stack:** Android string resources, Kotlin, JUnit 4, XML DOM, Jetpack Compose.
 
@@ -30,7 +30,7 @@ private val expectedHumanCopy = mapOf(
     "es" to mapOf(
         "home_today_title" to "¿No sabes qué cocinar?",
         "home_ai_dice_title" to "Lanza el dado",
-        "dice_ai_action" to "Idea saludable creada con IA",
+        "dice_ai_action" to "Idea saludable con IA",
         "ai_generation_loading_title" to "Buscando algo rico para ti",
         "generated_menu_detail_title" to "Una idea pensada para ti",
         "analysis_ai" to "Lo que la IA ve en tu menú"
@@ -38,7 +38,7 @@ private val expectedHumanCopy = mapOf(
     "en" to mapOf(
         "home_today_title" to "Not sure what to cook?",
         "home_ai_dice_title" to "Roll the die",
-        "dice_ai_action" to "Healthy idea created with AI",
+        "dice_ai_action" to "Healthy idea with AI",
         "ai_generation_loading_title" to "Finding something tasty for you",
         "generated_menu_detail_title" to "An idea picked for you",
         "analysis_ai" to "What AI sees in your menu"
@@ -46,7 +46,7 @@ private val expectedHumanCopy = mapOf(
     "fr" to mapOf(
         "home_today_title" to "Vous ne savez pas quoi cuisiner ?",
         "home_ai_dice_title" to "Lancez le dé",
-        "dice_ai_action" to "Une idée équilibrée créée avec l’IA",
+        "dice_ai_action" to "Idée équilibrée avec l’IA",
         "ai_generation_loading_title" to "Nous cherchons quelque chose de bon pour vous",
         "generated_menu_detail_title" to "Une idée pensée pour vous",
         "analysis_ai" to "Ce que l’IA observe dans votre menu"
@@ -85,7 +85,7 @@ Usar estas anclas exactas:
 <string name="home_ai_dice_title">Lanza el dado</string>
 <string name="home_ai_dice_body">MenuDado usa IA para crear una idea saludable según tu perfil.</string>
 <string name="dice_roll_ai_with_count">Lanza el dado (%1$d)</string>
-<string name="dice_ai_action">Idea saludable creada con IA</string>
+<string name="dice_ai_action">Idea saludable con IA</string>
 <string name="ai_generation_loading_title">Buscando algo rico para ti</string>
 <string name="ai_generation_loading_message">La IA está creando una idea saludable según lo que elegiste.</string>
 <string name="generated_menu_detail_title">Una idea pensada para ti</string>
@@ -135,7 +135,7 @@ Expected: todavía puede fallar por inglés y francés, pero todas las anclas es
 <string name="home_ai_dice_title">Roll the die</string>
 <string name="home_ai_dice_body">MenuDado uses AI to create a healthy idea based on your profile.</string>
 <string name="dice_roll_ai_with_count">Roll the die (%1$d)</string>
-<string name="dice_ai_action">Healthy idea created with AI</string>
+<string name="dice_ai_action">Healthy idea with AI</string>
 <string name="ai_generation_loading_title">Finding something tasty for you</string>
 <string name="ai_generation_loading_message">AI is creating a healthy idea from your choices.</string>
 <string name="generated_menu_detail_title">An idea picked for you</string>
@@ -152,7 +152,7 @@ Expected: todavía puede fallar por inglés y francés, pero todas las anclas es
 <string name="home_ai_dice_title">Lancez le dé</string>
 <string name="home_ai_dice_body">MenuDado utilise l’IA pour créer une idée équilibrée adaptée à votre profil.</string>
 <string name="dice_roll_ai_with_count">Lancez le dé (%1$d)</string>
-<string name="dice_ai_action">Une idée équilibrée créée avec l’IA</string>
+<string name="dice_ai_action">Idée équilibrée avec l’IA</string>
 <string name="ai_generation_loading_title">Nous cherchons quelque chose de bon pour vous</string>
 <string name="ai_generation_loading_message">L’IA crée une idée équilibrée à partir de vos choix.</string>
 <string name="generated_menu_detail_title">Une idée pensée pour vous</string>
@@ -248,7 +248,52 @@ Run:
 
 Expected: BUILD SUCCESSFUL.
 
-### Task 5: Validación integral local
+### Task 5: Auditar mensajes dinámicos `AppLanguage`
+
+**Files:**
+- Modify: `app/src/main/java/com/menudado/ui/MenuDadoViewModel.kt`
+- Modify: `app/src/test/java/com/menudado/ui/MenuDadoViewModelTest.kt`
+- Create: `app/src/test/java/com/menudado/ui/SensitiveAppLanguageMicrocopyTest.kt`
+- Modify: `docs/project-context.md`
+
+- [ ] **Step 1: Auditar los helpers visibles**
+
+Revisar todos los mensajes `AppLanguage` del `ViewModel` en español, inglés y francés. Mantener causas no verificadas fuera del texto visible y conservar hechos relevantes como límites de invitado, cuota diaria gratuita, estado saludable, timeout y siguiente paso.
+
+- [ ] **Step 2: Añadir contrato directo y confirmar RED**
+
+Validar directamente en los tres idiomas:
+
+- Timeout sin atribuirlo a `conexión`, `connection` o `connexion`.
+- Error genérico sin atribuir una causa no confirmada.
+- Cuota diaria que explicite `gratuitos`, `free` o `gratuits` sin prometer `mañana`, `tomorrow` o `demain`.
+- Edición manual con la acción exacta `Revisar con IA`, `Review with AI` o `Vérifier avec l’IA`.
+
+Run:
+
+```bash
+./gradlew :app:testDebugUnitTest --tests 'com.menudado.ui.SensitiveAppLanguageMicrocopyTest'
+```
+
+Expected: FAIL en timeout y error genérico porque todavía recomiendan revisar la conexión.
+
+- [ ] **Step 3: Aplicar el cambio mínimo**
+
+Exponer como `internal` únicamente `aiTimeoutMessage`, `aiGenericFailureMessage`, `aiLocalDailyLimitMessage` y `generatedAnalysisManualEditMessage` para probar sus resultados reales. Reformular timeout y error genérico con causa neutral y siguiente paso; no cambiar clasificadores, estado, analítica ni contratos de datos.
+
+- [ ] **Step 4: Ejecutar GREEN focalizado**
+
+Run:
+
+```bash
+./gradlew :app:testDebugUnitTest \
+  --tests 'com.menudado.ui.SensitiveAppLanguageMicrocopyTest' \
+  --tests 'com.menudado.ui.MenuDadoViewModelTest'
+```
+
+Expected: BUILD SUCCESSFUL con los mensajes dinámicos y sus flujos reales cubiertos.
+
+### Task 6: Validación integral local
 
 **Files:**
 - Verify all modified files.
