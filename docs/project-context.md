@@ -55,7 +55,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 1. Crear menús y decidir qué comer hoy.
    - Inicio abre con `¿No sabes qué preparar hoy?` y el apoyo `No pasa nada. Elige para quién cocinas y la IA te ayudará con una idea saludable.`; la tarjeta de IA se presenta como `Encontremos algo rico`.
-   - La ayuda de IA es el estado inicial porque es la acción con mayor adopción observada y reduce decisiones antes de recibir una idea saludable. Su CTA visible es `Ayúdame a elegir (%1$d)`, con el contador de usos disponible.
+   - La ayuda de IA es el estado inicial porque es la acción con mayor adopción observada y reduce decisiones antes de recibir una idea saludable. Su CTA visible es `Ayúdame a elegir` y muestra los usos restantes.
    - El tipo de comida es obligatorio y viene sugerido automaticamente segun la hora local del movil: desayuno por la mañana, almuerzo al mediodia/tarde y cena por la noche; el usuario puede cambiarlo antes de guardar o generar.
    - El público objetivo también es obligatorio y no viene seleccionado por defecto; el usuario debe elegir persona adulta, peques o bebé entre los públicos activos del perfil alimentario.
    - Si solo hay un público activo, el selector de público se muestra ya seleccionado con ese público. Si hay dos o más públicos activos, el selector queda vacío y obliga al usuario a elegir para quién es el menú. La hidratación remota de perfiles debe refrescar este estado en el `ViewModel` para no conservar una selección nula o una lista de públicos desactualizada tras sincronizar.
@@ -302,7 +302,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Editar menús guardados conservando el mismo registro local y descartando análisis IA cuando cambie la receta.
 - Filtrar menús por tipo de comida.
 - Ejecutar la selección aleatoria solo cuando existan menús aplicables al filtro elegido.
-- Validar que `Generar con IA` es el estado inicial, que lanzar el dado IA abre el modal sin guardar automáticamente, que `Guardar en mis menús` persiste análisis y calorías y que `Probar otra idea` conserva la intención sin saltarse protecciones.
+- Validar que `Ayúdame a elegir` es la acción visible del estado inicial de generación con IA, que lanzar el dado IA abre el modal sin guardar automáticamente, que `Guardar en mis menús` persiste análisis y calorías y que `Probar otra idea` conserva la intención sin saltarse protecciones.
 - Validar que `Elegir un menú al azar` sugiere desayuno, almuerzo o cena por hora local, exige público objetivo, limita candidatos por filtros, no anima el dado IA, permite elegir otro desde el resultado y, ante ausencia real, ofrece recuperación sin mezclar públicos.
 - Validar que al desactivar un público en el perfil alimentario desaparece de agregar menú y del dado.
 - Validar que la animación del dado no bloquee la UI ni repita resultados por dobles taps accidentales.
