@@ -1,7 +1,5 @@
 package com.menudado.ads
 
-import android.os.Bundle
-import com.google.ads.mediation.admob.AdMobAdapter
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,7 +12,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 
@@ -36,19 +33,7 @@ fun MenuDadoBannerAd(
         AdView(context).apply {
             setAdSize(AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, bannerWidthDp))
             adUnitId = MenuDadoAdsConfig.HOME_INLINE_BANNER_AD_UNIT_ID
-            val adRequestBuilder = AdRequest.Builder()
-            if (MenuDadoAdsConfig.requestNonPersonalizedAds) {
-                adRequestBuilder.addNetworkExtrasBundle(
-                    AdMobAdapter::class.java,
-                    Bundle().apply {
-                        putString(
-                            MenuDadoAdsConfig.NON_PERSONALIZED_ADS_PARAM_KEY,
-                            MenuDadoAdsConfig.NON_PERSONALIZED_ADS_PARAM_VALUE
-                        )
-                    }
-                )
-            }
-            loadAd(adRequestBuilder.build())
+            loadAd(MenuDadoAdsConfig.createAdRequest())
         }
     }
 

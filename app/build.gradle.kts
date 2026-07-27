@@ -27,6 +27,10 @@ val productionGoogleWebClientId = providers.optionalConfig(
     gradlePropertyName = "menudadoProductionGoogleWebClientId",
     environmentVariableName = "MENUDADO_PRODUCTION_GOOGLE_WEB_CLIENT_ID"
 )
+val rewardedAiAdUnitId = providers.optionalConfig(
+    gradlePropertyName = "menudadoRewardedAiAdUnitId",
+    environmentVariableName = "MENUDADO_REWARDED_AI_AD_UNIT_ID"
+)
 
 android {
     namespace = "com.menudado"
@@ -56,6 +60,11 @@ android {
                 "HOME_INLINE_BANNER_AD_UNIT_ID",
                 "\"ca-app-pub-3940256099942544/9214589741\""
             )
+            buildConfigField(
+                "String",
+                "REWARDED_AI_AD_UNIT_ID",
+                "\"ca-app-pub-3940256099942544/5224354917\""
+            )
         }
 
         release {
@@ -69,6 +78,11 @@ android {
                 "String",
                 "HOME_INLINE_BANNER_AD_UNIT_ID",
                 "\"ca-app-pub-2347852335093406/2270906270\""
+            )
+            buildConfigField(
+                "String",
+                "REWARDED_AI_AD_UNIT_ID",
+                rewardedAiAdUnitId.asAndroidStringValue()
             )
             signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
@@ -94,6 +108,11 @@ android {
                 "String",
                 "HOME_INLINE_BANNER_AD_UNIT_ID",
                 "\"ca-app-pub-3940256099942544/9214589741\""
+            )
+            buildConfigField(
+                "String",
+                "REWARDED_AI_AD_UNIT_ID",
+                "\"ca-app-pub-3940256099942544/5224354917\""
             )
             buildConfigField("String", "APP_CHECK_PROVIDER", "\"debug\"")
         }

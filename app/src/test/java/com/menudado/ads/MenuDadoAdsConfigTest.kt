@@ -83,6 +83,38 @@ class MenuDadoAdsConfigTest {
     }
 
     @Test
+    fun `rewarded AI is offered only when remote config ads and a real ad unit are ready`() {
+        assertTrue(
+            MenuDadoAdsConfig.shouldOfferRewardedAi(
+                remoteEnabled = true,
+                adsReady = true,
+                adUnitId = "ca-app-pub-example/rewarded"
+            )
+        )
+        assertFalse(
+            MenuDadoAdsConfig.shouldOfferRewardedAi(
+                remoteEnabled = false,
+                adsReady = true,
+                adUnitId = "ca-app-pub-example/rewarded"
+            )
+        )
+        assertFalse(
+            MenuDadoAdsConfig.shouldOfferRewardedAi(
+                remoteEnabled = true,
+                adsReady = false,
+                adUnitId = "ca-app-pub-example/rewarded"
+            )
+        )
+        assertFalse(
+            MenuDadoAdsConfig.shouldOfferRewardedAi(
+                remoteEnabled = true,
+                adsReady = true,
+                adUnitId = ""
+            )
+        )
+    }
+
+    @Test
     fun `privacy options fallback is shown only when UMP returns a form error`() {
         assertTrue(MenuDadoAdsController.shouldNotifyPrivacyOptionsUnavailable(hasFormError = true))
         assertFalse(MenuDadoAdsController.shouldNotifyPrivacyOptionsUnavailable(hasFormError = false))
