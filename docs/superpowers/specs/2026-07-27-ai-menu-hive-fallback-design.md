@@ -106,13 +106,11 @@ Campos permitidos:
 - `semanticKey`: clave canónica no visible.
 - `language`: idioma del contenido.
 - `name`, `description`, `notes`: respuesta IA sin edición posterior.
-- `mealType`: desayuno, almuerzo o cena.
-- `audience`: persona adulta, peques o bebé.
 - `calories`, `healthStatus`, `healthReason`, `healthSuggestion`.
 - `cuisineInspiration`.
 - `shoppingProducts`: productos estructurados devueltos por la IA.
-- `compatibilityKeys`: huellas anónimas de perfiles compatibles.
-- `randomScore`: número estable derivado del hash para repartir resultados.
+- `eligibilityKeys`: huellas anónimas que combinan idioma, tipo de comida,
+  público y perfil compatibles.
 - `createdAt`, `updatedAt`: timestamps del servidor.
 
 No se almacenarán:
@@ -159,8 +157,11 @@ Antes de calcular la huella:
 - minúsculas y Unicode normalizado;
 - espacios y puntuación colapsados;
 - componentes ordenados cuando el orden no cambia el concepto;
-- sinónimos frecuentes ES/EN/FR mapeados a familias controladas;
-- combinación con los productos principales estructurados.
+- sinónimos frecuentes ES/EN/FR mapeados a familias controladas.
+
+Los productos estructurados no alteran la huella —hacerlo separaría recetas
+equivalentes por una guarnición menor—, pero sí participan en la validación
+alimentaria y en la prioridad opcional de ingredientes base.
 
 El ID será un SHA-256 de idioma y clave canónica normalizada. Si la IA omite o
 devuelve una clave inválida, la idea podrá mostrarse y guardarse de forma
@@ -173,7 +174,7 @@ Una transacción lee `sharedAiMenus/{semanticHash}`:
 
 - si no existe, crea el documento saneado;
 - si existe, conserva la receta original y solo puede incorporar con
-  `arrayUnion` una nueva `compatibilityKey` válida;
+  `arrayUnion` una nueva `eligibilityKey` válida;
 - nunca crea un segundo documento con otro ID para el mismo hash;
 - los fallos de contribución no bloquean ni revierten el guardado local.
 
@@ -184,10 +185,12 @@ porque incumplirían el requisito de coste.
 
 ## Compatibilidad alimentaria
 
-### Huella del perfil
+### Huella de elegibilidad
 
-`compatibilityKey` será una huella SHA-256 local creada a partir de:
+`eligibilityKey` será una huella SHA-256 local creada a partir de:
 
+- idioma;
+- tipo de comida;
 - público;
 - franja de edad normalizada;
 - embarazo;
@@ -196,17 +199,17 @@ porque incumplirían el requisito de coste.
 - restricción libre normalizada;
 - versión del algoritmo.
 
-No se guarda el perfil que originó la huella. La consulta exige coincidencia
-exacta; no se intentará inferir compatibilidad entre perfiles distintos.
+No se guardan los valores que originaron la huella. La consulta usa un único
+`array-contains` sobre `eligibilityKeys`, exige coincidencia exacta y no necesita
+un índice compuesto. Esto permite que una misma receta semántica se habilite
+para varios tipos, públicos o perfiles sin duplicar el documento.
 
 ### Filtros obligatorios
 
 Un candidato debe cumplir:
 
-- mismo idioma;
-- mismo tipo de comida;
-- mismo público;
-- presencia de la `compatibilityKey` exacta;
+- presencia de la `eligibilityKey` exacta, que ya representa mismo idioma, tipo
+  de comida, público y perfil;
 - estructura completa y versión soportada;
 - validación local adicional del texto y productos frente al perfil actual;
 - no coincidir con la idea que acaba de fallar ni con hashes recientes mostrados
@@ -218,6 +221,8 @@ sin relajar el perfil alimentario.
 
 Si todos los candidatos compatibles ya se mostraron, se elegirá el menos
 reciente para mantener el respaldo. Esto no crea duplicados en Firestore.
+La consulta queda limitada a 12 documentos y la elección se realiza localmente
+para no añadir otra consulta, índice de ordenación ni coste innecesario.
 
 ## Qué ideas alimentan la colmena
 
@@ -404,7 +409,8 @@ El plan de implementación concretará rutas exactas, pero el alcance esperado e
 - implementación Firestore e inyección;
 - `MenuDadoViewModel` y overlay de carga;
 - Room/modelo solo si hace falta conservar la clave IA hasta el guardado;
-- reglas e índices Firestore;
+- reglas Firestore; la consulta usa el índice automático de un único
+  `array-contains`;
 - strings ES/EN/FR;
 - tests unitarios y de reglas;
 - `docs/project-context.md` y `docs/privacy-policy.md`.
