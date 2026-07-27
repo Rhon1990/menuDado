@@ -108,14 +108,14 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Si un menú tiene calorías estimadas, mostrarlas como `kcal aprox.` en tarjeta y modal solo cuando el menú ya tenga análisis IA.
 
 3. Dado contextual.
-   - El dado aparece dentro del bloque `Qué comer hoy` y pertenece exclusivamente a la generación de una idea saludable nueva con IA. `Elegir un menú al azar` ejecuta la selección local sobre los guardados con un indicador de progreso propio y no anima el dado IA ni consume cuota de IA.
+   - El dado aparece dentro del bloque `¿No sabes qué preparar hoy?` y pertenece exclusivamente a la generación de una idea saludable nueva con IA. `Elegir un menú al azar` ejecuta la selección local sobre los guardados con un indicador de progreso propio y no anima el dado IA ni consume cuota de IA.
    - Al tocar el dado, se muestra una animación breve de lanzamiento con duración constante antes del resultado.
    - La animación debe mostrar un dado 3D con seis platos ilustrados en sus caras, bordes redondeados y acabado cálido similar al logo; no debe usar puntos, letras, icono estático ni una cara plana 2D.
    - El dado del botón de lanzamiento debe permitir ajustar su ángulo con el dedo: al mantener presionado sobre el dado y arrastrar, cambia la rotación, y al soltar conserva la posición elegida.
    - Al detenerse después de cada lanzamiento, el dado debe quedar en una orientación de reposo distinta para que se vea una cara diferente.
    - Tras `Elegir un menú al azar`, el resultado abre el mismo modal de detalle que se muestra al tocar cualquier menú guardado. Solo cuando el detalle procede de esa selección muestra `Elegir otro menú`, que repite el sorteo con los mismos filtros; los detalles abiertos desde tarjetas o listas no muestran esa acción.
    - Antes de lanzar el dado, la app sugiere desayuno, almuerzo o cena segun la hora local del movil, y el usuario debe escoger persona adulta, peques o bebé; no hay opción `Todos` y el tipo de comida sugerido se puede cambiar.
-   - Los selectores de tipo y público del bloque `Qué comer hoy` se usan tanto para generar con IA como para elegir menús guardados.
+   - Los selectores de tipo y público del bloque `¿No sabes qué preparar hoy?` se usan tanto para generar con IA como para elegir menús guardados.
    - Los filtros de público solo muestran públicos activos en el perfil alimentario.
    - Si solo hay un público activo, el selector de público se muestra ya seleccionado con ese público. Si hay dos o más públicos activos, queda vacío y obliga al usuario a elegir.
    - La selección aleatoria solo considera menús del tipo y público objetivo elegidos.
@@ -286,7 +286,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 - La primera pantalla debe ser la app usable, no una página de presentación.
 - La navegación principal vive en una barra inferior flotante de superficie cálida, con verde MenuDado para el destino seleccionado y accesos a Inicio, Perfil y Mi zona. `Acerca de la app` y `Privacidad` se acceden desde `Mi zona`. Cambiar mediante las pestañas inferiores abre siempre el destino desde arriba; en cambio, entrar a `Ver más` y volver conserva la posición previa de Inicio.
-- Una acción principal clara: `Qué comer hoy`, con `Generar con IA` visible por defecto, `Elegir un menú al azar` como secundaria y escritura manual como terciaria.
+- Una acción principal clara: `¿No sabes qué preparar hoy?`, con `Ayúdame a elegir` visible por defecto para la generación con IA, `Elegir un menú al azar` como secundaria y escritura manual como terciaria.
 - Una acción divertida y protagonista: tocar el dado IA para crear una idea saludable; la selección aleatoria local se presenta como una acción secundaria independiente y nunca mueve el dado IA.
 - La cabecera debe respetar el espacio de la barra de estado y usar colores de sistema coherentes con la marca.
 - El flujo de creación debe evitar acciones duplicadas: una idea IA se revisa en modal antes de guardarse; un menú manual se guarda desde el formulario; el análisis IA precalculado solo se conserva si la idea generada no fue modificada.
