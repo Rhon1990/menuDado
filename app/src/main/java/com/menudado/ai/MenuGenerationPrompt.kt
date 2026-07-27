@@ -29,10 +29,10 @@ internal object MenuGenerationPrompt {
 
         return """
             ${guidance.opening}
-            
+
             Tipo: ${mealType.localizedLabel(language)}.
             Público: ${audience.localizedLabel(language)}.
-            
+
             Reglas del tipo de comida:
             - ${guidance.fitRule}
             - ${guidance.exclusionRule}
@@ -47,13 +47,13 @@ internal object MenuGenerationPrompt {
             3. Tipo de comida solicitado.
             4. Uso razonable de ingredientes base.
             5. Variedad y atractivo de la propuesta.
-            
+
             $audienceGuidance
-            
+
             $dietaryProfileBlock
-            
+
             $baseIngredientsBlock
-            
+
             Platos previos a evitar:
             $avoidBlock
 
@@ -75,7 +75,7 @@ internal object MenuGenerationPrompt {
             Variedad real:
             - Debe ser distinta de los platos previos; no basta con cambiar el nombre.
             - Cambia al menos una dimension relevante: base, proteina, tecnica o estilo, sin romper las prioridades anteriores.
-            
+
             Responde con solo un objeto JSON valido, sin markdown, sin texto adicional y solo con estos campos:
             {
               "name": "nombre breve",
@@ -88,10 +88,10 @@ internal object MenuGenerationPrompt {
               "shopping_products": ["producto", "otro producto"],
               "deduplication_key": "pasta|tomato|sauce"
             }
-            
+
             health_status debe ser exactamente uno de:
             saludable, intermedio, no_saludable.
-            
+
             Las calorías deben ser una estimación numérica realista para una ración adecuada al público.
             Write name, description, notes, reason and suggestion in ${language.promptLanguageName}.
             Write shopping product names in ${language.promptLanguageName}.
