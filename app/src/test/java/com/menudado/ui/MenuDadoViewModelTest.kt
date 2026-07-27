@@ -25,6 +25,7 @@ import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
+import com.menudado.domain.MenuAiDetails
 import com.menudado.domain.AppLanguage
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
@@ -861,6 +862,33 @@ class MenuDadoViewModelTest {
         assertEquals(CuisineInspiration.MEXICAN, saved.cuisineInspiration)
         assertEquals(HealthStatus.HEALTHY, saved.healthAnalysis?.status)
         assertEquals(540, saved.calories)
+    }
+
+    @Test
+    fun `generated IA idea exposes market products enabled by default`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Tacos de pollo",
+            description = "Pollo, tomate y tortillas.",
+            notes = "Cena rápida.",
+            calories = 480,
+            shoppingProducts = listOf(
+                requireNotNull(com.menudado.domain.ShoppingProduct.fromAi("Pollo")),
+                requireNotNull(com.menudado.domain.ShoppingProduct.fromAi("Tomate"))
+            )
+        )
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Pollo", "Tomate"),
+            viewModel.uiState.value.generatedShoppingProducts.map { it.displayName }
+        )
+        assertTrue(viewModel.uiState.value.addGeneratedMenuToMarketList)
+
+        viewModel.setAddGeneratedMenuToMarketList(false)
+
+        assertFalse(viewModel.uiState.value.addGeneratedMenuToMarketList)
     }
 
     @Test
@@ -2905,7 +2933,7 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
         calories = 350
     )
 
-    override suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<HealthAnalysis> {
+    override suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<MenuAiDetails> {
         wasCalled = true
         analysisCalls += 1
         requestedLanguage = language
@@ -2914,21 +2942,31 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
         }
         analysisFailure?.let { return Result.failure(it) }
         return Result.success(
-            HealthAnalysis(
+            MenuAiDetails(
+                healthAnalysis = HealthAnalysis(
                 status = HealthStatus.HEALTHY,
                 reason = "Equilibrado.",
                 suggestion = "Mantener variedad.",
                 calories = analysisCalories
+                ),
+                shoppingProducts = emptyList()
             )
         )
     }
 
-    override suspend fun analyzeBatch(menus: List<FoodMenu>, language: AppLanguage): Result<Map<Long, HealthAnalysis>> {
+    override suspend fun analyzeBatch(menus: List<FoodMenu>, language: AppLanguage): Result<Map<Long, MenuAiDetails>> {
         batchAnalyzeCalls += 1
         requestedLanguage = language
         batchAnalyzeMenuIds = menus.map { it.id }
         batchAnalysisFailure?.let { return Result.failure(it) }
-        return Result.success(batchAnalyses)
+        return Result.success(
+            batchAnalyses.mapValues { (_, analysis) ->
+                MenuAiDetails(
+                    healthAnalysis = analysis,
+                    shoppingProducts = emptyList()
+                )
+            }
+        )
     }
 
     override suspend fun generateMenu(

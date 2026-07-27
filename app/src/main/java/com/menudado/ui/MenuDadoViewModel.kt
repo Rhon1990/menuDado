@@ -32,6 +32,8 @@ import com.menudado.domain.DietaryProfile
 import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthAnalysis
+import com.menudado.domain.MarketProduct
+import com.menudado.domain.ShoppingProduct
 import com.menudado.domain.AppLanguage
 import com.menudado.domain.GUEST_DAILY_AI_ANALYSIS_LIMIT
 import com.menudado.domain.GUEST_DAILY_AI_GENERATION_LIMIT
@@ -79,6 +81,9 @@ data class MenuDadoUiState(
     val aiBaseIngredients: String = "",
     val calories: Int? = null,
     val generatedHealthAnalysis: HealthAnalysis? = null,
+    val generatedShoppingProducts: List<ShoppingProduct> = emptyList(),
+    val addGeneratedMenuToMarketList: Boolean = true,
+    val marketProducts: List<MarketProduct> = emptyList(),
     val generatedCuisineInspiration: CuisineInspiration? = null,
     val isRolling: Boolean = false,
     val isAnalyzing: Boolean = false,
@@ -156,6 +161,11 @@ class MenuDadoViewModel(
         viewModelScope.launch {
             repository.menus.collect { menus ->
                 _uiState.update { it.copy(menus = menus) }
+            }
+        }
+        viewModelScope.launch {
+            repository.marketProducts.collect { products ->
+                _uiState.update { it.copy(marketProducts = products) }
             }
         }
     }
@@ -282,6 +292,7 @@ class MenuDadoViewModel(
             it.copy(
                 name = value,
                 generatedHealthAnalysis = null,
+                generatedShoppingProducts = emptyList(),
                 message = notice ?: it.message,
                 isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
@@ -295,6 +306,7 @@ class MenuDadoViewModel(
             it.copy(
                 description = value,
                 generatedHealthAnalysis = null,
+                generatedShoppingProducts = emptyList(),
                 message = notice ?: it.message,
                 isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
@@ -308,6 +320,7 @@ class MenuDadoViewModel(
             it.copy(
                 notes = value,
                 generatedHealthAnalysis = null,
+                generatedShoppingProducts = emptyList(),
                 message = notice ?: it.message,
                 isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
@@ -320,6 +333,7 @@ class MenuDadoViewModel(
             it.copy(
                 aiBaseIngredients = value,
                 generatedHealthAnalysis = null,
+                generatedShoppingProducts = emptyList(),
                 message = notice ?: it.message,
                 isAiRetryNoticeVisible = if (notice != null) false else it.isAiRetryNoticeVisible
             )
@@ -439,6 +453,7 @@ class MenuDadoViewModel(
                 notes = "",
                 calories = null,
                 generatedHealthAnalysis = null,
+                generatedShoppingProducts = emptyList(),
                 generatedCuisineInspiration = null,
                 showGeneratedMenuDetail = false
             )
@@ -448,6 +463,37 @@ class MenuDadoViewModel(
 
     fun saveGeneratedMenuIdea() {
         saveMenu()
+    }
+
+    fun setAddGeneratedMenuToMarketList(isEnabled: Boolean) {
+        _uiState.update { it.copy(addGeneratedMenuToMarketList = isEnabled) }
+    }
+
+    fun setMenuInMarketList(menu: FoodMenu, isEnabled: Boolean) {
+        if (menu.shoppingProducts.isEmpty()) return
+        viewModelScope.launch {
+            repository.save(
+                menu.copy(
+                    activeShoppingProductKeys = if (isEnabled) {
+                        menu.shoppingProducts.mapTo(linkedSetOf()) { it.key }
+                    } else {
+                        emptySet()
+                    }
+                )
+            )
+        }
+    }
+
+    fun setMarketProductPurchased(productKey: String, isPurchased: Boolean) {
+        viewModelScope.launch {
+            repository.setMarketProductPurchased(productKey, isPurchased)
+        }
+    }
+
+    fun clearPurchasedMarketProducts() {
+        viewModelScope.launch {
+            repository.clearPurchasedMarketProducts()
+        }
     }
 
     fun trackMenuCardOpened(menu: FoodMenu) {
@@ -712,7 +758,13 @@ class MenuDadoViewModel(
                 notes = state.notes.trim(),
                 healthAnalysis = state.generatedHealthAnalysis,
                 calories = state.calories,
-                cuisineInspiration = state.generatedCuisineInspiration
+                cuisineInspiration = state.generatedCuisineInspiration,
+                shoppingProducts = state.generatedShoppingProducts,
+                activeShoppingProductKeys = if (state.addGeneratedMenuToMarketList) {
+                    state.generatedShoppingProducts.mapTo(linkedSetOf()) { it.key }
+                } else {
+                    emptySet()
+                }
             )
 
             repository.save(menu)
@@ -787,10 +839,17 @@ class MenuDadoViewModel(
             val menu = existingMenu.copy(
                 name = name,
                 mealType = mealType,
+                audience = audience,
                 description = description,
                 notes = notes,
                 healthAnalysis = if (changedExistingMenu) null else existingMenu.healthAnalysis,
                 calories = if (changedExistingMenu) null else existingMenu.calories,
+                shoppingProducts = if (changedExistingMenu) emptyList() else existingMenu.shoppingProducts,
+                activeShoppingProductKeys = if (changedExistingMenu) {
+                    emptySet()
+                } else {
+                    existingMenu.activeShoppingProductKeys
+                },
                 imageUri = state.editImageUri
             )
 
@@ -904,6 +963,8 @@ class MenuDadoViewModel(
                                     notes = generated.notes,
                                     calories = generated.calories,
                                     generatedHealthAnalysis = generated.healthAnalysis,
+                                    generatedShoppingProducts = generated.shoppingProducts,
+                                    addGeneratedMenuToMarketList = true,
                                     generatedCuisineInspiration = cuisineInspiration,
                                     isAiRetryNoticeVisible = false,
                                     showGeneratedMenuDetail = true
@@ -1127,11 +1188,14 @@ class MenuDadoViewModel(
 
         viewModelScope.launch {
             withAiRequestTimeout { repository.analyze(menu, AppLanguage.fromLocale()) }
-                .onSuccess { analysis ->
+                .onSuccess { details ->
+                    val analysis = details.healthAnalysis
                     repository.save(
                         menu.copy(
                             healthAnalysis = analysis,
-                            calories = analysis.calories ?: menu.calories
+                            calories = analysis.calories ?: menu.calories,
+                            shoppingProducts = details.shoppingProducts,
+                            activeShoppingProductKeys = emptySet()
                         )
                     )
 
@@ -1214,11 +1278,14 @@ class MenuDadoViewModel(
                 .onSuccess { analysesByMenuId ->
 
                     pendingMenus.forEach { menu ->
-                        analysesByMenuId[menu.id]?.let { analysis ->
+                        analysesByMenuId[menu.id]?.let { details ->
+                            val analysis = details.healthAnalysis
                             repository.save(
                                 menu.copy(
                                     healthAnalysis = analysis,
-                                    calories = analysis.calories ?: menu.calories
+                                    calories = analysis.calories ?: menu.calories,
+                                    shoppingProducts = details.shoppingProducts,
+                                    activeShoppingProductKeys = emptySet()
                                 )
                             )
                         }
@@ -1305,6 +1372,8 @@ class MenuDadoViewModel(
             aiBaseIngredients = "",
             calories = null,
             generatedHealthAnalysis = null,
+            generatedShoppingProducts = emptyList(),
+            addGeneratedMenuToMarketList = true,
             generatedCuisineInspiration = null,
             message = null,
             isAiRetryNoticeVisible = false,
@@ -1335,6 +1404,8 @@ class MenuDadoViewModel(
                 aiBaseIngredients = "",
                 calories = null,
                 generatedHealthAnalysis = null,
+                generatedShoppingProducts = emptyList(),
+                addGeneratedMenuToMarketList = true,
                 generatedCuisineInspiration = null,
                 showGeneratedMenuDetail = false,
                 formMealType = suggestedMealTypeForDeviceTime(clockMillisProvider()),

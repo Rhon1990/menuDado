@@ -153,6 +153,7 @@ import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
+import com.menudado.domain.MarketProduct
 import com.menudado.update.MenuDadoAppUpdateReminder
 import com.menudado.update.MenuDadoAppUpdateStatus
 import com.menudado.ui.theme.MenuDadoColors
@@ -230,6 +231,7 @@ fun MenuDadoScreen(
     val isFavoritesDetail = menuIsFavoritesDetailRoute(audienceDetailRoute)
     val homeListState = rememberLazyListState()
     val profileListState = rememberLazyListState()
+    val marketListState = rememberLazyListState()
     val myZoneListState = rememberLazyListState()
     val aboutListState = rememberLazyListState()
     val audienceDetailListState = remember(audienceDetailRoute) { LazyListState() }
@@ -242,6 +244,7 @@ fun MenuDadoScreen(
     val activeListState = when (activeListStateOwner) {
         MenuListStateOwner.HOME -> homeListState
         MenuListStateOwner.PROFILE -> profileListState
+        MenuListStateOwner.MARKET -> marketListState
         MenuListStateOwner.MY_ZONE -> myZoneListState
         MenuListStateOwner.ABOUT -> aboutListState
         MenuListStateOwner.AUDIENCE_DETAIL -> audienceDetailListState
@@ -252,6 +255,7 @@ fun MenuDadoScreen(
             MenuDadoDestination.HOME,
             MenuDadoDestination.PRIVACY -> homeListState
             MenuDadoDestination.PROFILE -> profileListState
+            MenuDadoDestination.MARKET -> marketListState
             MenuDadoDestination.MY_ZONE -> myZoneListState
             MenuDadoDestination.ABOUT -> aboutListState
         }
@@ -681,6 +685,13 @@ fun MenuDadoScreen(
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_ANALYZE_MENU)
                 viewModel.analyzeExisting(menu)
             },
+            onSetInMarketList = { isEnabled ->
+                viewModel.trackCtaTapped(
+                    ANALYTICS_SCREEN_MENU_DETAIL,
+                    if (isEnabled) ANALYTICS_CTA_MARKET_MENU_ADDED else ANALYTICS_CTA_MARKET_MENU_REMOVED
+                )
+                viewModel.setMenuInMarketList(menu, isEnabled)
+            },
             onToggleFavorite = {
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_TOGGLE_FAVORITE)
                 viewModel.toggleFavorite(menu)
@@ -716,6 +727,14 @@ fun MenuDadoScreen(
             cuisineInspiration = state.generatedCuisineInspiration,
             isGenerating = state.isGeneratingMenu,
             aiUsesRemainingToday = state.aiGenerationUsesRemainingToday,
+            addToMarketList = state.addGeneratedMenuToMarketList,
+            onAddToMarketListChanged = { isEnabled ->
+                viewModel.trackCtaTapped(
+                    ANALYTICS_SCREEN_MENU_DETAIL,
+                    if (isEnabled) ANALYTICS_CTA_MARKET_MENU_ADDED else ANALYTICS_CTA_MARKET_MENU_REMOVED
+                )
+                viewModel.setAddGeneratedMenuToMarketList(isEnabled)
+            },
             onSave = {
                 viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_SAVE_GENERATED_MENU)
                 viewModel.saveGeneratedMenuIdea()
@@ -761,6 +780,31 @@ fun MenuDadoScreen(
                             onHasAllergiesChanged = viewModel::setDietaryProfileHasAllergies,
                             onAllergenToggled = viewModel::toggleDietaryAllergen,
                             onOtherAvoidancesChanged = viewModel::updateDietaryProfileOtherAvoidances
+                        )
+                    }
+                }
+                MenuDadoDestination.MARKET -> {
+                    item {
+                        MarketListSection(
+                            products = state.marketProducts,
+                            onPurchasedChanged = { productKey, isPurchased ->
+                                viewModel.trackCtaTapped(
+                                    ANALYTICS_SCREEN_MARKET,
+                                    if (isPurchased) {
+                                        ANALYTICS_CTA_MARKET_PRODUCT_CHECKED
+                                    } else {
+                                        ANALYTICS_CTA_MARKET_PRODUCT_RESTORED
+                                    }
+                                )
+                                viewModel.setMarketProductPurchased(productKey, isPurchased)
+                            },
+                            onClearPurchased = {
+                                viewModel.trackCtaTapped(
+                                    ANALYTICS_SCREEN_MARKET,
+                                    ANALYTICS_CTA_MARKET_PURCHASED_CLEARED
+                                )
+                                viewModel.clearPurchasedMarketProducts()
+                            }
                         )
                     }
                 }
@@ -1055,6 +1099,14 @@ fun MenuDadoScreen(
                         selectedDestination = MenuDadoDestination.PROFILE.name
                         audienceDetailRoute = null
                     }
+                    MenuDadoDestination.MARKET -> {
+                        viewModel.trackCtaTapped(
+                            ANALYTICS_SCREEN_BOTTOM_NAV,
+                            ANALYTICS_CTA_NAV_MARKET
+                        )
+                        selectedDestination = MenuDadoDestination.MARKET.name
+                        audienceDetailRoute = null
+                    }
                     MenuDadoDestination.ABOUT -> {
                         viewModel.trackAboutAppOpened()
                         viewModel.trackCtaTapped(ANALYTICS_SCREEN_BOTTOM_NAV, ANALYTICS_CTA_NAV_ABOUT)
@@ -1197,6 +1249,7 @@ private fun AiGenerationLoadingDice(
 
 internal enum class MenuDadoDestination {
     HOME,
+    MARKET,
     PROFILE,
     ABOUT,
     MY_ZONE,
@@ -1205,6 +1258,7 @@ internal enum class MenuDadoDestination {
 
 internal enum class MenuListStateOwner {
     HOME,
+    MARKET,
     PROFILE,
     MY_ZONE,
     ABOUT,
@@ -1284,6 +1338,143 @@ private fun MenuDadoBottomNavigation(
 }
 
 @Composable
+private fun MarketListSection(
+    products: List<MarketProduct>,
+    onPurchasedChanged: (String, Boolean) -> Unit,
+    onClearPurchased: () -> Unit
+) {
+    val pendingProducts = products.filterNot(MarketProduct::isPurchased)
+    val purchasedProducts = products.filter(MarketProduct::isPurchased)
+    var showPurchased by rememberSaveable { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text(
+            text = stringResource(id = R.string.market_title),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Black,
+            color = MenuDadoColors.DeepGreen
+        )
+        Text(
+            text = stringResource(id = R.string.market_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MenuDadoColors.MutedInk
+        )
+
+        if (products.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+                shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.market_empty_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MenuDadoColors.Ink
+                    )
+                    Text(
+                        text = stringResource(id = R.string.market_empty_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MenuDadoColors.MutedInk
+                    )
+                }
+            }
+        } else {
+            pendingProducts.forEach { product ->
+                MarketProductRow(
+                    product = product,
+                    onPurchasedChanged = onPurchasedChanged
+                )
+            }
+
+            if (purchasedProducts.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
+                        .clickable { showPurchased = !showPurchased }
+                        .padding(vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.market_purchased),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MenuDadoColors.DeepGreen
+                    )
+                    Icon(
+                        painter = painterResource(
+                            id = if (showPurchased) R.drawable.ic_expand_less else R.drawable.ic_expand_more
+                        ),
+                        contentDescription = null,
+                        tint = MenuDadoColors.DeepGreen
+                    )
+                }
+                if (showPurchased) {
+                    purchasedProducts.forEach { product ->
+                        MarketProductRow(
+                            product = product,
+                            onPurchasedChanged = onPurchasedChanged
+                        )
+                    }
+                    TextButton(
+                        onClick = onClearPurchased,
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.market_clear_purchased),
+                            color = MenuDadoColors.Tomato,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarketProductRow(
+    product: MarketProduct,
+    onPurchasedChanged: (String, Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
+        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    onPurchasedChanged(product.key, !product.isPurchased)
+                }
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = product.isPurchased,
+                onCheckedChange = { checked -> onPurchasedChanged(product.key, checked) }
+            )
+            Text(
+                text = product.displayName,
+                modifier = Modifier.padding(start = 6.dp),
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (product.isPurchased) MenuDadoColors.MutedInk else MenuDadoColors.Ink
+            )
+        }
+    }
+}
+
+@Composable
 private fun MenuDadoBottomNavigationItem(
     destination: MenuDadoDestination,
     selected: Boolean,
@@ -1341,6 +1532,7 @@ internal fun menuDadoBottomNavigationDestinations(
     return listOf(
         MenuDadoDestination.HOME,
         MenuDadoDestination.PROFILE,
+        MenuDadoDestination.MARKET,
         MenuDadoDestination.MY_ZONE
     )
 }
@@ -1360,6 +1552,7 @@ internal fun menuDadoBottomNavigationPressOverlayEnabled(): Boolean = false
 internal fun menuDadoBottomNavigationLabelRes(destination: MenuDadoDestination): Int =
     when (destination) {
         MenuDadoDestination.HOME -> R.string.nav_home
+        MenuDadoDestination.MARKET -> R.string.nav_market
         MenuDadoDestination.PROFILE -> R.string.nav_dietary_profile
         MenuDadoDestination.ABOUT -> R.string.nav_about
         MenuDadoDestination.MY_ZONE -> R.string.nav_my_zone
@@ -1369,6 +1562,7 @@ internal fun menuDadoBottomNavigationLabelRes(destination: MenuDadoDestination):
 internal fun menuDadoBottomNavigationIconRes(destination: MenuDadoDestination): Int =
     when (destination) {
         MenuDadoDestination.HOME -> R.drawable.ic_nav_home
+        MenuDadoDestination.MARKET -> R.drawable.ic_nav_market
         MenuDadoDestination.PROFILE -> R.drawable.ic_nav_profile
         MenuDadoDestination.ABOUT -> R.drawable.ic_nav_about
         MenuDadoDestination.MY_ZONE -> R.drawable.ic_nav_my_zone
@@ -5039,6 +5233,7 @@ private fun MenuDetailDialog(
     aiUsesRemainingToday: Int,
     isAiPaused: Boolean,
     onAnalyze: () -> Unit,
+    onSetInMarketList: (Boolean) -> Unit,
     onToggleFavorite: () -> Unit,
     onOpenActions: () -> Unit,
     onChooseAnotherSavedMenu: (() -> Unit)?,
@@ -5126,9 +5321,28 @@ private fun MenuDetailDialog(
                     menu.healthAnalysis?.let { analysis ->
                         HealthAnalysisPanel(analysis = analysis)
                     }
+                    if (menu.shoppingProducts.isNotEmpty()) {
+                        ShoppingProductsPreview(products = menu.shoppingProducts.map { it.displayName })
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSetInMarketList(!menu.isShoppingListActive) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = menu.isShoppingListActive,
+                                onCheckedChange = onSetInMarketList
+                            )
+                            Text(
+                                text = stringResource(id = R.string.market_include_menu),
+                                color = MenuDadoColors.Ink,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
                 }
 
-                if (menu.healthAnalysis == null) {
+                if (menu.healthAnalysis == null || menu.shoppingProducts.isEmpty()) {
                     OutlinedButton(
                         onClick = onAnalyze,
                         enabled = !isAnalyzing && !isAiPaused,
@@ -5138,17 +5352,24 @@ private fun MenuDetailDialog(
                         shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                     ) {
                         Text(
-                            text = analyzeAiButtonText(
-                                isAnalyzing = isAnalyzing,
-                                isAiPaused = isAiPaused,
-                                usesRemaining = aiUsesRemainingToday,
-                                analyzingText = stringResource(id = R.string.ai_analyzing),
-                                restingText = stringResource(id = R.string.ai_resting),
-                                availableText = stringResource(
-                                    id = R.string.ai_analyze_with_count,
+                            text = if (menu.healthAnalysis != null && menu.shoppingProducts.isEmpty()) {
+                                stringResource(
+                                    id = R.string.market_create_with_ai,
                                     aiUsesRemainingToday
                                 )
-                            ),
+                            } else {
+                                analyzeAiButtonText(
+                                    isAnalyzing = isAnalyzing,
+                                    isAiPaused = isAiPaused,
+                                    usesRemaining = aiUsesRemainingToday,
+                                    analyzingText = stringResource(id = R.string.ai_analyzing),
+                                    restingText = stringResource(id = R.string.ai_resting),
+                                    availableText = stringResource(
+                                        id = R.string.ai_analyze_with_count,
+                                        aiUsesRemainingToday
+                                    )
+                                )
+                            },
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             softWrap = false
@@ -5198,11 +5419,32 @@ internal fun generatedMenuContainerColor(): Color = MenuDadoColors.Surface
 internal fun generatedMenuContainerCornerRadiusDp(): Int = menuDetailContainerCornerRadiusDp()
 
 @Composable
+private fun ShoppingProductsPreview(products: List<String>) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = stringResource(id = R.string.market_products_title),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MenuDadoColors.DeepGreen
+        )
+        products.forEach { product ->
+            Text(
+                text = product,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MenuDadoColors.Ink
+            )
+        }
+    }
+}
+
+@Composable
 private fun GeneratedMenuDetailDialog(
     menu: FoodMenu,
     cuisineInspiration: CuisineInspiration?,
     isGenerating: Boolean,
     aiUsesRemainingToday: Int,
+    addToMarketList: Boolean,
+    onAddToMarketListChanged: (Boolean) -> Unit,
     onSave: () -> Unit,
     onTryAnother: () -> Unit,
     onDiscard: () -> Unit
@@ -5281,6 +5523,31 @@ private fun GeneratedMenuDetailDialog(
                     }
                     menu.healthAnalysis?.let { analysis ->
                         HealthAnalysisPanel(analysis = analysis)
+                    }
+                    if (menu.shoppingProducts.isNotEmpty()) {
+                        ShoppingProductsPreview(products = menu.shoppingProducts.map { it.displayName })
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onAddToMarketListChanged(!addToMarketList) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = addToMarketList,
+                                onCheckedChange = onAddToMarketListChanged
+                            )
+                            Text(
+                                text = stringResource(id = R.string.market_add_on_save),
+                                color = MenuDadoColors.Ink,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = stringResource(id = R.string.market_products_unavailable),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MenuDadoColors.MutedInk
+                        )
                     }
                 }
 
@@ -5568,7 +5835,13 @@ internal fun generatedMenuDetailPreview(state: MenuDadoUiState): FoodMenu? {
         notes = state.notes.trim(),
         healthAnalysis = state.generatedHealthAnalysis,
         calories = state.calories,
-        cuisineInspiration = state.generatedCuisineInspiration
+        cuisineInspiration = state.generatedCuisineInspiration,
+        shoppingProducts = state.generatedShoppingProducts,
+        activeShoppingProductKeys = if (state.addGeneratedMenuToMarketList) {
+            state.generatedShoppingProducts.mapTo(linkedSetOf()) { it.key }
+        } else {
+            emptySet()
+        }
     )
 }
 
@@ -5770,6 +6043,7 @@ internal fun menuListStateOwner(
     return when (destination) {
         MenuDadoDestination.HOME,
         MenuDadoDestination.PRIVACY -> MenuListStateOwner.HOME
+        MenuDadoDestination.MARKET -> MenuListStateOwner.MARKET
         MenuDadoDestination.PROFILE -> MenuListStateOwner.PROFILE
         MenuDadoDestination.MY_ZONE -> MenuListStateOwner.MY_ZONE
         MenuDadoDestination.ABOUT -> MenuListStateOwner.ABOUT
@@ -6612,6 +6886,7 @@ private fun OnboardingDialog(
 
 private const val ANALYTICS_SCREEN_HOME = "home"
 private const val ANALYTICS_SCREEN_BOTTOM_NAV = "bottom_nav"
+private const val ANALYTICS_SCREEN_MARKET = "market"
 private const val ANALYTICS_SCREEN_DIALOG = "dialog"
 private const val ANALYTICS_SCREEN_ONBOARDING = "onboarding"
 private const val ANALYTICS_SCREEN_EDIT_MENU = "edit_menu"
@@ -6622,6 +6897,7 @@ private const val ANALYTICS_SCREEN_MY_ZONE = "my_zone"
 private const val ANALYTICS_SCREEN_AUTH = "auth"
 
 private const val ANALYTICS_CTA_NAV_HOME = "nav_home"
+private const val ANALYTICS_CTA_NAV_MARKET = "nav_market"
 private const val ANALYTICS_CTA_NAV_DIETARY_PROFILE = "nav_dietary_profile"
 private const val ANALYTICS_CTA_NAV_ABOUT = "nav_about"
 private const val ANALYTICS_CTA_NAV_MY_ZONE = "nav_my_zone"
@@ -6665,6 +6941,11 @@ private const val ANALYTICS_CTA_CLOSE_AI_QUOTA = "close_ai_quota"
 private const val ANALYTICS_CTA_UNDERSTOOD = "understood"
 private const val ANALYTICS_CTA_SKIP_ONBOARDING = "explore_without_onboarding"
 private const val ANALYTICS_CTA_START_ONBOARDING = "create_first_menu"
+private const val ANALYTICS_CTA_MARKET_MENU_ADDED = "market_menu_added"
+private const val ANALYTICS_CTA_MARKET_MENU_REMOVED = "market_menu_removed"
+private const val ANALYTICS_CTA_MARKET_PRODUCT_CHECKED = "market_product_checked"
+private const val ANALYTICS_CTA_MARKET_PRODUCT_RESTORED = "market_product_restored"
+private const val ANALYTICS_CTA_MARKET_PURCHASED_CLEARED = "market_purchased_cleared"
 private const val AUTH_METHOD_EMAIL = "email"
 private const val AUTH_METHOD_GOOGLE = "google"
 private const val AUTH_METHOD_ACCOUNT = "account"

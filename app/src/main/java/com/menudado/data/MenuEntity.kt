@@ -39,7 +39,10 @@ data class MenuEntity(
     val remoteSyncToken: String? = null,
     val cuisineInspiration: String? = null
 ) {
-    fun toDomain(): FoodMenu {
+    fun toDomain(
+        shoppingProductEntities: List<MenuShoppingProductEntity> = emptyList()
+    ): FoodMenu {
+        val shoppingProducts = shoppingProductEntities.map(MenuShoppingProductEntity::toDomain)
         return FoodMenu(
             id = id,
             name = name,
@@ -63,7 +66,11 @@ data class MenuEntity(
             createdAt = createdAt,
             cuisineInspiration = cuisineInspiration?.let { stored ->
                 runCatching { CuisineInspiration.valueOf(stored) }.getOrNull()
-            }
+            },
+            shoppingProducts = shoppingProducts,
+            activeShoppingProductKeys = shoppingProductEntities
+                .filter(MenuShoppingProductEntity::isActive)
+                .mapTo(linkedSetOf(), MenuShoppingProductEntity::productKey)
         )
     }
 }

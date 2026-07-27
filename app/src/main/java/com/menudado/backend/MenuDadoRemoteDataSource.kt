@@ -16,6 +16,7 @@ import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
+import com.menudado.domain.ShoppingProduct
 
 data class BackendAppMetadata(
     val country: String,
@@ -63,6 +64,28 @@ data class BackendAppMetadata(
     }
 }
 
+data class BackendMarketProductState(
+    val productKey: String,
+    val isPurchased: Boolean,
+    val updatedAt: Long,
+    val mutationToken: String
+)
+
+internal fun resolveMarketProductState(
+    local: BackendMarketProductState,
+    remote: BackendMarketProductState?
+): BackendMarketProductState {
+    if (remote == null) return local
+    return if (
+        local.updatedAt > remote.updatedAt ||
+        local.updatedAt == remote.updatedAt && local.mutationToken > remote.mutationToken
+    ) {
+        local
+    } else {
+        remote
+    }
+}
+
 interface MenuDadoRemoteDataSource {
     suspend fun upsertMetadata(metadata: BackendAppMetadata)
     suspend fun fetchMenus(): List<FoodMenu>
@@ -73,6 +96,10 @@ interface MenuDadoRemoteDataSource {
     suspend fun upsertDietaryProfile(audience: MenuAudience, profile: DietaryProfile)
     suspend fun upsertAiUsage(state: AiDailyUsageState)
     suspend fun upsertOnboardingCompleted(contentVersion: Int)
+    suspend fun fetchMarketProductStates(): List<BackendMarketProductState> = emptyList()
+    suspend fun upsertMarketProductState(
+        state: BackendMarketProductState
+    ): BackendMarketProductState = state
 }
 
 class FirebaseMenuDadoRemoteDataSource(
@@ -198,6 +225,65 @@ class FirebaseMenuDadoRemoteDataSource(
             .awaitBackendTask()
     }
 
+    override suspend fun fetchMarketProductStates(): List<BackendMarketProductState> {
+        return userDocument()
+            .collection("marketProducts")
+            .get()
+            .awaitBackendTask()
+            .documents
+            .mapNotNull { snapshot ->
+                BackendMarketProductState(
+                    productKey = snapshot.id,
+                    isPurchased = snapshot.getBoolean("isPurchased") ?: return@mapNotNull null,
+                    updatedAt = snapshot.getLong("updatedAt") ?: return@mapNotNull null,
+                    mutationToken = snapshot.getString("mutationToken").orEmpty()
+                )
+            }
+    }
+
+    override suspend fun upsertMarketProductState(
+        state: BackendMarketProductState
+    ): BackendMarketProductState {
+        val documentReference = userDocument()
+            .collection("marketProducts")
+            .document(state.productKey)
+        return firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(documentReference)
+            val remoteState = if (snapshot.exists()) {
+                val isPurchased = snapshot.getBoolean("isPurchased")
+                val updatedAt = snapshot.getLong("updatedAt")
+                if (isPurchased != null && updatedAt != null) {
+                    BackendMarketProductState(
+                        productKey = state.productKey,
+                        isPurchased = isPurchased,
+                        updatedAt = updatedAt,
+                        mutationToken = snapshot.getString("mutationToken").orEmpty()
+                    )
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
+            val resolvedState = resolveMarketProductState(state, remoteState)
+            if (resolvedState == state) {
+                transaction.set(
+                    documentReference,
+                    mapOf(
+                        "isPurchased" to state.isPurchased,
+                        "updatedAt" to state.updatedAt,
+                        "mutationToken" to state.mutationToken
+                    ),
+                    SetOptions.merge()
+                )
+                state
+            } else {
+                resolvedState
+            }
+        }
+            .awaitBackendTask()
+    }
+
     private suspend fun userDocument() = firestore.collection("users").document(
         requireNotNull(session.userId()) { "MenuDado backend user is unavailable" }
     )
@@ -236,7 +322,16 @@ internal object BackendFirestoreMapper {
             "favoritedAt" to menu.favoritedAt,
             "lastPickedDate" to menu.lastPickedDate,
             "createdAt" to menu.createdAt,
-            "cuisineInspiration" to menu.cuisineInspiration?.name
+            "cuisineInspiration" to menu.cuisineInspiration?.name,
+            "shoppingProducts" to menu.shoppingProducts.map { product ->
+                mapOf(
+                    "key" to product.key,
+                    "normalizedName" to product.normalizedName,
+                    "displayName" to product.displayName,
+                    "isActive" to (product.key in menu.activeShoppingProductKeys)
+                )
+            },
+            "isShoppingListActive" to menu.isShoppingListActive
         )
     }
 
@@ -262,6 +357,27 @@ internal object BackendFirestoreMapper {
                     )
                 }.getOrNull()
             }
+        val legacyActive = document["isShoppingListActive"] as? Boolean ?: false
+        val shoppingProductRecords = (document["shoppingProducts"] as? List<*>)
+            .orEmpty()
+            .mapNotNull { item ->
+                val stored = item as? Map<*, *> ?: return@mapNotNull null
+                val displayName = stored["displayName"] as? String ?: return@mapNotNull null
+                val parsed = ShoppingProduct.fromAi(displayName) ?: return@mapNotNull null
+                val storedKey = stored["key"] as? String
+                val storedNormalizedName = stored["normalizedName"] as? String
+                val product = if (storedKey.isNullOrBlank() || storedNormalizedName.isNullOrBlank()) {
+                    parsed
+                } else {
+                    parsed.copy(key = storedKey, normalizedName = storedNormalizedName)
+                }
+                product to (stored["isActive"] as? Boolean ?: legacyActive)
+            }
+            .distinctBy { (product, _) -> product.key }
+        val shoppingProducts = shoppingProductRecords.map { (product, _) -> product }
+        val activeShoppingProductKeys = shoppingProductRecords
+            .filter { (_, isActive) -> isActive }
+            .mapTo(linkedSetOf()) { (product, _) -> product.key }
 
         return FoodMenu(
             id = id,
@@ -279,7 +395,9 @@ internal object BackendFirestoreMapper {
             createdAt = (document["createdAt"] as? Number)?.toLong() ?: 0L,
             cuisineInspiration = (document["cuisineInspiration"] as? String)?.let { stored ->
                 runCatching { CuisineInspiration.valueOf(stored) }.getOrNull()
-            }
+            },
+            shoppingProducts = shoppingProducts,
+            activeShoppingProductKeys = activeShoppingProductKeys
         )
     }
 

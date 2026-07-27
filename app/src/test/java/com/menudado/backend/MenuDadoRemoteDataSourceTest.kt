@@ -11,12 +11,27 @@ import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
+import com.menudado.domain.ShoppingProduct
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class MenuDadoRemoteDataSourceTest {
+    @Test
+    fun `market conflict keeps newest mutation and resolves equal millis by token`() {
+        val olderLocal = BackendMarketProductState("tomato", false, 100L, "token-z")
+        val newerRemote = BackendMarketProductState("tomato", true, 101L, "token-a")
+        val equalTimeLowerToken = BackendMarketProductState("tomato", true, 200L, "token-a")
+        val equalTimeHigherToken = BackendMarketProductState("tomato", false, 200L, "token-b")
+
+        assertEquals(newerRemote, resolveMarketProductState(olderLocal, newerRemote))
+        assertEquals(
+            equalTimeHigherToken,
+            resolveMarketProductState(equalTimeHigherToken, equalTimeLowerToken)
+        )
+    }
+
     @Test
     fun `metadata document contains app and device fields without precise identifiers`() {
         val metadata = BackendAppMetadata.fromDeviceInfo(
@@ -94,7 +109,9 @@ class MenuDadoRemoteDataSourceTest {
             favoritedAt = 1_719_000_100_000L,
             lastPickedDate = "2026-06-22",
             createdAt = 1_719_000_000_000L,
-            cuisineInspiration = CuisineInspiration.MEXICAN
+            cuisineInspiration = CuisineInspiration.MEXICAN,
+            shoppingProducts = listOf(requireNotNull(ShoppingProduct.fromAi("Tomate"))),
+            activeShoppingProductKeys = setOf(requireNotNull(ShoppingProduct.fromAi("Tomate")).key)
         )
 
         val document = BackendFirestoreMapper.menuDocument(menu)
@@ -114,6 +131,11 @@ class MenuDadoRemoteDataSourceTest {
         assertEquals("2026-06-22", document["lastPickedDate"])
         assertEquals(1_719_000_000_000L, document["createdAt"])
         assertEquals("MEXICAN", document["cuisineInspiration"])
+        assertEquals(true, document["isShoppingListActive"])
+        assertEquals(
+            "Tomate",
+            ((document["shoppingProducts"] as List<*>).single() as Map<*, *>)["displayName"]
+        )
     }
 
     @Test
@@ -133,7 +155,15 @@ class MenuDadoRemoteDataSourceTest {
             "favoritedAt" to 1_719_000_100_000L,
             "lastPickedDate" to "2026-06-22",
             "createdAt" to 1_719_000_000_000L,
-            "cuisineInspiration" to "GREEK"
+            "cuisineInspiration" to "GREEK",
+            "shoppingProducts" to listOf(
+                mapOf(
+                    "key" to requireNotNull(ShoppingProduct.fromAi("Tomate")).key,
+                    "normalizedName" to "tomate",
+                    "displayName" to "Tomate"
+                )
+            ),
+            "isShoppingListActive" to true
         )
 
         val menu = BackendFirestoreMapper.menuFromDocument("42", document)
@@ -147,6 +177,8 @@ class MenuDadoRemoteDataSourceTest {
         assertEquals(true, menu?.isFavorite)
         assertEquals(1_719_000_100_000L, menu?.favoritedAt)
         assertEquals(CuisineInspiration.GREEK, menu?.cuisineInspiration)
+        assertEquals(listOf("Tomate"), menu?.shoppingProducts?.map { it.displayName })
+        assertEquals(true, menu?.isShoppingListActive)
         assertEquals(
             null,
             BackendFirestoreMapper.menuFromDocument("42", document + ("deletedAt" to Any()))

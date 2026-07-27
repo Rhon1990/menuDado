@@ -79,6 +79,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Las ideas generadas por IA deben ser saludables, ricas, simples y con ingredientes comunes de supermercado.
    - Si el tipo seleccionado es cena, la idea generada por IA debe ser ligera, rapida y de baja energia para la noche: maximo 10 minutos, pocos ingredientes y preparacion similar de sencilla a un desayuno; debe evitar horno, guarniciones multiples y recetas con varios pasos.
    - La generación de idea con IA debe devolver también el análisis saludable y calorías en la misma llamada. Si el usuario guarda esa idea sin modificarla, el menú debe quedar ya analizado sin hacer una segunda llamada a Firebase IA.
+   - Esa misma respuesta IA incluye `shopping_products`: nombres de productos reales de supermercado, sin cantidades, unidades, marcas ni duplicados. En el detalle generado se muestran los productos y la opción `Añadir a la lista de mercado al guardar`, activa por defecto.
    - La app no debe generar imágenes con IA para evitar costes y APIs adicionales. La foto del menú es opcional, debe venir de la cámara del móvil o de una imagen elegida desde la biblioteca, y solo se puede agregar o cambiar después de crear el menú desde `Tus menus` o `Editar menu`.
    - Si el usuario modifica manualmente nombre, descripción, notas o tipo después de generar la idea, la evaluación precalculada debe descartarse para evitar guardar un análisis desactualizado y debe mostrarse el aviso: `Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA.`
    - Si el usuario edita solo la foto de un menú guardado, el análisis IA y las calorías existentes deben conservarse porque la receta no cambió.
@@ -147,7 +148,17 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Si Gemini vuelve a responder `RESOURCE_EXHAUSTED` tras vencer la espera recomendada, la app debe aplicar retroceso exponencial local persistente para reducir reintentos fallidos: primera cuota respeta el proveedor, segunda cuota consecutiva espera al menos 2 minutos, luego 4, 8, 16 y hasta un máximo de 30 minutos. Un éxito de IA reinicia ese control.
    - La generación y el análisis IA deben tener timeout local para no dejar el loading indefinido si Firebase AI Logic tarda demasiado. Si la generación se queda cargando o no termina, revisar primero el timeout local de la llamada, el modelo configurado en `BuildConfig.GEMINI_MODEL`, la disponibilidad/cuotas en Firebase AI Logic y los errores clasificados como `timeout`, `quota_requests`, `quota_daily` o `configuration`.
 
-5. Comportamiento local primero con backend.
+5. Lista de mercado.
+   - La barra inferior incluye `Mercado`, que consolida en una única lista los productos de todos los menús activos.
+   - Solo la IA crea productos: una idea generada los recibe en la misma llamada; un menú escrito manualmente los recibe al tocar `Analizar IA`, junto con el análisis saludable. No hay entrada manual de productos.
+   - La lista muestra únicamente el nombre del producto, sin cantidades ni unidades. Los nombres se normalizan para unir mayúsculas, tildes y espacios equivalentes sin mostrar duplicados.
+   - Cada menú conserva sus productos aunque el usuario lo quite temporalmente de Mercado. Desde el detalle se puede incluir o excluir el menú sin borrarlo; un producto solo desaparece de la lista global cuando ningún otro menú activo lo aporta.
+   - Los productos marcados se mueven a una sección plegable `Comprados`, desde donde se pueden restaurar o limpiar.
+   - Los menús antiguos ya analizados pero sin productos muestran `Crear lista de mercado con IA`; esta acción consume una llamada de IA porque no se inventan productos localmente.
+   - Room versión 11 guarda las contribuciones por menú y el estado comprado. Firestore sincroniza los productos dentro del documento del menú y los estados globales en `users/{uid}/marketProducts/{productKey}`.
+   - La telemetría no debe enviar nombres de productos, claves de producto ni IDs de menús.
+
+6. Comportamiento local primero con backend.
    - Los menús siguen disponibles sin conexión.
    - Los menús, perfil alimentario, uso diario de IA y onboarding se guardan localmente primero y se sincronizan en Firestore bajo el usuario Firebase actual.
    - En una instalación sin sesión resuelta, MenuDado entra por defecto como invitado y conserva el comportamiento anterior con usuario anónimo; no muestra una pantalla de acceso antes de Inicio.
@@ -165,13 +176,13 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Si una operación remota falla, la app mantiene estado pendiente local para reintentar la sincronización de menús, perfil alimentario, uso diario de IA y onboarding en un siguiente arranque.
    - El análisis con IA requiere internet y muestra un error claro si no hay conexión.
 
-6. Onboarding de primera apertura.
+7. Onboarding de primera apertura.
    - La primera vez que el usuario entra a la app, MenuDado muestra un onboarding breve en modal sin reemplazar la pantalla principal.
    - El onboarding concentra la activación en una única propuesta: resolver qué comer en menos de un minuto generando una idea con IA o dejando que el dado elija entre los menús guardados.
    - La acción principal del onboarding lleva a crear el primer menú; la secundaria permite explorar sin registro y sin bloquear el uso básico.
    - Al empezar u omitir, el onboarding se marca como completado en almacenamiento local y no vuelve a mostrarse en siguientes aperturas hasta que exista una nueva versión de contenido relevante. La versión vigente del contenido de onboarding es 5.
 
-7. Perfil alimentario.
+8. Perfil alimentario.
    - La app ofrece acceso a `Perfil` desde la barra inferior flotante.
    - El perfil se guarda localmente en el móvil y se sincroniza en Firestore para el usuario anónimo.
    - El perfil alimentario se configura por público objetivo: persona adulta, peques y bebé.
@@ -184,7 +195,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Permite escribir alimentos a evitar o condiciones de salud relevantes, por ejemplo `diabético`, `hipertenso` o `sin picante`.
    - La generación de ideas con IA debe respetar el perfil del público objetivo seleccionado, incluyendo rango de edad, restricciones y condiciones de salud escritas por el usuario, sin cambiar la creación manual de menús.
 
-8. Acerca de la app.
+9. Acerca de la app.
    - `Acerca de la app` se abre desde `Mi zona`.
    - La descripción, el creador y el contacto visibles vienen de Firebase Remote Config mediante las variables string `about_description`, `about_created_by` y `about_contact`; si no existen o están vacías, la app usa textos locales de respaldo.
    - Muestra siempre un aviso de salud independiente de Remote Config indicando que MenuDado ofrece ideas informativas, no es un dispositivo médico y no diagnostica, trata, cura ni previene condiciones médicas; también recuerda consultar con un profesional sanitario para asesoramiento, diagnóstico o tratamiento.
@@ -202,8 +213,8 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - La app hidrata menús remotos desde Firestore al arrancar cuando no hay escrituras locales pendientes, usando el `uid` actual. Al registrarse o iniciar sesión con una cuenta, MenuDado marca una vez los datos locales relevantes como pendientes para fusionarlos en `users/{uid}` de esa cuenta, incluso si antes estaban sincronizados como invitado. En modo invitado, si se borra la app y Firebase crea un `uid` anónimo nuevo, los datos guardados bajo el `uid` anterior no se muestran por diseño de seguridad. Para recuperar datos entre reinstalaciones el usuario debe crear cuenta o iniciar sesión con correo.
 - Arquitectura: MVVM con repositorios.
 - Estado y asincronía: Kotlin coroutines y Flow.
-- Integración IA: Firebase AI Logic con Gemini 2.5 Flash-Lite para análisis saludable y lote de pendientes.
-- Generación de ideas IA: Firebase AI Logic con Gemini 2.5 Flash-Lite para texto, análisis saludable y calorías. No se usan modelos de imagen IA; las fotos de menú son opcionales, tomadas con cámara o seleccionadas por el usuario desde biblioteca, y gestionadas después de crear el menú guardado.
+- Integración IA: Firebase AI Logic con Gemini 2.5 Flash-Lite para análisis saludable, productos de mercado y lote de pendientes.
+- Generación de ideas IA: Firebase AI Logic con Gemini 2.5 Flash-Lite para texto, análisis saludable, calorías y productos de mercado en una sola respuesta. No se usan modelos de imagen IA; las fotos de menú son opcionales, tomadas con cámara o seleccionadas por el usuario desde biblioteca, y gestionadas después de crear el menú guardado.
 - Configuración IA: no tocar la configuración de Firebase AI Logic, modelo Gemini, APIs habilitadas, App Check, AI Monitoring, plantillas de instrucciones ni `google-services.json` si no es estrictamente obligatorio para resolver una incidencia confirmada. La configuración actual de IA funciona bastante bien; ante regresiones, priorizar primero ajustes locales de código, control de estado, parseo, timeouts, prompts y manejo de errores antes de cambiar configuración remota o de consola.
 - Diagnóstico de regresiones IA: en la corrección de generación IA de 1.0.2 se dejó la pausa local en pocos segundos y se añadió timeout local para evitar cargas indefinidas. Si vuelve a fallar la generación, comparar primero contra ese contrato antes de cambiar prompts o contadores diarios: una idea generada debe consumir una sola llamada real, traer análisis y calorías, permitir guardar sin analizar otra vez y permitir nuevas ideas tras la pausa corta salvo cuota real del proveedor.
 - Todos los build variants usan IA real con Firebase AI Logic; `debug` usa el proyecto Firebase separado `MenuDado Debug` (`menudado-debug`) con `applicationId` `com.menudado.debug`, mientras `release` y `releaseDebuggable` usan el proyecto productivo `MenuDado Production` (`menudado-6a2da`) con `applicationId` `com.menudado`.
@@ -306,20 +317,19 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Validar que el manifest final no declare permisos de ubicación, contactos ni identificador publicitario.
 - Validar que crear, editar y eliminar menús sincroniza Firestore cuando hay conexión y mantiene pendientes locales cuando falla la red.
 
-## Auditoría QA prepublicación 2026-07-03
+## Auditoría QA prepublicación (actualizada 2026-07-26)
 
 - Veredicto actual: visto bueno técnico automatizado para preparar candidato de publicación. El visto bueno final de tienda queda condicionado a prueba manual en dispositivo real con Firebase producción y a generar el artefacto firmado final de Play.
-- Versión objetivo actual: `1.2.0` (`versionCode` 12).
+- Versión objetivo actual: `1.2.1` (`versionCode` 13), orientada a Android 16 (`compileSdk=36`, `targetSdk=36`).
 - Validación automatizada ejecutada:
-  - `./gradlew :app:testDebugUnitTest`: correcto tras corregir contratos de prompt IA compacto, timeout local y bloqueo/contador inmediato para evitar dobles llamadas de IA.
-  - `./gradlew :app:compileDebugKotlin :app:compileReleaseKotlin :app:compileReleaseDebuggableKotlin`: correcto.
-  - `./gradlew :app:assembleRelease`: correcto; genera APK release y pasa `lintVitalRelease`.
+  - `./gradlew :app:clean :app:testDebugUnitTest :app:lintRelease :app:bundleRelease`: correcto; ejecuta 305 tests, lint release y genera el AAB release.
+  - Inspección del manifest dentro del AAB: `compileSdk=36`, `targetSdk=36`, `minSdk=23`, `versionName=1.2.1` y `versionCode=13`.
   - `git diff --check`: sin errores de whitespace.
   - Comparación de strings base contra `values-en` y `values-fr`: sin claves translatables faltantes.
   - Búsqueda de secretos accidentales en diff: sin coincidencias sensibles.
   - Revisión de permisos manifiesto: no se declaran permisos de ubicación/contactos y `AD_ID` se mantiene removido.
 - Riesgos detectados antes de tienda:
-  - Gradle mantiene warnings de compatibilidad: Android Gradle Plugin 8.5.1 no declara soporte oficial para `compileSdk=35` y KAPT avisa fallback de lenguaje; no bloquean el build, pero deben monitorearse.
+  - El toolchain usa Android Gradle Plugin 8.10.1 y Gradle 8.11.1, con soporte oficial para `compileSdk=36`; KAPT puede seguir avisando de fallback de lenguaje y debe monitorearse.
   - La firma `release` documentada es debug para instalación local; para tienda se requiere generar artefacto firmado con la configuración final de Play.
   - La QA automatizada cubre primera instalación como invitado, onboarding, guardado local, límites de invitado, sesión persistente por email/Google a nivel de contrato, sincronización remota, hidratación remota y mezcla de menús locales al iniciar sesión.
   - Falta evidencia reciente de QA táctil completa en un dispositivo real con Firebase producción: registro/inicio con Google y correo, persistencia tras reinstalar, sincronización Firestore, Remote Config, anuncios, App Check y reglas Firestore. En la última auditoría ADB no detectó dispositivos conectados.

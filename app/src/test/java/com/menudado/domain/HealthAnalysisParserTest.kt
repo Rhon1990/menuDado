@@ -90,4 +90,37 @@ class HealthAnalysisParserTest {
         assertEquals("No se pudo interpretar la respuesta de la IA.", analysis.reason)
         assertEquals("Revisa el menu manualmente o vuelve a intentar el analisis.", analysis.suggestion)
     }
+
+    @Test
+    fun `parsea analisis y productos en un solo resultado`() {
+        val details = HealthAnalysisParser.parseDetails(
+            """
+            {
+              "status": "saludable",
+              "reason": "Incluye vegetales.",
+              "suggestion": "Mantén una porción moderada.",
+              "calories": 420,
+              "shopping_products": ["Calabacín", "Tomate"]
+            }
+            """.trimIndent()
+        )
+
+        assertEquals(HealthStatus.HEALTHY, details.healthAnalysis.status)
+        assertEquals(listOf("Calabacín", "Tomate"), details.shoppingProducts.map { it.displayName })
+    }
+
+    @Test
+    fun `parsea productos por lote asociados por id`() {
+        val details = HealthAnalysisParser.parseBatchDetails(
+            """
+            {"results":[
+              {"id":1,"status":"saludable","reason":"ok","suggestion":"ok","shopping_products":["Tomate"]},
+              {"id":2,"status":"intermedio","reason":"ok","suggestion":"ok","shopping_products":["Pollo"]}
+            ]}
+            """.trimIndent()
+        )
+
+        assertEquals("Tomate", details[1L]?.shoppingProducts?.single()?.displayName)
+        assertEquals("Pollo", details[2L]?.shoppingProducts?.single()?.displayName)
+    }
 }

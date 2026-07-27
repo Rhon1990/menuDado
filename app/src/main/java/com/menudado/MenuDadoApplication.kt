@@ -27,6 +27,7 @@ import com.menudado.data.BackendPendingSyncStore
 import com.menudado.data.BackendStoredDataSyncer
 import com.menudado.data.MenuDadoDatabase
 import com.menudado.data.MIGRATION_9_TO_10
+import com.menudado.data.MIGRATION_10_TO_11
 import com.menudado.data.MenuRepository
 import com.menudado.data.DietaryProfileStore
 import com.menudado.data.GuestUsageStore
@@ -137,7 +138,8 @@ class MenuDadoApplication : Application() {
                 migration6To7,
                 migration7To8,
                 migration8To9,
-                MIGRATION_9_TO_10
+                MIGRATION_9_TO_10,
+                MIGRATION_10_TO_11
             )
             .build()
     }
@@ -157,6 +159,7 @@ class MenuDadoApplication : Application() {
     val repository: MenuRepository by lazy {
         MenuRepository(
             menuDao = database.menuDao(),
+            marketDao = database.marketDao(),
             healthAnalyzer = FirebaseHealthAnalyzer(),
             remoteDataSource = remoteDataSource
         )

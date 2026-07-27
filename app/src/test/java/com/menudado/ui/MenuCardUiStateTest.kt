@@ -264,6 +264,7 @@ class MenuCardUiStateTest {
             listOf(
                 MenuDadoDestination.HOME,
                 MenuDadoDestination.PROFILE,
+                MenuDadoDestination.MARKET,
                 MenuDadoDestination.MY_ZONE
             ),
             menuDadoBottomNavigationDestinations(areAdsPrivacyOptionsRequired = false)
@@ -272,11 +273,13 @@ class MenuCardUiStateTest {
             listOf(
                 MenuDadoDestination.HOME,
                 MenuDadoDestination.PROFILE,
+                MenuDadoDestination.MARKET,
                 MenuDadoDestination.MY_ZONE
             ),
             menuDadoBottomNavigationDestinations(areAdsPrivacyOptionsRequired = true)
         )
         assertEquals(R.string.nav_home, menuDadoBottomNavigationLabelRes(MenuDadoDestination.HOME))
+        assertEquals(R.string.nav_market, menuDadoBottomNavigationLabelRes(MenuDadoDestination.MARKET))
         assertEquals(R.string.nav_dietary_profile, menuDadoBottomNavigationLabelRes(MenuDadoDestination.PROFILE))
         assertEquals(R.string.nav_my_zone, menuDadoBottomNavigationLabelRes(MenuDadoDestination.MY_ZONE))
     }
@@ -1178,9 +1181,9 @@ class MenuCardUiStateTest {
         assertEquals("MenuDado ayuda a decidir que comer.", info.description)
         assertEquals("Rhonal A. Delgado Padilla", info.createdBy)
         assertEquals("rhonal.delgado@gmail.com", info.contact)
-        assertEquals("1.2.0", BuildConfig.VERSION_NAME)
-        assertEquals(12, BuildConfig.VERSION_CODE)
-        assertEquals("1.2.0 (12)", aboutVersionLabel(versionName = "1.2.0", versionCode = 12))
+        assertEquals("1.2.1", BuildConfig.VERSION_NAME)
+        assertEquals(13, BuildConfig.VERSION_CODE)
+        assertEquals("1.2.1 (13)", aboutVersionLabel(versionName = "1.2.1", versionCode = 13))
     }
 
     @Test

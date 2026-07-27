@@ -230,4 +230,13 @@ class MenuGenerationPromptTest {
         assertTrue(prompt.contains("\"health_reason\""))
         assertTrue(prompt.contains("\"health_suggestion\""))
     }
+
+    @Test
+    fun `prompt asks for market products without quantities`() {
+        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+
+        assertTrue(prompt.contains("\"shopping_products\""))
+        assertTrue(prompt.contains("sin cantidades"))
+        assertTrue(prompt.contains("productos reales de supermercado"))
+    }
 }

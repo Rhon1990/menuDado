@@ -9,8 +9,8 @@ import com.menudado.domain.DietaryProfile
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.GeneratedMenu
 import com.menudado.domain.GeneratedMenuParser
-import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthAnalysisParser
+import com.menudado.domain.MenuAiDetails
 import com.menudado.domain.AppLanguage
 import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.MenuAudience
@@ -19,25 +19,25 @@ import com.menudado.domain.isAiQuotaExceeded
 import com.menudado.domain.localizedLabel
 
 class FirebaseHealthAnalyzer : HealthAnalyzer {
-    override suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<HealthAnalysis> {
+    override suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<MenuAiDetails> {
         return runCatching {
             val model = Firebase.ai(backend = GenerativeBackend.googleAI())
                 .generativeModel(BuildConfig.GEMINI_MODEL)
 
             val response = model.generateContent(menu.toPrompt(language))
-            HealthAnalysisParser.parse(response.text.orEmpty())
+            HealthAnalysisParser.parseDetails(response.text.orEmpty())
         }.onFailure { error ->
             logAiFailure("Health analysis failed", error)
         }
     }
 
-    override suspend fun analyzeBatch(menus: List<FoodMenu>, language: AppLanguage): Result<Map<Long, HealthAnalysis>> {
+    override suspend fun analyzeBatch(menus: List<FoodMenu>, language: AppLanguage): Result<Map<Long, MenuAiDetails>> {
         return runCatching {
             val model = Firebase.ai(backend = GenerativeBackend.googleAI())
                 .generativeModel(BuildConfig.GEMINI_MODEL)
 
             val response = model.generateContent(menus.toBatchPrompt(language))
-            HealthAnalysisParser.parseBatch(response.text.orEmpty())
+            HealthAnalysisParser.parseBatchDetails(response.text.orEmpty())
         }.onFailure { error ->
             logAiFailure("Batch health analysis failed", error)
         }
@@ -88,14 +88,17 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
         return """
             Evalua si este menu es saludable para: ${audience.promptName()}.
             Write reason and suggestion in ${language.promptLanguageName}.
+            Write shopping product names in ${language.promptLanguageName}.
             Responde solo JSON valido, sin markdown, con estas claves:
             {
               "status": "saludable|intermedio|no_saludable",
               "reason": "resumen breve",
               "suggestion": "una sugerencia practica",
-              "calories": 520
+              "calories": 520,
+              "shopping_products": ["producto", "otro producto"]
             }
             Las calorias deben ser una estimacion numerica realista para una racion adecuada a ese publico.
+            shopping_products debe incluir entre 1 y 20 productos reales de supermercado, en singular, sin cantidades, unidades, marcas ni duplicados. No incluyas agua ni ingredientes opcionales.
 
             Tipo de comida: ${mealType.localizedLabel(language)}
             Publico: ${audience.localizedLabel(language)}
@@ -122,6 +125,7 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
         return """
             Evalua si estos menus son saludables para el publico indicado en cada elemento.
             Write reason and suggestion in ${language.promptLanguageName}.
+            Write shopping product names in ${language.promptLanguageName}.
             Responde solo JSON valido, sin markdown, con esta estructura:
             {
               "results": [
@@ -130,12 +134,14 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
                   "status": "saludable|intermedio|no_saludable",
                   "reason": "resumen breve",
                   "suggestion": "una sugerencia practica",
-                  "calories": 520
+                  "calories": 520,
+                  "shopping_products": ["producto", "otro producto"]
                 }
               ]
             }
             Devuelve un resultado por cada menu recibido y conserva exactamente el mismo id.
             Las calorias deben ser una estimacion numerica realista para una racion adecuada al publico indicado.
+            shopping_products debe incluir entre 1 y 20 productos reales de supermercado, en singular, sin cantidades, unidades, marcas ni duplicados. No incluyas agua ni ingredientes opcionales.
 
             Menus:
             [

@@ -9,6 +9,7 @@ import com.menudado.domain.GeneratedMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
+import com.menudado.domain.MenuAiDetails
 import com.menudado.domain.CuisineInspiration
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -388,14 +389,14 @@ private class RecordingMenuRemoteDataSource : MenuDadoRemoteDataSource {
 }
 
 private object NoOpHealthAnalyzer : HealthAnalyzer {
-    override suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<HealthAnalysis> {
+    override suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<MenuAiDetails> {
         error("Not needed")
     }
 
     override suspend fun analyzeBatch(
         menus: List<FoodMenu>,
         language: AppLanguage
-    ): Result<Map<Long, HealthAnalysis>> {
+    ): Result<Map<Long, MenuAiDetails>> {
         error("Not needed")
     }
 

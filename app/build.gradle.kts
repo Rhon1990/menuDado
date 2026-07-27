@@ -30,14 +30,14 @@ val productionGoogleWebClientId = providers.optionalConfig(
 
 android {
     namespace = "com.menudado"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.menudado"
         minSdk = 23
-        targetSdk = 35
-        versionCode = 12
-        versionName = "1.2.0"
+        targetSdk = 36
+        versionCode = 13
+        versionName = "1.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "GEMINI_MODEL", "\"gemini-2.5-flash-lite\"")

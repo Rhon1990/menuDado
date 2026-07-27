@@ -64,6 +64,9 @@ internal object MenuGenerationPrompt {
             - calories debe ser una estimacion realista para una racion adecuada al publico.
             - La evaluacion saludable debe ser breve, practica y sin tono de juicio.
             - health_reason y health_suggestion deben ser breves, utiles y sin tono alarmista o de juicio. No des consejo medico.
+            - shopping_products debe incluir entre 1 y 20 productos reales de supermercado necesarios para preparar el menu.
+            - Escribe cada producto en singular, sin cantidades, unidades, marcas ni instrucciones y elimina duplicados.
+            - No incluyas agua ni ingredientes opcionales que no formen parte real de la receta.
 
             Variedad real:
             - Debe ser distinta de los platos previos; no basta con cambiar el nombre.
@@ -77,7 +80,8 @@ internal object MenuGenerationPrompt {
               "calories": 520,
               "health_status": "saludable",
               "health_reason": "motivo breve",
-              "health_suggestion": "sugerencia práctica"
+              "health_suggestion": "sugerencia práctica",
+              "shopping_products": ["producto", "otro producto"]
             }
             
             health_status debe ser exactamente uno de:
@@ -85,6 +89,7 @@ internal object MenuGenerationPrompt {
             
             Las calorías deben ser una estimación numérica realista para una ración adecuada al público.
             Write name, description, notes, reason and suggestion in ${language.promptLanguageName}.
+            Write shopping product names in ${language.promptLanguageName}.
             """.trimIndent()
     }
 

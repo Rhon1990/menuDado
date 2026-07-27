@@ -4,7 +4,6 @@
 
     <style name="Theme.MenuDado" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
         <item name="android:navigationBarColor">@color/menu_dado_header_green</item>
         <item name="android:statusBarColor">@color/menu_dado_header_green</item>
     </style>
