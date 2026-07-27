@@ -24,7 +24,7 @@ No se modificarán navegación, lógica, estados, cuotas, errores, prompts, anal
 | Clave | Antes | Después |
 |---|---|---|
 | `home_today_title` | `Qué comer hoy` | `¿No sabes qué preparar hoy?` |
-| `home_today_subtitle` | `Genera una idea saludable con IA o escribe tu propio menú.` | `No pasa nada. Elige para quién cocinas y la IA te ayudará con una idea saludable.` |
+| `home_today_subtitle` | `Genera una idea saludable con IA o escribe tu propio menú.` | `No pasa nada. Dinos para quién es el menú y la IA te ayudará con una idea saludable.` |
 | `home_ai_dice_title` | `Generar idea saludable` | `Encontremos algo rico` |
 | `form_base_ingredients` | `Ingredientes base opcionales` | `¿Qué tienes en casa? (Opcional)` |
 | `form_base_ingredients_placeholder` | `Ej. berenjena, tomate` | `Ej. tomate, arroz o pollo` |
@@ -35,7 +35,7 @@ No se modificarán navegación, lógica, estados, cuotas, errores, prompts, anal
 | Clave | Después |
 |---|---|
 | `home_today_title` | `Not sure what to make today?` |
-| `home_today_subtitle` | `No worries. Choose who you're cooking for and AI will help with a healthy idea.` |
+| `home_today_subtitle` | `No worries. Tell us who the menu is for and AI will help with a healthy idea.` |
 | `home_ai_dice_title` | `Let's find something tasty` |
 | `form_base_ingredients` | `What do you have at home? (Optional)` |
 | `form_base_ingredients_placeholder` | `E.g. tomato, rice or chicken` |
@@ -46,13 +46,15 @@ No se modificarán navegación, lógica, estados, cuotas, errores, prompts, anal
 | Clave | Después |
 |---|---|
 | `home_today_title` | `Vous ne savez pas quoi préparer aujourd’hui ?` |
-| `home_today_subtitle` | `Pas de souci. Choisissez pour qui vous cuisinez et l’IA vous proposera une idée équilibrée.` |
+| `home_today_subtitle` | `Pas de souci. Dites-nous à qui s’adresse le menu et l’IA vous proposera une idée équilibrée.` |
 | `home_ai_dice_title` | `Trouvons quelque chose de bon` |
 | `form_base_ingredients` | `Qu’avez-vous à la maison ? (Facultatif)` |
 | `form_base_ingredients_placeholder` | `Ex. tomate, riz ou poulet` |
 | `dice_roll_ai_with_count` | `Aidez-moi à choisir (%1$d)` |
 
 Las versiones inglesa y francesa son adaptaciones naturales, no traducciones literales.
+La formulación no presupone que el usuario cocine para otra persona: el menú puede ser
+para sí mismo o para cualquier otro público configurado.
 
 ## Comportamiento
 
