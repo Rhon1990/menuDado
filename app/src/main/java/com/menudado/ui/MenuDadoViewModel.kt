@@ -30,7 +30,9 @@ import com.menudado.data.NoOpAiQuotaRetryStore
 import com.menudado.data.NoOpAiRequestThrottleStore
 import com.menudado.data.NoOpGuestUsageStore
 import com.menudado.data.NoOpOnboardingStore
+import com.menudado.data.NoOpRewardedAiCreditStore
 import com.menudado.data.OnboardingStore
+import com.menudado.data.RewardedAiCreditStore
 import com.menudado.domain.DiceSelector
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
@@ -156,6 +158,7 @@ class MenuDadoViewModel(
     private val aiRequestThrottleStore: AiRequestThrottleStore = NoOpAiRequestThrottleStore,
     private val aiDailyUsageStore: AiDailyUsageStore = NoOpAiDailyUsageStore,
     private val guestUsageStore: GuestUsageStore = NoOpGuestUsageStore,
+    private val rewardedAiCreditStore: RewardedAiCreditStore = NoOpRewardedAiCreditStore,
     private val dietaryProfileStore: DietaryProfileStore = NoOpDietaryProfileStore,
     private val onboardingStore: OnboardingStore = NoOpOnboardingStore,
     private val cuisineRotation: CuisineRotation = CuisineRotation(InMemoryCuisineRotationStateStore()),
@@ -178,6 +181,7 @@ class MenuDadoViewModel(
         isGuest = false,
         areLimitsEnabled = true
     )
+    private var areGuestAiLimitsEnabled = true
 
     init {
         refreshOnboarding()
@@ -233,11 +237,16 @@ class MenuDadoViewModel(
         )
     }
 
-    fun updateGuestAccess(isGuest: Boolean, areLimitsEnabled: Boolean) {
+    fun updateGuestAccess(
+        isGuest: Boolean,
+        areLimitsEnabled: Boolean,
+        areAiLimitsEnabled: Boolean = true
+    ) {
         guestAccessPolicy = GuestAccessPolicy(
             isGuest = isGuest,
             areLimitsEnabled = areLimitsEnabled
         )
+        areGuestAiLimitsEnabled = areAiLimitsEnabled
         refreshAiUsageCounters()
     }
 

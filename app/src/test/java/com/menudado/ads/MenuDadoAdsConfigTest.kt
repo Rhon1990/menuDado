@@ -72,6 +72,17 @@ class MenuDadoAdsConfigTest {
     }
 
     @Test
+    fun `rewarded AI remote config is disabled by default`() {
+        assertFalse(RewardedAiRemoteConfig.DEFAULT_REWARDED_AI_ENABLED)
+    }
+
+    @Test
+    fun `rewarded AI remote config fetches immediately in debug and hourly in release`() {
+        assertEquals(0L, RewardedAiRemoteConfig.fetchIntervalSeconds(isDebugBuild = true))
+        assertEquals(3_600L, RewardedAiRemoteConfig.fetchIntervalSeconds(isDebugBuild = false))
+    }
+
+    @Test
     fun `privacy options fallback is shown only when UMP returns a form error`() {
         assertTrue(MenuDadoAdsController.shouldNotifyPrivacyOptionsUnavailable(hasFormError = true))
         assertFalse(MenuDadoAdsController.shouldNotifyPrivacyOptionsUnavailable(hasFormError = false))

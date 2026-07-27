@@ -180,7 +180,9 @@ fun MenuDadoScreen(
     onAdsPrivacyOptionsMessageDismiss: () -> Unit = {},
     onAdsPrivacyOptionsClick: () -> Unit = {},
     authSession: MenuDadoAuthSession? = null,
+    isRewardedAiEnabled: Boolean = false,
     areGuestLimitsEnabled: Boolean = true,
+    areGuestAiLimitsEnabled: Boolean = true,
     isAuthLoading: Boolean = false,
     authErrorMessage: String? = null,
     onAuthSignIn: (String, String) -> Unit = { _, _ -> },
@@ -572,10 +574,16 @@ fun MenuDadoScreen(
         }
     }
 
-    LaunchedEffect(authSession?.userId, authSession?.isAnonymous, areGuestLimitsEnabled) {
+    LaunchedEffect(
+        authSession?.userId,
+        authSession?.isAnonymous,
+        areGuestLimitsEnabled,
+        areGuestAiLimitsEnabled
+    ) {
         viewModel.updateGuestAccess(
             isGuest = authSession?.isAnonymous != false,
-            areLimitsEnabled = areGuestLimitsEnabled
+            areLimitsEnabled = areGuestLimitsEnabled,
+            areAiLimitsEnabled = areGuestAiLimitsEnabled
         )
     }
 
