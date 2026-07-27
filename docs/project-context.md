@@ -11,6 +11,13 @@ MenuDado es una app Android nativa para planificar menús de comida y elegir qu�
 - Tono: cercano, práctico, simple y de uso diario.
 - Nomenclatura obligatoria: cualquier referencia nueva debe usar `MenuDado` para producto/proyecto y `menuDado` solo cuando el contexto requiera el nombre de carpeta local. No introducir nombres anteriores o alternativos en código, documentación, recursos, rutas de configuración ni textos visibles.
 
+## Voz de Producto
+
+- Los textos visibles usan una voz cercana, breve y cotidiana, sin ocultar información necesaria.
+- La jerarquía de comunicación parte de la necesidad de la persona, presenta después la acción y termina explicando el valor que aporta la IA.
+- La IA se mantiene visible como creadora de ideas saludables, analista de menús y personalizadora según las elecciones y el perfil alimentario.
+- Los errores explican qué ocurrió con lenguaje sencillo y ofrecen un siguiente paso útil siempre que exista.
+
 ## Identidad Visual
 
 ### Concepto del Logo
@@ -54,8 +61,8 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - La generación y el análisis con IA deben pedir nombre, descripción, notas, razón y sugerencia en el mismo idioma visible de la app para evitar mezclar idiomas en menús creados por IA.
 
 1. Crear menús y decidir qué comer hoy.
-   - El bloque principal de Inicio se llama `Qué comer hoy` y prioriza `Generar con IA`; `Elegir un menú al azar` queda como segunda acción protagonista con fondo verde de marca y textos blancos, aclara que usa los menús guardados, y `Escribir mi menú` revela el formulario manual como acción terciaria.
-   - `Generar con IA` es el estado inicial porque es la acción con mayor adopción observada y reduce decisiones antes de recibir una idea saludable.
+   - El bloque principal de Inicio conecta primero con la necesidad mediante `¿No sabes qué cocinar?` y presenta `Lanza el dado` como acción principal; explica después que la IA crea una idea saludable según las elecciones y el perfil alimentario.
+   - El modo de generación con IA es el estado inicial porque reduce decisiones antes de recibir una idea saludable. `Elegir un menú al azar` queda como segunda acción protagonista con fondo verde de marca y textos blancos, aclara que usa los menús guardados, y `Escribir mi menú` revela el formulario manual como acción terciaria.
    - El tipo de comida es obligatorio y viene sugerido automaticamente segun la hora local del movil: desayuno por la mañana, almuerzo al mediodia/tarde y cena por la noche; el usuario puede cambiarlo antes de guardar o generar.
    - El público objetivo también es obligatorio y no viene seleccionado por defecto; el usuario debe elegir persona adulta, peques o bebé entre los públicos activos del perfil alimentario.
    - Si solo hay un público activo, el selector de público se muestra ya seleccionado con ese público. Si hay dos o más públicos activos, el selector queda vacío y obliga al usuario a elegir para quién es el menú. La hidratación remota de perfiles debe refrescar este estado en el `ViewModel` para no conservar una selección nula o una lista de públicos desactualizada tras sincronizar.

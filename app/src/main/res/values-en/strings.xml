@@ -24,6 +24,8 @@
     </plurals>
     <string name="share_menu_chooser">Share menu</string>
     <string name="menu_actions_open">Open menu options</string>
+    <string name="menu_expand_description">View details for %1$s</string>
+    <string name="menu_collapse_description">Hide details for %1$s</string>
     <string name="menu_action_photo">Menu photo</string>
     <string name="delete_menu_confirmation_title">Delete menu</string>
     <string name="delete_menu_confirmation_message">Delete \"%1$s\"? You will not be able to recover it.</string>

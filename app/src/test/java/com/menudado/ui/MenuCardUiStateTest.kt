@@ -23,6 +23,12 @@ import org.junit.Test
 
 class MenuCardUiStateTest {
     @Test
+    fun `expandir y contraer menu usan descripciones localizadas`() {
+        assertEquals(R.string.menu_expand_description, menuExpandDescriptionRes(false))
+        assertEquals(R.string.menu_collapse_description, menuExpandDescriptionRes(true))
+    }
+
+    @Test
     fun `all cuisine inspirations have unique visible labels`() {
         val labels = CuisineInspiration.entries.map(::cuisineInspirationLabelRes)
 

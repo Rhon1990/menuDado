@@ -5662,6 +5662,10 @@ private fun MenuCard(
     onDelete: () -> Unit
 ) {
     val headerHealthStatus = menuHeaderHealthStatus(menu, isExpanded)
+    val expandDescription = stringResource(
+        id = menuExpandDescriptionRes(isExpanded),
+        menu.name
+    )
 
     Card(
         modifier = Modifier
@@ -5669,11 +5673,7 @@ private fun MenuCard(
             .padding(horizontal = 16.dp)
             .clickable(onClick = onToggleExpanded)
             .semantics {
-                contentDescription = if (isExpanded) {
-                    "Contraer menu ${menu.name}"
-                } else {
-                    "Expandir menu ${menu.name}"
-                }
+                contentDescription = expandDescription
             },
         colors = CardDefaults.cardColors(containerColor = MenuDadoColors.Surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -6406,6 +6406,15 @@ internal fun menuVisibleCalories(menu: FoodMenu): Int? {
 
 internal fun menuExpandToggleIconRes(isExpanded: Boolean): Int {
     return if (isExpanded) R.drawable.ic_expand_less else R.drawable.ic_expand_more
+}
+
+@StringRes
+internal fun menuExpandDescriptionRes(isExpanded: Boolean): Int {
+    return if (isExpanded) {
+        R.string.menu_collapse_description
+    } else {
+        R.string.menu_expand_description
+    }
 }
 
 private const val MenuCarouselCollapsedLimit = 10
