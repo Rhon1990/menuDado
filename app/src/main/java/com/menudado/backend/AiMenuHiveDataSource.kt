@@ -75,6 +75,7 @@ internal object AiMenuHiveFirestoreMapper {
     fun toDocument(menu: SharedAiMenu): Map<String, Any?> {
         val health = menu.generatedMenu.healthAnalysis
         return mapOf(
+            "schemaVersion" to 1,
             "semanticHash" to menu.semanticHash,
             "semanticKey" to menu.semanticKey,
             "language" to menu.language.name,
@@ -85,7 +86,13 @@ internal object AiMenuHiveFirestoreMapper {
             "healthStatus" to health?.status?.name,
             "healthReason" to health?.reason,
             "healthSuggestion" to health?.suggestion,
-            "shoppingProducts" to menu.generatedMenu.shoppingProducts.map(ShoppingProduct::displayName),
+            "shoppingProducts" to menu.generatedMenu.shoppingProducts.map { product ->
+                mapOf(
+                    "key" to product.key,
+                    "normalizedName" to product.normalizedName,
+                    "displayName" to product.displayName
+                )
+            },
             "cuisineInspiration" to menu.cuisineInspiration?.name,
             "eligibilityKeys" to menu.eligibilityKeys.sorted()
         )
@@ -95,6 +102,7 @@ internal object AiMenuHiveFirestoreMapper {
         documentId: String,
         document: Map<String, Any?>
     ): SharedAiMenu? {
+        if ((document["schemaVersion"] as? Number)?.toInt() != 1) return null
         val semanticHash = document["semanticHash"] as? String
         if (semanticHash != documentId || !semanticHash.matches(SEMANTIC_HASH_REGEX)) return null
         val semanticKey = (document["semanticKey"] as? String).nonBlankOrNull() ?: return null
@@ -112,7 +120,7 @@ internal object AiMenuHiveFirestoreMapper {
         val rawProducts = document["shoppingProducts"] as? List<*> ?: emptyList<Any?>()
         if (rawProducts.size > MAX_PRODUCTS) return null
         val shoppingProducts = rawProducts
-            .mapNotNull { raw -> (raw as? String)?.let(ShoppingProduct::fromAi) }
+            .mapNotNull(::shoppingProduct)
             .distinctBy(ShoppingProduct::key)
         val healthAnalysis = healthAnalysis(document, calories) ?: return null
         val cuisine = (document["cuisineInspiration"] as? String)
@@ -141,6 +149,15 @@ internal object AiMenuHiveFirestoreMapper {
         val reason = (document["healthReason"] as? String).nonBlankOrNull() ?: return null
         val suggestion = (document["healthSuggestion"] as? String).nonBlankOrNull() ?: return null
         return HealthAnalysis(status, reason, suggestion, calories)
+    }
+
+    private fun shoppingProduct(raw: Any?): ShoppingProduct? {
+        val product = raw as? Map<*, *> ?: return null
+        val displayName = product["displayName"] as? String ?: return null
+        val parsed = ShoppingProduct.fromAi(displayName) ?: return null
+        return parsed.takeIf {
+            product["key"] == parsed.key && product["normalizedName"] == parsed.normalizedName
+        }
     }
 
     private inline fun <reified T : Enum<T>> enumValueOrNull(value: String?): T? =

@@ -23,9 +23,12 @@ class AiMenuHiveDataSourceTest {
 
         val document = AiMenuHiveFirestoreMapper.toDocument(menu)
 
+        assertEquals(1, document["schemaVersion"])
         assertEquals(menu.semanticHash, document["semanticHash"])
         assertEquals("SPANISH", document["language"])
         assertEquals(1, (document["eligibilityKeys"] as List<*>).size)
+        val firstProduct = (document["shoppingProducts"] as List<*>).first() as Map<*, *>
+        assertEquals("Pasta integral", firstProduct["displayName"])
         assertFalse(document.containsKey("uid"))
         assertFalse(document.containsKey("email"))
         assertFalse(document.containsKey("profile"))

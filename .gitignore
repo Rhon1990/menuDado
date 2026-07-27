@@ -18,6 +18,8 @@ local.properties
 captures/
 .worktrees/
 .superpowers/
+**/node_modules/
+firestore-debug.log
 
 # Signing material and generated packages
 key/
