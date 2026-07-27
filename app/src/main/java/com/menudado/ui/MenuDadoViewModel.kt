@@ -1927,9 +1927,9 @@ private fun currentLanguage(): AppLanguage = AppLanguage.fromLocale()
 
 private fun AppLanguage.noMenusForFilterMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "No menus match that filter. Try another one."
-        AppLanguage.FRENCH -> "Aucun menu ne correspond à ce filtre. Essayez-en un autre."
-        AppLanguage.SPANISH -> "No encontramos menús con ese filtro. Prueba con otro."
+        AppLanguage.ENGLISH -> "There are no menus for that filter."
+        AppLanguage.FRENCH -> "Aucun menu ne correspond à ce filtre."
+        AppLanguage.SPANISH -> "No hay menús para ese filtro."
     }
 }
 
@@ -1937,23 +1937,23 @@ private fun AppLanguage.mealTypeRequiredMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "Choose breakfast, lunch or dinner."
         AppLanguage.FRENCH -> "Choisissez petit-déjeuner, déjeuner ou dîner."
-        AppLanguage.SPANISH -> "Elige desayuno, almuerzo o cena."
+        AppLanguage.SPANISH -> "Selecciona si es desayuno, almuerzo o cena."
     }
 }
 
 private fun AppLanguage.diceFilterRequiredMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "Choose breakfast, lunch or dinner first."
-        AppLanguage.FRENCH -> "Choisissez d’abord petit-déjeuner, déjeuner ou dîner."
-        AppLanguage.SPANISH -> "Elige primero desayuno, almuerzo o cena."
+        AppLanguage.ENGLISH -> "First choose breakfast, lunch or dinner."
+        AppLanguage.FRENCH -> "Choisissez d'abord petit-déjeuner, déjeuner ou dîner."
+        AppLanguage.SPANISH -> "Primero escoge desayuno, almuerzo o cena."
     }
 }
 
 private fun AppLanguage.audienceRequiredMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "Choose who you are cooking for: an adult, kids, or a baby."
-        AppLanguage.FRENCH -> "Choisissez pour qui vous cuisinez : un adulte, des enfants ou un bébé."
-        AppLanguage.SPANISH -> "Elige para quién cocinas: persona adulta, peques o bebé."
+        AppLanguage.ENGLISH -> "Choose whether this menu is for an adult, kids or a baby."
+        AppLanguage.FRENCH -> "Choisissez si ce menu est pour un adulte, des enfants ou un bébé."
+        AppLanguage.SPANISH -> "Selecciona si el menú es para persona adulta, peques o bebé."
     }
 }
 
@@ -1961,152 +1961,146 @@ private fun AppLanguage.missingRequiredFieldsMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "Add a name and ingredients to save the menu."
         AppLanguage.FRENCH -> "Ajoutez un nom et des ingrédients pour enregistrer le menu."
-        AppLanguage.SPANISH -> "Añade un nombre e ingredientes para guardar el menú."
+        AppLanguage.SPANISH -> "Agrega nombre e ingredientes para guardar el menú."
     }
 }
 
 private fun AppLanguage.noPendingMenusMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "There are no pending menus to review with AI."
-        AppLanguage.FRENCH -> "Vous n’avez aucun menu en attente de vérification avec l’IA."
-        AppLanguage.SPANISH -> "No tienes menús pendientes de revisar con IA."
+        AppLanguage.ENGLISH -> "You do not have pending menus to analyze."
+        AppLanguage.FRENCH -> "Vous n'avez aucun menu en attente d'analyse."
+        AppLanguage.SPANISH -> "No tienes menús pendientes por analizar."
     }
 }
 
 private fun AppLanguage.emptyAiBatchAnalysisMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI could not review the menus. Try again later."
-        AppLanguage.FRENCH -> "L’IA n’a pas pu vérifier les menus. Réessayez plus tard."
-        AppLanguage.SPANISH -> "La IA no pudo revisar los menús. Inténtalo de nuevo más tarde."
+        AppLanguage.ENGLISH -> "AI did not return valid analyses. You can try again later."
+        AppLanguage.FRENCH -> "L'IA n'a pas renvoyé d'analyses valides. Vous pouvez réessayer plus tard."
+        AppLanguage.SPANISH -> "La IA no devolvió análisis válidos. Puedes intentar de nuevo más tarde."
     }
 }
 
 private fun AppLanguage.aiRetryMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI is busy right now. Try again later."
-        AppLanguage.FRENCH -> "L’IA est occupée pour le moment. Réessayez plus tard."
-        AppLanguage.SPANISH -> "La IA está ocupada ahora. Inténtalo de nuevo más tarde."
+        AppLanguage.ENGLISH -> "AI is in high demand. Try again later."
+        AppLanguage.FRENCH -> "L'IA est très demandée. Réessayez plus tard."
+        AppLanguage.SPANISH -> "La IA está con mucha demanda. Inténtalo nuevamente más tarde."
     }
 }
 
 private fun AppLanguage.aiRequestsPerMinuteMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI is busy right now. Try again later."
-        AppLanguage.FRENCH -> "L’IA est occupée pour le moment. Réessayez plus tard."
-        AppLanguage.SPANISH -> "La IA está ocupada ahora. Inténtalo de nuevo más tarde."
+        AppLanguage.ENGLISH -> "AI is in high demand. Try again later."
+        AppLanguage.FRENCH -> "L'IA est très demandée. Réessayez plus tard."
+        AppLanguage.SPANISH -> "La IA está con mucha demanda. Inténtalo nuevamente más tarde."
     }
 }
 
 private fun AppLanguage.aiTokensPerMinuteMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI is busy right now. Try again later."
-        AppLanguage.FRENCH -> "L’IA est occupée pour le moment. Réessayez plus tard."
-        AppLanguage.SPANISH -> "La IA está ocupada ahora. Inténtalo de nuevo más tarde."
+        AppLanguage.ENGLISH -> "AI is in high demand. Try again later."
+        AppLanguage.FRENCH -> "L'IA est très demandée. Réessayez plus tard."
+        AppLanguage.SPANISH -> "La IA está con mucha demanda. Inténtalo nuevamente más tarde."
     }
 }
 
 private fun AppLanguage.aiRequestsPerDayMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI has reached its daily limit. Your menus are still available; try again later."
-        AppLanguage.FRENCH -> "L’IA a atteint sa limite quotidienne. Vos menus restent disponibles ; réessayez plus tard."
-        AppLanguage.SPANISH -> "La IA alcanzó su límite diario. Tus menús siguen disponibles; inténtalo de nuevo más tarde."
+        AppLanguage.ENGLISH -> "AI is in high demand. Try again later."
+        AppLanguage.FRENCH -> "L'IA est très demandée. Réessayez plus tard."
+        AppLanguage.SPANISH -> "La IA está con mucha demanda. Inténtalo nuevamente más tarde."
     }
 }
 
-internal fun AppLanguage.aiLocalDailyLimitMessage(): String {
+private fun AppLanguage.aiLocalDailyLimitMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "You have used all of today's free AI uses. Your menus are still available; try again later."
-        AppLanguage.FRENCH -> "Vous avez épuisé les usages gratuits de l’IA pour aujourd’hui. Vos menus restent disponibles ; réessayez plus tard."
-        AppLanguage.SPANISH -> "Ya agotaste los usos gratuitos de IA de hoy. Tus menús siguen disponibles; vuelve a intentarlo más tarde."
+        AppLanguage.ENGLISH -> "Today's free AI uses in MenuDado have run out. Your menus are still available and you can try again later."
+        AppLanguage.FRENCH -> "Les usages gratuits de l'IA dans MenuDado sont épuisés pour aujourd'hui. Vos menus restent disponibles et vous pourrez réessayer plus tard."
+        AppLanguage.SPANISH -> "Has usado la IA gratuita de MenuDado por hoy. Tus menús siguen disponibles y podrás intentarlo más tarde."
     }
 }
 
 private fun AppLanguage.guestMenuSaveLimitMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "You have saved 5 guest menus today. Create a free account to keep saving and recover them later."
-        AppLanguage.FRENCH -> "Vous avez enregistré 5 menus en tant qu’invité aujourd’hui. Créez un compte gratuit pour continuer et les retrouver plus tard."
-        AppLanguage.SPANISH -> "Hoy ya guardaste 5 menús como invitado. Crea una cuenta gratis para seguir guardando y recuperarlos después."
+        AppLanguage.ENGLISH -> "You have saved your 5 guest menus for today. Create a free account to keep saving and recover your menus later."
+        AppLanguage.FRENCH -> "Vous avez enregistré vos 5 menus invités aujourd'hui. Créez un compte gratuit pour continuer et retrouver vos menus plus tard."
+        AppLanguage.SPANISH -> "Has guardado tus 5 menús de invitado por hoy. Crea una cuenta gratis para seguir guardando y recuperar tus menús después."
     }
 }
 
 private fun AppLanguage.guestAiGenerationLimitMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "You have created 5 AI ideas as a guest today. Create a free account to keep creating ideas."
-        AppLanguage.FRENCH -> "Vous avez créé 5 idées avec l’IA en tant qu’invité aujourd’hui. Créez un compte gratuit pour continuer."
-        AppLanguage.SPANISH -> "Hoy ya creaste 5 ideas con IA como invitado. Crea una cuenta gratis para seguir creando."
+        AppLanguage.ENGLISH -> "You have used your 5 guest AI ideas for today. Create a free account to keep generating ideas."
+        AppLanguage.FRENCH -> "Vous avez utilisé vos 5 idées IA invitées aujourd'hui. Créez un compte gratuit pour continuer à générer des idées."
+        AppLanguage.SPANISH -> "Has usado tus 5 ideas con IA como invitado por hoy. Crea una cuenta gratis para seguir generando ideas."
     }
 }
 
 private fun AppLanguage.guestAiAnalysisLimitMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "You have reviewed 5 menus with AI as a guest today. Create a free account to keep reviewing."
-        AppLanguage.FRENCH -> "Vous avez vérifié 5 menus avec l’IA en tant qu’invité aujourd’hui. Créez un compte gratuit pour continuer."
-        AppLanguage.SPANISH -> "Hoy ya revisaste 5 menús con IA como invitado. Crea una cuenta gratis para seguir revisando."
+        AppLanguage.ENGLISH -> "You have used your 5 guest AI analyses for today. Create a free account to keep analyzing your menus."
+        AppLanguage.FRENCH -> "Vous avez utilisé vos 5 analyses IA invitées aujourd'hui. Créez un compte gratuit pour continuer à analyser vos menus."
+        AppLanguage.SPANISH -> "Has usado tus 5 análisis con IA como invitado por hoy. Crea una cuenta gratis para seguir analizando tus menús."
     }
 }
 
-internal fun AppLanguage.generatedAnalysisManualEditMessage(): String {
+private fun AppLanguage.generatedAnalysisManualEditMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "You changed the generated recipe. To check whether it is still healthy, save the menu and tap Review with AI."
-        AppLanguage.FRENCH -> "Vous avez modifié la recette générée. Pour vérifier à nouveau si elle est équilibrée, enregistrez le menu et touchez Vérifier avec l’IA."
-        AppLanguage.SPANISH -> "Cambiaste la receta generada. Para comprobar de nuevo si es saludable, guarda el menú y toca Revisar con IA."
+        AppLanguage.ENGLISH -> "You changed the generated recipe. To see it as analyzed, save the menu and tap Analyze with AI."
+        AppLanguage.FRENCH -> "Vous avez modifié la recette générée. Pour la voir comme analysée, enregistrez le menu et touchez Analyser avec l'IA."
+        AppLanguage.SPANISH -> "Modificaste la receta generada. Para verla como analizada, guarda el menú y toca Analizar IA."
     }
 }
 
 private fun AppLanguage.aiConfigurationMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI is not available right now. You can keep using your menus and try again later."
-        AppLanguage.FRENCH -> "L’IA n’est pas disponible pour le moment. Vous pouvez continuer à utiliser vos menus et réessayer plus tard."
-        AppLanguage.SPANISH -> "La IA no está disponible ahora. Puedes seguir usando tus menús e intentarlo más tarde."
+        AppLanguage.ENGLISH -> "AI help is not available right now. You can keep using your menus and try again later."
+        AppLanguage.FRENCH -> "L'aide IA n'est pas disponible pour le moment. Vous pouvez continuer à utiliser vos menus et réessayer plus tard."
+        AppLanguage.SPANISH -> "La ayuda con IA no está disponible en este momento. Puedes seguir usando tus menús e intentarlo más tarde."
     }
 }
 
 private fun AppLanguage.aiInvalidApiKeyMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI could not start this time. You can keep using your menus and try again later."
-        AppLanguage.FRENCH -> "L’IA n’a pas pu démarrer cette fois-ci. Vous pouvez continuer à utiliser vos menus et réessayer plus tard."
-        AppLanguage.SPANISH -> "La IA no pudo iniciarse esta vez. Puedes seguir usando tus menús e intentarlo más tarde."
+        AppLanguage.ENGLISH -> "AI help could not start right now. You can keep using your menus and try again later."
+        AppLanguage.FRENCH -> "L'aide IA n'a pas pu démarrer pour le moment. Vous pouvez continuer à utiliser vos menus et réessayer plus tard."
+        AppLanguage.SPANISH -> "La ayuda con IA no pudo iniciar en este momento. Puedes seguir usando tus menús e intentarlo más tarde."
     }
 }
 
-internal fun AppLanguage.aiTimeoutMessage(): String {
+private fun AppLanguage.aiTimeoutMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI took longer than expected. Try again."
-        AppLanguage.FRENCH -> "L’IA a mis plus de temps que prévu. Réessayez."
-        AppLanguage.SPANISH -> "La IA tardó más de lo esperado. Inténtalo de nuevo."
+        AppLanguage.ENGLISH -> "AI took too long to respond. Check your connection and try again."
+        AppLanguage.FRENCH -> "L'IA a mis trop de temps à répondre. Vérifiez votre connexion et réessayez."
+        AppLanguage.SPANISH -> "La IA tardó demasiado en responder. Revisa la conexión e inténtalo de nuevo."
     }
 }
 
 private fun AppLanguage.aiTemporaryServiceMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI had a temporary issue. Try again later."
-        AppLanguage.FRENCH -> "L’IA a rencontré un problème temporaire. Réessayez plus tard."
-        AppLanguage.SPANISH -> "La IA tuvo un problema temporal. Inténtalo de nuevo más tarde."
+        AppLanguage.ENGLISH -> "The service had a temporary issue. Try again later."
+        AppLanguage.FRENCH -> "Le service a rencontré un problème temporaire. Réessayez plus tard."
+        AppLanguage.SPANISH -> "El servicio tuvo un problema temporal. Inténtalo nuevamente más tarde."
     }
 }
 
-internal fun AppLanguage.aiGenericFailureMessage(): String {
+private fun AppLanguage.aiGenericFailureMessage(): String {
     return when (this) {
-        AppLanguage.ENGLISH -> "AI could not complete the request. Try again later."
-        AppLanguage.FRENCH -> "L’IA n’a pas pu terminer la demande. Réessayez plus tard."
-        AppLanguage.SPANISH -> "La IA no pudo completar la solicitud. Inténtalo de nuevo más tarde."
+        AppLanguage.ENGLISH -> "Could not connect to AI. Check your internet connection and try again."
+        AppLanguage.FRENCH -> "Impossible de se connecter à l'IA. Vérifiez votre connexion internet et réessayez."
+        AppLanguage.SPANISH -> "No se pudo conectar con la IA. Revisa tu conexión a internet e inténtalo de nuevo."
     }
 }
 
 private fun List<String>.toIngredientConflictMessage(language: AppLanguage): String {
     val ingredients = joinToString(", ")
     return when (language) {
-        AppLanguage.ENGLISH -> {
-            val subject = if (size == 1) "This ingredient does not fit" else "These ingredients do not fit"
-            "$subject your food profile: $ingredients."
-        }
-        AppLanguage.FRENCH -> {
-            val subject = if (size == 1) "Cet ingrédient ne correspond pas" else "Ces ingrédients ne correspondent pas"
-            "$subject à votre profil alimentaire : $ingredients."
-        }
+        AppLanguage.ENGLISH -> "Review the ingredients: $ingredients does not fit your food profile."
+        AppLanguage.FRENCH -> "Vérifiez les ingrédients : $ingredients ne correspond pas à votre profil alimentaire."
         AppLanguage.SPANISH -> {
-            val subject = if (size == 1) "Este ingrediente no encaja" else "Estos ingredientes no encajan"
-            "$subject con tu perfil alimentario: $ingredients."
+            val verb = if (size == 1) "no encaja" else "no encajan"
+            "Revisa los ingredientes: $ingredients $verb con tu perfil alimentario."
         }
     }
 }

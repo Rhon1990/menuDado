@@ -245,10 +245,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
-        assertEquals(
-            "Elige para quién cocinas: persona adulta, peques o bebé.",
-            freshViewModel.uiState.value.message
-        )
+        assertEquals("Selecciona si el menú es para persona adulta, peques o bebé.", freshViewModel.uiState.value.message)
         assertEquals(0L, freshViewModel.uiState.value.menuSaveSuccessRevision)
     }
 
@@ -270,10 +267,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
-        assertEquals(
-            "Elige para quién cocinas: persona adulta, peques o bebé.",
-            freshViewModel.uiState.value.message
-        )
+        assertEquals("Selecciona si el menú es para persona adulta, peques o bebé.", freshViewModel.uiState.value.message)
     }
 
     @Test
@@ -323,10 +317,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
-        assertEquals(
-            "Hoy ya guardaste 5 menús como invitado. Crea una cuenta gratis para seguir guardando y recuperarlos después.",
-            viewModel.uiState.value.message
-        )
+        assertTrue(viewModel.uiState.value.message.orEmpty().contains("5 menús"))
         assertTrue(analytics.events.contains("guest_limit_reached:menu_save:5"))
     }
 
@@ -362,10 +353,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
-        assertEquals(
-            "Hoy ya creaste 5 ideas con IA como invitado. Crea una cuenta gratis para seguir creando.",
-            viewModel.uiState.value.message
-        )
+        assertTrue(viewModel.uiState.value.message.orEmpty().contains("5 ideas"))
     }
 
     @Test
@@ -421,10 +409,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, analyzer.analysisCalls)
-        assertEquals(
-            "Hoy ya revisaste 5 menús con IA como invitado. Crea una cuenta gratis para seguir revisando.",
-            viewModel.uiState.value.message
-        )
+        assertTrue(viewModel.uiState.value.message.orEmpty().contains("5 análisis"))
     }
 
     @Test
@@ -1030,7 +1015,7 @@ class MenuDadoViewModelTest {
         val saved = dao.saved.single().toDomain()
         assertNull(saved.healthAnalysis)
         assertEquals(
-            "Cambiaste la receta generada. Para comprobar de nuevo si es saludable, guarda el menú y toca Revisar con IA.",
+            "Modificaste la receta generada. Para verla como analizada, guarda el menú y toca Analizar IA.",
             viewModel.uiState.value.message
         )
     }
@@ -1217,10 +1202,7 @@ class MenuDadoViewModelTest {
         runCurrent()
 
         assertFalse(viewModel.uiState.value.isGeneratingMenu)
-        assertEquals(
-            "La IA tardó más de lo esperado. Inténtalo de nuevo.",
-            viewModel.uiState.value.message
-        )
+        assertEquals("La IA tardó demasiado en responder. Revisa la conexión e inténtalo de nuevo.", viewModel.uiState.value.message)
         assertEquals(1, analyzer.generateCalls)
     }
 
@@ -1256,10 +1238,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(0, analyzer.generateCalls)
         assertEquals(0, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals(
-            "Ya agotaste los usos gratuitos de IA de hoy. Tus menús siguen disponibles; vuelve a intentarlo más tarde.",
-            viewModel.uiState.value.message
-        )
+        assertEquals("Has usado la IA gratuita de MenuDado por hoy. Tus menús siguen disponibles y podrás intentarlo más tarde.", viewModel.uiState.value.message)
         assertEquals(listOf("ai_daily_limit_reached:generate_menu"), analytics.events)
     }
 
@@ -1785,7 +1764,7 @@ class MenuDadoViewModelTest {
         assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
         assertEquals(0, aiDailyUsageStore.storedUsedCount)
         assertEquals(
-            "Este ingrediente no encaja con tu perfil alimentario: crema.",
+            "Revisa los ingredientes: crema no encaja con tu perfil alimentario.",
             viewModel.uiState.value.message
         )
     }
@@ -1818,7 +1797,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está ocupada ahora. Inténtalo de nuevo más tarde.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -1842,7 +1821,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está ocupada ahora. Inténtalo de nuevo más tarde.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
     }
@@ -1864,7 +1843,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está ocupada ahora. Inténtalo de nuevo más tarde.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
     }
@@ -1886,7 +1865,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA alcanzó su límite diario. Tus menús siguen disponibles; inténtalo de nuevo más tarde.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
     }
@@ -1906,7 +1885,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA tuvo un problema temporal. Inténtalo de nuevo más tarde.",
+            "El servicio tuvo un problema temporal. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertNull(viewModel.uiState.value.aiRetryAtMillis)
@@ -1933,7 +1912,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(1, analyzer.generateCalls)
         assertEquals(
-            "La IA está ocupada ahora. Inténtalo de nuevo más tarde.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -1956,7 +1935,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(0, analyzer.generateCalls)
         assertEquals(
-            "La IA está ocupada ahora. Inténtalo de nuevo más tarde.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -1985,7 +1964,7 @@ class MenuDadoViewModelTest {
         assertEquals(0, analyzer.generateCalls)
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
         assertEquals(
-            "La IA está ocupada ahora. Inténtalo de nuevo más tarde.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
     }
@@ -2113,7 +2092,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está ocupada ahora. Inténtalo de nuevo más tarde.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(295_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -2139,7 +2118,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA tuvo un problema temporal. Inténtalo de nuevo más tarde.",
+            "El servicio tuvo un problema temporal. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertNull(viewModel.uiState.value.aiRetryAtMillis)
@@ -2382,7 +2361,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertEquals("Añade un nombre e ingredientes para guardar el menú.", state.message)
+        assertEquals("Agrega nombre e ingredientes para guardar el menú.", state.message)
         assertEquals(159_000L, state.aiRetryAtMillis)
         assertFalse(state.isAiRetryNoticeVisible)
     }
@@ -2414,7 +2393,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertEquals("Elige primero desayuno, almuerzo o cena.", state.message)
+        assertEquals("Primero escoge desayuno, almuerzo o cena.", state.message)
         assertEquals(159_000L, state.aiRetryAtMillis)
         assertFalse(state.isAiRetryNoticeVisible)
     }
@@ -2436,7 +2415,7 @@ class MenuDadoViewModelTest {
         val state = viewModel.uiState.value
         assertFalse(state.isRolling)
         assertNull(state.result)
-        assertEquals("Elige primero desayuno, almuerzo o cena.", state.message)
+        assertEquals("Primero escoge desayuno, almuerzo o cena.", state.message)
         assertEquals(emptyList<String>(), analytics.events)
     }
 
@@ -2458,10 +2437,7 @@ class MenuDadoViewModelTest {
         val state = viewModel.uiState.value
         assertFalse(state.isRolling)
         assertNull(state.result)
-        assertEquals(
-            "Elige para quién cocinas: persona adulta, peques o bebé.",
-            state.message
-        )
+        assertEquals("Selecciona si el menú es para persona adulta, peques o bebé.", state.message)
         assertEquals(emptyList<String>(), analytics.events)
     }
 

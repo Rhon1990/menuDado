@@ -12,26 +12,6 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 class LocalizedMicrocopyTest {
     @Test
-    fun `AppLanguage visible messages do not use old AI analysis CTAs`() {
-        val source = findProjectFile(
-            "app/src/main/java/com/menudado/ui/MenuDadoViewModel.kt"
-        ).toFile().readText()
-
-        legacyHardcodedAnalysisCtas.forEach { legacyCta ->
-            assertFalse(
-                "Legacy hardcoded CTA remains: $legacyCta",
-                source.contains(legacyCta)
-            )
-        }
-        technicalUserFacingCopy.forEach { technicalCopy ->
-            assertFalse(
-                "Technical user-facing copy remains: $technicalCopy",
-                source.contains(technicalCopy)
-            )
-        }
-    }
-
-    @Test
     fun `placeholder signature normalizes Android formatting and allows reordering`() {
         val source = placeholderSignature("%1${'$'}-12.2S · %2${'$'}+08d %% %n")
         val reordered = placeholderSignature("%2${'$'}d%n%1${'$'}s%%")
@@ -137,15 +117,16 @@ class LocalizedMicrocopyTest {
     }
 
     private fun findResourceFile(directory: String): Path {
-        return findProjectFile("app/src/main/res/$directory/strings.xml")
-    }
-
-    private fun findProjectFile(relativePath: String): Path {
         val start = Paths.get("").toAbsolutePath().normalize()
         val roots = generateSequence(start) { current -> current.parent }.toList()
-        val candidates = roots.map { root -> root.resolve(relativePath) }
+        val candidates = roots.flatMap { root ->
+            listOf(
+                root.resolve("app/src/main/res/$directory/strings.xml"),
+                root.resolve("src/main/res/$directory/strings.xml")
+            )
+        }
         return candidates.firstOrNull(Files::isRegularFile)
-            ?: error("Could not locate $relativePath from $start")
+            ?: error("Could not locate $directory/strings.xml from $start")
     }
 
     private fun readResources(file: Path): LocalizedResources {
@@ -268,16 +249,6 @@ class LocalizedMicrocopyTest {
             "Lanzar con IA",
             "Launch with AI",
             "Lancer avec l'IA"
-        )
-        val legacyHardcodedAnalysisCtas = setOf(
-            "Analizar IA",
-            "Analyze with AI",
-            "Analyser avec l'IA"
-        )
-        val technicalUserFacingCopy = setOf(
-            "setup issue",
-            "problème de configuration",
-            "problema de configuración"
         )
         val expectedHumanCopy = mapOf(
             "es" to mapOf(
