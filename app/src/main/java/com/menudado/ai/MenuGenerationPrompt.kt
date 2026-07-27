@@ -67,12 +67,16 @@ internal object MenuGenerationPrompt {
             - shopping_products debe incluir entre 1 y 20 productos reales de supermercado necesarios para preparar el menu.
             - Escribe cada producto en singular, sin cantidades, unidades, marcas ni instrucciones y elimina duplicados.
             - No incluyas agua ni ingredientes opcionales que no formen parte real de la receta.
+            - deduplication_key debe estar en ingles y usar exactamente: dish family|main ingredients|preparation.
+            - Si hay varios ingredientes principales, separalos con + y ordenalos alfabeticamente.
+            - Normaliza variantes equivalentes: classify spaghetti, macaroni and similar shapes as pasta; use canonical ingredient names such as tomato.
+            - La clave es tecnica, breve y no debe contener texto del perfil del usuario.
 
             Variedad real:
             - Debe ser distinta de los platos previos; no basta con cambiar el nombre.
             - Cambia al menos una dimension relevante: base, proteina, tecnica o estilo, sin romper las prioridades anteriores.
             
-            Responde con solo un objeto JSON valido, sin markdown, sin texto adicional y sin campos nuevos:
+            Responde con solo un objeto JSON valido, sin markdown, sin texto adicional y solo con estos campos:
             {
               "name": "nombre breve",
               "description": "ingredientes con cantidades y preparacion breve",
@@ -81,7 +85,8 @@ internal object MenuGenerationPrompt {
               "health_status": "saludable",
               "health_reason": "motivo breve",
               "health_suggestion": "sugerencia práctica",
-              "shopping_products": ["producto", "otro producto"]
+              "shopping_products": ["producto", "otro producto"],
+              "deduplication_key": "pasta|tomato|sauce"
             }
             
             health_status debe ser exactamente uno de:

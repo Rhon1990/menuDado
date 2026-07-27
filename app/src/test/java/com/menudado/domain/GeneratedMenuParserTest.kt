@@ -1,6 +1,7 @@
 package com.menudado.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -112,5 +113,26 @@ class GeneratedMenuParserTest {
         )
 
         assertTrue(generated.shoppingProducts.isEmpty())
+    }
+
+    @Test
+    fun `parsea clave semantica opcional sin hacerla requisito del menu`() {
+        val withKey = GeneratedMenuParser.parse(
+            """
+            {
+              "name": "Espaguetis en salsa de tomate",
+              "description": "Pasta con tomate.",
+              "notes": "Lista en 10 minutos.",
+              "calories": 430,
+              "deduplication_key": "pasta|tomato|sauce"
+            }
+            """.trimIndent()
+        )
+        val legacy = GeneratedMenuParser.parse(
+            """{"name":"Sopa","description":"Verduras.","notes":"","calories":320}"""
+        )
+
+        assertEquals("pasta|tomato|sauce", withKey.deduplicationKey)
+        assertNull(legacy.deduplicationKey)
     }
 }

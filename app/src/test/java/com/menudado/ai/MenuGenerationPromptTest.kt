@@ -215,13 +215,13 @@ class MenuGenerationPromptTest {
     }
 
     @Test
-    fun `prompt requires only the existing json schema`() {
+    fun `prompt requires only the closed json schema`() {
         val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
 
         assertTrue(prompt.contains("solo un objeto json valido"))
         assertTrue(prompt.contains("sin markdown"))
         assertTrue(prompt.contains("sin texto adicional"))
-        assertTrue(prompt.contains("sin campos nuevos"))
+        assertTrue(prompt.contains("solo con estos campos"))
         assertTrue(prompt.contains("\"name\""))
         assertTrue(prompt.contains("\"description\""))
         assertTrue(prompt.contains("\"notes\""))
@@ -229,6 +229,7 @@ class MenuGenerationPromptTest {
         assertTrue(prompt.contains("\"health_status\""))
         assertTrue(prompt.contains("\"health_reason\""))
         assertTrue(prompt.contains("\"health_suggestion\""))
+        assertTrue(prompt.contains("\"deduplication_key\""))
     }
 
     @Test
@@ -238,5 +239,18 @@ class MenuGenerationPromptTest {
         assertTrue(prompt.contains("\"shopping_products\""))
         assertTrue(prompt.contains("sin cantidades"))
         assertTrue(prompt.contains("productos reales de supermercado"))
+    }
+
+    @Test
+    fun `generation prompt requests one canonical deduplication key in existing json`() {
+        val prompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList()
+        )
+
+        assertTrue(prompt.contains("\"deduplication_key\""))
+        assertTrue(prompt.contains("dish family|main ingredients|preparation"))
+        assertTrue(prompt.contains("spaghetti, macaroni and similar shapes as pasta"))
+        assertFalse(prompt.contains("make another request", ignoreCase = true))
     }
 }

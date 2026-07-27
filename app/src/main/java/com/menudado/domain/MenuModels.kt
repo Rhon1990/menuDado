@@ -54,7 +54,8 @@ data class GeneratedMenu(
     val notes: String,
     val calories: Int,
     val healthAnalysis: HealthAnalysis? = null,
-    val shoppingProducts: List<ShoppingProduct> = emptyList()
+    val shoppingProducts: List<ShoppingProduct> = emptyList(),
+    val deduplicationKey: String? = null
 )
 
 enum class DietaryAllergen(val label: String, val promptName: String) {
