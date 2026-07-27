@@ -157,7 +157,7 @@
     <string name="dice_ai_blocked_ai_paused">L’usage gratuit de l’IA est limité. Attendez un peu ou utilisez Écrire un menu.</string>
     <string name="dice_mixing">Mélange de vos menus</string>
     <string name="home_today_title">Vous ne savez pas quoi préparer aujourd’hui ?</string>
-    <string name="home_today_subtitle">Pas de souci. Choisissez pour qui vous cuisinez et l’IA vous proposera une idée équilibrée.</string>
+    <string name="home_today_subtitle">Pas de souci. Dites-nous à qui s’adresse le menu et l’IA vous proposera une idée équilibrée.</string>
     <string name="home_ai_dice_title">Trouvons quelque chose de bon</string>
     <string name="home_ai_dice_body">Lancez le dé et MenuDado crée une nouvelle idée selon votre profil.</string>
     <string name="home_choose_saved_action">Choisir un menu au hasard</string>

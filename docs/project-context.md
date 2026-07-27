@@ -54,7 +54,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - La generación y el análisis con IA deben pedir nombre, descripción, notas, razón y sugerencia en el mismo idioma visible de la app para evitar mezclar idiomas en menús creados por IA.
 
 1. Crear menús y decidir qué comer hoy.
-   - Inicio abre con `¿No sabes qué preparar hoy?` y el apoyo `No pasa nada. Elige para quién cocinas y la IA te ayudará con una idea saludable.`; la tarjeta de IA se presenta como `Encontremos algo rico`.
+   - Inicio abre con `¿No sabes qué preparar hoy?` y el apoyo `No pasa nada. Dinos para quién es el menú y la IA te ayudará con una idea saludable.`; la tarjeta de IA se presenta como `Encontremos algo rico`.
    - La ayuda de IA es el estado inicial porque es la acción con mayor adopción observada y reduce decisiones antes de recibir una idea saludable. Su CTA visible es `Ayúdame a elegir` y muestra los usos restantes.
    - El tipo de comida es obligatorio y viene sugerido automaticamente segun la hora local del movil: desayuno por la mañana, almuerzo al mediodia/tarde y cena por la noche; el usuario puede cambiarlo antes de guardar o generar.
    - El público objetivo también es obligatorio y no viene seleccionado por defecto; el usuario debe elegir persona adulta, peques o bebé entre los públicos activos del perfil alimentario.

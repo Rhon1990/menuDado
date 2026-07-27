@@ -159,7 +159,7 @@
     <string name="dice_ai_blocked_ai_paused">Al ser gratis, la IA tiene usos limitados. Espera un poco o usa Escribir menú.</string>
     <string name="dice_mixing">Mezclando tus menús</string>
     <string name="home_today_title">¿No sabes qué preparar hoy?</string>
-    <string name="home_today_subtitle">No pasa nada. Elige para quién cocinas y la IA te ayudará con una idea saludable.</string>
+    <string name="home_today_subtitle">No pasa nada. Dinos para quién es el menú y la IA te ayudará con una idea saludable.</string>
     <string name="home_ai_dice_title">Encontremos algo rico</string>
     <string name="home_ai_dice_body">Lanza el dado y MenuDado crea una idea nueva según tu perfil.</string>
     <string name="home_choose_saved_action">Elegir un menú al azar</string>

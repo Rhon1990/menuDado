@@ -16,7 +16,7 @@ class AiCreationMicrocopyTest {
         val expectedCopy = mapOf(
             "values" to mapOf(
                 "home_today_title" to "¿No sabes qué preparar hoy?",
-                "home_today_subtitle" to "No pasa nada. Elige para quién cocinas y la IA te ayudará con una idea saludable.",
+                "home_today_subtitle" to "No pasa nada. Dinos para quién es el menú y la IA te ayudará con una idea saludable.",
                 "home_ai_dice_title" to "Encontremos algo rico",
                 "form_base_ingredients" to "¿Qué tienes en casa? (Opcional)",
                 "form_base_ingredients_placeholder" to "Ej. tomate, arroz o pollo",
@@ -24,7 +24,7 @@ class AiCreationMicrocopyTest {
             ),
             "values-en" to mapOf(
                 "home_today_title" to "Not sure what to make today?",
-                "home_today_subtitle" to "No worries. Choose who you're cooking for and AI will help with a healthy idea.",
+                "home_today_subtitle" to "No worries. Tell us who the menu is for and AI will help with a healthy idea.",
                 "home_ai_dice_title" to "Let's find something tasty",
                 "form_base_ingredients" to "What do you have at home? (Optional)",
                 "form_base_ingredients_placeholder" to "E.g. tomato, rice or chicken",
@@ -32,7 +32,7 @@ class AiCreationMicrocopyTest {
             ),
             "values-fr" to mapOf(
                 "home_today_title" to "Vous ne savez pas quoi préparer aujourd’hui ?",
-                "home_today_subtitle" to "Pas de souci. Choisissez pour qui vous cuisinez et l’IA vous proposera une idée équilibrée.",
+                "home_today_subtitle" to "Pas de souci. Dites-nous à qui s’adresse le menu et l’IA vous proposera une idée équilibrée.",
                 "home_ai_dice_title" to "Trouvons quelque chose de bon",
                 "form_base_ingredients" to "Qu’avez-vous à la maison ? (Facultatif)",
                 "form_base_ingredients_placeholder" to "Ex. tomate, riz ou poulet",
