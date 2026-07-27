@@ -9,6 +9,11 @@ import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiQuotaRetryState
 import com.menudado.data.AiRequestThrottleStore
+import com.menudado.data.AiMenuHiveCandidate
+import com.menudado.data.AiMenuHiveContribution
+import com.menudado.data.AiMenuHiveGateway
+import com.menudado.data.AiMenuHiveLookupSource
+import com.menudado.data.AiMenuHiveSearchRequest
 import com.menudado.data.CuisineRotation
 import com.menudado.data.CuisineRotationStateStore
 import com.menudado.data.GuestDailyUsageState
@@ -30,6 +35,8 @@ import com.menudado.domain.AppLanguage
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import com.menudado.domain.CuisineInspiration
+import com.menudado.domain.AiMenuHiveIdentity
+import com.menudado.domain.ShoppingProduct
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -69,6 +76,7 @@ class MenuDadoViewModelTest {
     private lateinit var cuisineRotationStateStore: FakeCuisineRotationStateStore
     private lateinit var cuisineRotation: CuisineRotation
     private lateinit var analytics: RecordingMenuDadoAnalytics
+    private lateinit var hive: RecordingAiMenuHiveGateway
     private lateinit var viewModel: MenuDadoViewModel
     private lateinit var originalLocale: Locale
 
@@ -88,6 +96,7 @@ class MenuDadoViewModelTest {
         cuisineRotationStateStore = FakeCuisineRotationStateStore()
         cuisineRotation = CuisineRotation(cuisineRotationStateStore) { 2 }
         analytics = RecordingMenuDadoAnalytics()
+        hive = RecordingAiMenuHiveGateway()
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
@@ -99,7 +108,8 @@ class MenuDadoViewModelTest {
             guestUsageStore = guestUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore,
-            cuisineRotation = cuisineRotation
+            cuisineRotation = cuisineRotation,
+            aiMenuHive = hive
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -111,6 +121,67 @@ class MenuDadoViewModelTest {
     fun tearDown() {
         Locale.setDefault(originalLocale)
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `slow live request changes copy phase while dice remains active`() = runTest(dispatcher) {
+        analyzer.generateDelayMillis = 13_000L
+
+        viewModel.generateMenuIdea()
+        runCurrent()
+        assertEquals(AiGenerationPhase.GENERATING, viewModel.uiState.value.aiGenerationPhase)
+
+        advanceTimeBy(12_000L)
+        runCurrent()
+
+        assertEquals(AiGenerationPhase.GENERATING_SLOW, viewModel.uiState.value.aiGenerationPhase)
+        assertTrue(viewModel.uiState.value.isGeneratingMenu)
+
+        advanceTimeBy(1_000L)
+        advanceUntilIdle()
+        assertEquals(AiGenerationPhase.IDLE, viewModel.uiState.value.aiGenerationPhase)
+    }
+
+    @Test
+    fun `provider failure keeps dice active and opens compatible hive result`() = runTest(dispatcher) {
+        analyzer.generateFailure = IllegalStateException("internal")
+        hive.searchResult = Result.success(sampleHiveCandidate())
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, hive.searches.size)
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+        assertEquals("Idea recuperada", viewModel.uiState.value.name)
+        assertEquals(AiGenerationPhase.IDLE, viewModel.uiState.value.aiGenerationPhase)
+        assertFalse(viewModel.uiState.value.isGeneratingMenu)
+    }
+
+    @Test
+    fun `hive miss preserves original localized failure`() = runTest(dispatcher) {
+        analyzer.generateFailure = IllegalStateException("internal")
+        hive.searchResult = Result.success(null)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(
+            "El servicio tuvo un problema temporal. Inténtalo nuevamente más tarde.",
+            viewModel.uiState.value.message
+        )
+    }
+
+    @Test
+    fun `local validation never queries hive`() = runTest(dispatcher) {
+        dietaryProfileStore.storedProfile = DietaryProfile(
+            ageRange = "18+ años",
+            isVegan = true
+        )
+        viewModel.updateAiBaseIngredients("queso")
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertTrue(hive.searches.isEmpty())
     }
 
     private fun localMillisAtHour(hourOfDay: Int): Long {
@@ -2991,6 +3062,58 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
         }
         generateFailure?.let { return Result.failure(it) }
         return Result.success(generatedMenu)
+    }
+}
+
+private fun sampleGeneratedMenu(
+    name: String = "Idea recuperada",
+    deduplicationKey: String = "pasta|tomato|sauce"
+) = GeneratedMenu(
+    name = name,
+    description = "Pasta integral con salsa de tomate.",
+    notes = "Lista en 10 minutos.",
+    calories = 430,
+    healthAnalysis = HealthAnalysis(
+        status = HealthStatus.HEALTHY,
+        reason = "Incluye cereal y tomate.",
+        suggestion = "Acompaña con verduras.",
+        calories = 430
+    ),
+    shoppingProducts = listOf(
+        requireNotNull(ShoppingProduct.fromAi("Pasta integral")),
+        requireNotNull(ShoppingProduct.fromAi("Tomate"))
+    ),
+    deduplicationKey = deduplicationKey
+)
+
+private fun sampleHiveCandidate(name: String = "Idea recuperada"): AiMenuHiveCandidate {
+    val generated = sampleGeneratedMenu(name)
+    val identity = requireNotNull(
+        AiMenuHiveIdentity.from(AppLanguage.SPANISH, generated.deduplicationKey)
+    )
+    return AiMenuHiveCandidate(
+        generatedMenu = generated,
+        cuisineInspiration = CuisineInspiration.ITALIAN,
+        semanticHash = identity.semanticHash,
+        source = AiMenuHiveLookupSource.SERVER
+    )
+}
+
+private class RecordingAiMenuHiveGateway : AiMenuHiveGateway {
+    var searchResult: Result<AiMenuHiveCandidate?> = Result.success(null)
+    val searches = mutableListOf<AiMenuHiveSearchRequest>()
+    val contributions = mutableListOf<AiMenuHiveContribution>()
+
+    override suspend fun findCompatibleMenu(
+        request: AiMenuHiveSearchRequest
+    ): Result<AiMenuHiveCandidate?> {
+        searches += request
+        return searchResult
+    }
+
+    override suspend fun contribute(contribution: AiMenuHiveContribution): Result<Unit> {
+        contributions += contribution
+        return Result.success(Unit)
     }
 }
 

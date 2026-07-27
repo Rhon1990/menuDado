@@ -15,6 +15,9 @@ import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiQuotaRetryState
 import com.menudado.data.AiRequestThrottleStore
+import com.menudado.data.AiMenuHiveGateway
+import com.menudado.data.AiMenuHiveSearchRequest
+import com.menudado.data.NoOpAiMenuHiveGateway
 import com.menudado.data.CuisineRotation
 import com.menudado.data.InMemoryCuisineRotationStateStore
 import com.menudado.data.GuestDailyUsageState
@@ -42,6 +45,7 @@ import com.menudado.domain.GuestAccessPolicy
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import com.menudado.domain.AiQuotaLimitType
+import com.menudado.domain.AiMenuHiveIdentity
 import com.menudado.domain.classifyAiQuotaLimitType
 import com.menudado.domain.findIngredientConflicts
 import com.menudado.domain.isAiQuotaExceeded
@@ -85,9 +89,12 @@ data class MenuDadoUiState(
     val addGeneratedMenuToMarketList: Boolean = true,
     val marketProducts: List<MarketProduct> = emptyList(),
     val generatedCuisineInspiration: CuisineInspiration? = null,
+    val generatedDeduplicationKey: String? = null,
+    val generatedOrigin: GeneratedMenuOrigin? = null,
+    val generatedSemanticHash: String? = null,
     val isRolling: Boolean = false,
     val isAnalyzing: Boolean = false,
-    val isGeneratingMenu: Boolean = false,
+    val aiGenerationPhase: AiGenerationPhase = AiGenerationPhase.IDLE,
     val result: FoodMenu? = null,
     val message: String? = null,
     val menuSaveSuccessRevision: Long = 0L,
@@ -104,7 +111,22 @@ data class MenuDadoUiState(
     val showOnboarding: Boolean = false,
     val showGeneratedMenuDetail: Boolean = false,
     val diceEmptyRecovery: DiceEmptyRecovery? = null
-)
+) {
+    val isGeneratingMenu: Boolean
+        get() = aiGenerationPhase.isActive
+}
+
+enum class AiGenerationPhase {
+    IDLE,
+    GENERATING,
+    GENERATING_SLOW,
+    SEARCHING_HIVE;
+
+    val isActive: Boolean
+        get() = this != IDLE
+}
+
+enum class GeneratedMenuOrigin { LIVE_AI, HIVE_FALLBACK }
 
 internal fun menuVisibleMenus(
     menus: List<FoodMenu>,
@@ -133,7 +155,8 @@ class MenuDadoViewModel(
     private val guestUsageStore: GuestUsageStore = NoOpGuestUsageStore,
     private val dietaryProfileStore: DietaryProfileStore = NoOpDietaryProfileStore,
     private val onboardingStore: OnboardingStore = NoOpOnboardingStore,
-    private val cuisineRotation: CuisineRotation = CuisineRotation(InMemoryCuisineRotationStateStore())
+    private val cuisineRotation: CuisineRotation = CuisineRotation(InMemoryCuisineRotationStateStore()),
+    private val aiMenuHive: AiMenuHiveGateway = NoOpAiMenuHiveGateway
 ) : ViewModel() {
     private val suggestedMealType = suggestedMealTypeForDeviceTime(clockMillisProvider())
     private val _uiState = MutableStateFlow(
@@ -147,6 +170,7 @@ class MenuDadoViewModel(
     private var hasTrackedMenuFormStarted = false
     private var generatedIdeaDateKey: String? = null
     private val generatedIdeasToday = mutableListOf<GeneratedIdeaMemory>()
+    private val recentHiveSemanticHashes = ArrayDeque<String>()
     private var guestAccessPolicy = GuestAccessPolicy(
         isGuest = false,
         areLimitsEnabled = true
@@ -929,15 +953,25 @@ class MenuDadoViewModel(
         consumeGuestGeneratedIdea()
         _uiState.update {
             it.copy(
-                isGeneratingMenu = true,
+                aiGenerationPhase = AiGenerationPhase.GENERATING,
                 message = null,
                 isAiRetryNoticeVisible = false
             )
         }
 
         viewModelScope.launch {
+            val slowPhaseJob = launch {
+                delay(AI_GENERATION_SLOW_NOTICE_MILLIS)
+                _uiState.update { current ->
+                    if (current.aiGenerationPhase == AiGenerationPhase.GENERATING) {
+                        current.copy(aiGenerationPhase = AiGenerationPhase.GENERATING_SLOW)
+                    } else {
+                        current
+                    }
+                }
+            }
             try {
-                withAiRequestTimeout {
+                val generatedResult = withAiRequestTimeout {
                     repository.generateMenu(
                         mealType = mealType,
                         avoidIdeas = avoidIdeas,
@@ -948,54 +982,103 @@ class MenuDadoViewModel(
                         cuisineInspiration = cuisineInspiration
                     )
                 }
-                    .onSuccess { generated ->
-                        aiQuotaRetryStore.clearRetryState()
-                        cuisineRotation.advance(mealType, audience)
-                        rememberGeneratedIdea(mealType, audience, generated.name, generated.description)
+                if (generatedResult.isSuccess) {
+                    val generated = generatedResult.getOrThrow()
+                    aiQuotaRetryStore.clearRetryState()
+                    cuisineRotation.advance(mealType, audience)
+                    rememberGeneratedIdea(mealType, audience, generated.name, generated.description)
+                    val identity = AiMenuHiveIdentity.from(
+                        AppLanguage.fromLocale(),
+                        generated.deduplicationKey
+                    )
 
+                    _uiState.update {
+                        if (audience !in it.enabledAudiences || it.formAudience != audience) {
+                            it
+                        } else {
+                            it.copy(
+                                name = generated.name,
+                                description = generated.description,
+                                notes = generated.notes,
+                                calories = generated.calories,
+                                generatedHealthAnalysis = generated.healthAnalysis,
+                                generatedShoppingProducts = generated.shoppingProducts,
+                                addGeneratedMenuToMarketList = true,
+                                generatedCuisineInspiration = cuisineInspiration,
+                                generatedDeduplicationKey = generated.deduplicationKey,
+                                generatedOrigin = GeneratedMenuOrigin.LIVE_AI,
+                                generatedSemanticHash = identity?.semanticHash,
+                                isAiRetryNoticeVisible = false,
+                                showGeneratedMenuDetail = true
+                            )
+                        }
+                    }
+
+                    runCatching {
+                        analytics.trackAiMenuGenerationFinished(
+                            mealType = mealType,
+                            success = true,
+                            healthStatus = generated.healthAnalysis?.status,
+                            failureType = null
+                        )
+                    }
+                } else {
+                    val error = requireNotNull(generatedResult.exceptionOrNull())
+                    val notice = error.toAiFailureNotice(clockMillisProvider(), currentLanguage())
+                    showAiFailureNotice(notice)
+                    _uiState.update { it.copy(aiGenerationPhase = AiGenerationPhase.SEARCHING_HIVE) }
+                    val fallback = aiMenuHive.findCompatibleMenu(
+                        AiMenuHiveSearchRequest(
+                            language = AppLanguage.fromLocale(),
+                            mealType = mealType,
+                            audience = audience,
+                            profile = profile,
+                            baseIngredients = state.aiBaseIngredients.trim(),
+                            recentSemanticHashes = recentHiveSemanticHashes.toSet()
+                        )
+                    ).getOrNull()
+                    fallback?.let { candidate ->
+                        rememberHiveSemanticHash(candidate.semanticHash)
                         _uiState.update {
-                            if (audience !in it.enabledAudiences || it.formAudience != audience) {
-                                it
-                            } else {
-                                it.copy(
-                                    name = generated.name,
-                                    description = generated.description,
-                                    notes = generated.notes,
-                                    calories = generated.calories,
-                                    generatedHealthAnalysis = generated.healthAnalysis,
-                                    generatedShoppingProducts = generated.shoppingProducts,
-                                    addGeneratedMenuToMarketList = true,
-                                    generatedCuisineInspiration = cuisineInspiration,
-                                    isAiRetryNoticeVisible = false,
-                                    showGeneratedMenuDetail = true
-                                )
-                            }
-                        }
-
-                        runCatching {
-                            analytics.trackAiMenuGenerationFinished(
-                                mealType = mealType,
-                                success = true,
-                                healthStatus = generated.healthAnalysis?.status,
-                                failureType = null
+                            it.copy(
+                                name = candidate.generatedMenu.name,
+                                description = candidate.generatedMenu.description,
+                                notes = candidate.generatedMenu.notes,
+                                calories = candidate.generatedMenu.calories,
+                                generatedHealthAnalysis = candidate.generatedMenu.healthAnalysis,
+                                generatedShoppingProducts = candidate.generatedMenu.shoppingProducts,
+                                addGeneratedMenuToMarketList = true,
+                                generatedCuisineInspiration = candidate.cuisineInspiration,
+                                generatedDeduplicationKey = candidate.generatedMenu.deduplicationKey,
+                                generatedOrigin = GeneratedMenuOrigin.HIVE_FALLBACK,
+                                generatedSemanticHash = candidate.semanticHash,
+                                message = null,
+                                isAiRetryNoticeVisible = false,
+                                showGeneratedMenuDetail = true
                             )
                         }
                     }
-                    .onFailure { error ->
-                        val notice = error.toAiFailureNotice(clockMillisProvider(), currentLanguage())
-                        showAiFailureNotice(notice)
-                        runCatching {
-                            analytics.trackAiMenuGenerationFinished(
-                                mealType = mealType,
-                                success = false,
-                                healthStatus = null,
-                                failureType = error.analyticsFailureType()
-                            )
-                        }
+                    runCatching {
+                        analytics.trackAiMenuGenerationFinished(
+                            mealType = mealType,
+                            success = false,
+                            healthStatus = null,
+                            failureType = error.analyticsFailureType()
+                        )
                     }
+                }
             } finally {
-                _uiState.update { it.copy(isGeneratingMenu = false) }
+                slowPhaseJob.cancel()
+                _uiState.update { it.copy(aiGenerationPhase = AiGenerationPhase.IDLE) }
             }
+        }
+    }
+
+    private fun rememberHiveSemanticHash(hash: String) {
+        recentHiveSemanticHashes.remove(hash)
+        recentHiveSemanticHashes.addLast(hash)
+        while (recentHiveSemanticHashes.size > MAX_RECENT_HIVE_HASHES) {
+            recentHiveSemanticHashes.removeFirst()
         }
     }
 
@@ -2129,6 +2212,8 @@ private const val SECOND_QUOTA_BACKOFF_MILLIS = 2 * 60 * 1000L
 private const val MAX_QUOTA_BACKOFF_MILLIS = 30 * 60 * 1000L
 private const val AI_REQUEST_THROTTLE_MILLIS = 1 * 1000L
 private const val AI_REQUEST_TIMEOUT_MILLIS = 45 * 1000L
+private const val AI_GENERATION_SLOW_NOTICE_MILLIS = 12 * 1000L
+private const val MAX_RECENT_HIVE_HASHES = 8
 private fun AiQuotaLimitType.message(language: AppLanguage): String {
     return when (this) {
         AiQuotaLimitType.REQUESTS_PER_MINUTE -> language.aiRequestsPerMinuteMessage()
