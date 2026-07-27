@@ -43,6 +43,7 @@ import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import com.menudado.domain.AiQuotaLimitType
 import com.menudado.domain.classifyAiQuotaLimitType
+import com.menudado.domain.findIngredientConflicts
 import com.menudado.domain.isAiQuotaExceeded
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
@@ -53,7 +54,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -1890,39 +1890,6 @@ private fun String.retryAtMillis(nowMillis: Long): Long? {
     return nowMillis + ((ceil(seconds).toLong() + RETRY_GRACE_SECONDS) * 1000)
 }
 
-private fun DietaryProfile.findIngredientConflicts(input: String): List<String> {
-    if (input.isBlank() || !hasRestrictions) {
-        return emptyList()
-    }
-
-    val ingredients = input.split(',', ';', '\n')
-        .map { it.trim() }
-        .filter { it.isNotBlank() }
-
-    return ingredients
-        .filter { ingredient -> ingredient.conflictsWith(this) }
-        .distinctBy { it.normalizedForFoodMatch() }
-}
-
-private fun String.conflictsWith(profile: DietaryProfile): Boolean {
-    val normalized = normalizedForFoodMatch()
-    if (profile.isVegan && normalized.containsAnyFoodTerm(VEGAN_EXCLUDED_TERMS)) {
-        return true
-    }
-    if (profile.hasAllergies && profile.allergens.any { allergen ->
-            normalized.containsAnyFoodTerm(allergen.excludedTerms())
-        }
-    ) {
-        return true
-    }
-
-    return profile.otherAvoidances
-        .split(',', ';', '\n')
-        .map { it.normalizedForFoodMatch() }
-        .filter { it.isNotBlank() }
-        .any { avoidance -> normalized.containsFoodTerm(avoidance) }
-}
-
 private fun currentLanguage(): AppLanguage = AppLanguage.fromLocale()
 
 private fun AppLanguage.noMenusForFilterMessage(): String {
@@ -2105,54 +2072,12 @@ private fun List<String>.toIngredientConflictMessage(language: AppLanguage): Str
     }
 }
 
-private fun String.normalizedForFoodMatch(): String {
-    return Normalizer.normalize(this, Normalizer.Form.NFD)
-        .replace(Regex("\\p{Mn}+"), "")
-        .lowercase(Locale.ROOT)
-        .trim()
-}
-
-private fun String.containsAnyFoodTerm(terms: Set<String>): Boolean {
-    return terms.any { containsFoodTerm(it) }
-}
-
-private fun String.containsFoodTerm(term: String): Boolean {
-    if (term.isBlank()) return false
-    val normalizedTerm = term.normalizedForFoodMatch()
-    if (normalizedTerm.length <= 3) {
-        return Regex("""(^|[^a-z0-9])${Regex.escape(normalizedTerm)}([^a-z0-9]|$)""")
-            .containsMatchIn(this)
-    }
-    return contains(normalizedTerm)
-}
-
 private data class GeneratedIdeaMemory(
     val mealType: MealType,
     val audience: MenuAudience,
     val name: String,
     val description: String
 )
-
-private fun DietaryAllergen.excludedTerms(): Set<String> {
-    return when (this) {
-        DietaryAllergen.GLUTEN -> setOf("gluten", "trigo", "cebada", "centeno", "harina", "pan", "pasta")
-        DietaryAllergen.DAIRY -> DAIRY_TERMS
-        DietaryAllergen.EGG -> EGG_TERMS
-        DietaryAllergen.TREE_NUTS -> setOf("frutos secos", "almendra", "nuez", "nueces", "avellana", "pistacho", "anacardo")
-        DietaryAllergen.PEANUT -> setOf("cacahuete", "mani")
-        DietaryAllergen.SOY -> setOf("soja", "soya", "tofu", "edamame", "tamari")
-        DietaryAllergen.FISH -> FISH_TERMS
-        DietaryAllergen.SHELLFISH -> SHELLFISH_TERMS
-        DietaryAllergen.SESAME -> setOf("sesamo", "tahini")
-    }
-}
-
-private val DAIRY_TERMS = setOf("lactosa", "lacteo", "lacteos", "leche", "queso", "yogur", "yogurt", "mantequilla", "nata", "crema")
-private val EGG_TERMS = setOf("huevo", "huevos", "tortilla francesa")
-private val FISH_TERMS = setOf("pescado", "atun", "salmon", "merluza", "bacalao", "sardina", "anchoa")
-private val SHELLFISH_TERMS = setOf("marisco", "gamba", "gambas", "langostino", "cangrejo", "mejillon", "almeja")
-private val MEAT_TERMS = setOf("pollo", "ternera", "cerdo", "jamon", "pavo", "carne", "chorizo", "panceta", "bacon")
-private val VEGAN_EXCLUDED_TERMS = DAIRY_TERMS + EGG_TERMS + FISH_TERMS + SHELLFISH_TERMS + MEAT_TERMS + setOf("miel")
 
 private const val RETRY_GRACE_SECONDS = 2L
 private const val AI_DAILY_FREE_REQUEST_LIMIT = 20
