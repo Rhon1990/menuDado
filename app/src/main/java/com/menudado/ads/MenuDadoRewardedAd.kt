@@ -55,25 +55,24 @@ class MenuDadoRewardedAd(
         loadedAd = null
         onReadyChanged(false)
 
-        var rewardDelivered = false
+        val completion = RewardedAdCompletion(
+            onRewardEarned = onRewardEarned,
+            onDismissedWithoutReward = onDismissedWithoutReward
+        )
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
-                if (!rewardDelivered) {
-                    onDismissedWithoutReward()
-                }
+                completion.completeAfterDismissal()
                 loadIfNeeded()
             }
 
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                completion.cancel()
                 onUnavailable()
                 loadIfNeeded()
             }
         }
         ad.show(activity) {
-            if (!rewardDelivered) {
-                rewardDelivered = true
-                onRewardEarned()
-            }
+            completion.recordReward()
         }
     }
 
