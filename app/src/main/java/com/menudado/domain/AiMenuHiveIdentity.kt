@@ -11,7 +11,7 @@ data class AiMenuSemanticIdentity(
 
 object AiMenuHiveIdentity {
     private const val PROFILE_SCHEMA_VERSION = 1
-    private val aliases = mapOf(
+    private val componentAliases = mapOf(
         "spaghetti" to "pasta",
         "espagueti" to "pasta",
         "espaguetis" to "pasta",
@@ -22,8 +22,21 @@ object AiMenuHiveIdentity {
         "tomates" to "tomato",
         "lenteja" to "lentils",
         "lentejas" to "lentils",
+        "lentil" to "lentils",
+        "vegetable" to "vegetables",
+        "verdura" to "vegetables",
+        "verduras" to "vegetables",
         "salsa" to "sauce",
         "salsa de tomate" to "sauce"
+    )
+    private val preparationAliases = mapOf(
+        "mix" to "mixed",
+        "mixing" to "mixed",
+        "toss" to "mixed",
+        "tossed" to "mixed",
+        "mezcla" to "mixed",
+        "mezclado" to "mixed",
+        "mezclada" to "mixed"
     )
 
     fun from(language: AppLanguage, rawKey: String?): AiMenuSemanticIdentity? {
@@ -32,7 +45,7 @@ object AiMenuHiveIdentity {
         val parts = listOf(
             canonicalComponent(rawParts[0]),
             canonicalIngredients(rawParts[1]),
-            canonicalComponent(rawParts[2])
+            canonicalPreparation(rawParts[2])
         )
         if (parts.any(String::isBlank)) return null
         val canonicalKey = parts.joinToString("|")
@@ -69,7 +82,12 @@ object AiMenuHiveIdentity {
 
     private fun canonicalComponent(value: String): String {
         val normalized = value.normalized()
-        return aliases[normalized] ?: normalized
+        return componentAliases[normalized] ?: normalized
+    }
+
+    private fun canonicalPreparation(value: String): String {
+        val normalized = value.normalized()
+        return preparationAliases[normalized] ?: canonicalComponent(normalized)
     }
 
     private fun canonicalIngredients(value: String): String = value
