@@ -73,7 +73,7 @@ android {
                 "google_web_client_id",
                 productionGoogleWebClientId.asAndroidStringValue()
             )
-            manifestPlaceholders["admobAppId"] = "ca-app-pub-2347852335093406~6979235643"
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-2347852335093406~9294645476"
             buildConfigField(
                 "String",
                 "HOME_INLINE_BANNER_AD_UNIT_ID",
