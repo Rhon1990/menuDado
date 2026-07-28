@@ -19,6 +19,7 @@ import com.menudado.data.CuisineRotationStateStore
 import com.menudado.data.GuestDailyUsageState
 import com.menudado.data.GuestUsageStore
 import com.menudado.data.GUEST_AI_USAGE_SCOPE
+import com.menudado.data.LOCAL_ACCOUNT_AI_USAGE_SCOPE
 import com.menudado.data.MenuDao
 import com.menudado.data.MenuEntity
 import com.menudado.data.MenuRepository
@@ -26,6 +27,9 @@ import com.menudado.data.OnboardingStore
 import com.menudado.data.RemoteSyncState
 import com.menudado.data.RewardedAiCreditLedger
 import com.menudado.data.RewardedAiCreditStore
+import com.menudado.data.PROVIDER_AI_USAGE_SCOPE
+import com.menudado.data.ScopedAiUsageStore
+import com.menudado.data.accountAiUsageScope
 import com.menudado.data.toEntity
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.GeneratedMenu
@@ -73,6 +77,7 @@ class MenuDadoViewModelTest {
     private lateinit var aiQuotaRetryStore: FakeAiQuotaRetryStore
     private lateinit var aiRequestThrottleStore: FakeAiRequestThrottleStore
     private lateinit var aiDailyUsageStore: FakeAiDailyUsageStore
+    private lateinit var scopedAiUsageStore: FakeScopedAiUsageStore
     private lateinit var guestUsageStore: FakeGuestUsageStore
     private lateinit var rewardedAiCreditStore: FakeRewardedAiCreditStore
     private lateinit var dietaryProfileStore: FakeDietaryProfileStore
@@ -94,6 +99,7 @@ class MenuDadoViewModelTest {
         aiQuotaRetryStore = FakeAiQuotaRetryStore()
         aiRequestThrottleStore = FakeAiRequestThrottleStore()
         aiDailyUsageStore = FakeAiDailyUsageStore()
+        scopedAiUsageStore = FakeScopedAiUsageStore()
         guestUsageStore = FakeGuestUsageStore()
         rewardedAiCreditStore = FakeRewardedAiCreditStore()
         dietaryProfileStore = FakeDietaryProfileStore()
@@ -110,6 +116,8 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiRequestThrottleStore = aiRequestThrottleStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
+            initialAiUsageScope = LOCAL_ACCOUNT_AI_USAGE_SCOPE,
             guestUsageStore = guestUsageStore,
             rewardedAiCreditStore = rewardedAiCreditStore,
             dietaryProfileStore = dietaryProfileStore,
@@ -164,9 +172,162 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `five guest uses leave ten free uses after sign in`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(GUEST_AI_USAGE_SCOPE, "2026-06-10", usedCount = 5)
+        viewModel.updateGuestAccess(
+            isGuest = true,
+            areLimitsEnabled = true,
+            areAiLimitsEnabled = true,
+            userId = "anonymous-user"
+        )
+
+        assertEquals(0, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+
+        viewModel.updateGuestAccess(
+            isGuest = false,
+            areLimitsEnabled = true,
+            areAiLimitsEnabled = true,
+            userId = "user-a"
+        )
+
+        assertEquals(10, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+    }
+
+    @Test
+    fun `guest rewarded videos do not reduce account rewarded allowance`() = runTest(dispatcher) {
+        rewardedAiCreditStore.seed(
+            GUEST_AI_USAGE_SCOPE,
+            RewardedAiCreditLedger(
+                dateKey = "2026-06-10",
+                earnedCount = 10,
+                consumedCount = 10
+            )
+        )
+        scopedAiUsageStore.seed(accountAiUsageScope("user-a"), "2026-06-10", usedCount = 10)
+
+        viewModel.updateGuestAccess(
+            isGuest = false,
+            areLimitsEnabled = true,
+            areAiLimitsEnabled = true,
+            userId = "user-a"
+        )
+
+        assertEquals(AiGenerationLimitState.REWARDED_OFFER, viewModel.uiState.value.aiGenerationLimitState)
+        assertEquals(10, viewModel.uiState.value.rewardedCreditsRemainingToday)
+    }
+
+    @Test
+    fun `logging out restores previous guest balance`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(GUEST_AI_USAGE_SCOPE, "2026-06-10", usedCount = 4)
+        scopedAiUsageStore.seed(accountAiUsageScope("user-a"), "2026-06-10", usedCount = 7)
+
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+        assertEquals(3, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+
+        viewModel.updateGuestAccess(true, true, true, userId = "anonymous-user")
+        assertEquals(1, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+    }
+
+    @Test
+    fun `authenticated accounts keep independent free allowances`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(accountAiUsageScope("user-a"), "2026-06-10", usedCount = 10)
+
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+        assertEquals(0, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+
+        viewModel.updateGuestAccess(false, true, true, userId = "user-b")
+        assertEquals(10, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+    }
+
+    @Test
+    fun `provider safeguard routes an entitled generation directly to hive`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        hive.searchResult = Result.success(sampleHiveCandidate())
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(1, hive.searches.size)
+        assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
+        assertEquals(
+            1,
+            scopedAiUsageStore.getUsageState(
+                accountAiUsageScope("user-a"),
+                "2026-06-10"
+            ).usedCount
+        )
+        assertEquals(
+            20,
+            scopedAiUsageStore.getUsageState(PROVIDER_AI_USAGE_SCOPE, "2026-06-10").usedCount
+        )
+    }
+
+    @Test
+    fun `provider safeguard blocks analysis without consuming account allowance`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+
+        viewModel.analyzeExisting(
+            FoodMenu(
+                id = 1,
+                name = "Tostadas",
+                mealType = MealType.BREAKFAST,
+                audience = MenuAudience.ADULT,
+                description = "Pan, tomate y aguacate"
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.analysisCalls)
+        assertEquals(
+            0,
+            scopedAiUsageStore.getUsageState(
+                accountAiUsageScope("user-a"),
+                "2026-06-10"
+            ).usedCount
+        )
+    }
+
+    @Test
+    fun `legacy guest usage migrates once without becoming account usage`() = runTest(dispatcher) {
+        val legacyStore = FakeAiDailyUsageStore().apply {
+            storedDateKey = "2026-06-10"
+            storedUsedCount = 5
+        }
+        val migratedScopedStore = FakeScopedAiUsageStore()
+        val migratedViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { localMillisAtHour(8) },
+            aiDailyUsageStore = legacyStore,
+            scopedAiUsageStore = migratedScopedStore,
+            initialAiUsageScope = GUEST_AI_USAGE_SCOPE,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+
+        migratedViewModel.updateGuestAccess(true, true, true, userId = "anonymous-user")
+
+        assertEquals(0, migratedViewModel.uiState.value.aiGenerationUsesRemainingToday)
+        assertEquals(
+            5,
+            migratedScopedStore.getUsageState(GUEST_AI_USAGE_SCOPE, "2026-06-10").usedCount
+        )
+        assertEquals(
+            5,
+            migratedScopedStore.getUsageState(PROVIDER_AI_USAGE_SCOPE, "2026-06-10").usedCount
+        )
+        assertEquals(0, legacyStore.storedUsedCount)
+
+        migratedViewModel.updateGuestAccess(false, true, true, userId = "user-a")
+
+        assertEquals(10, migratedViewModel.uiState.value.aiGenerationUsesRemainingToday)
+    }
+
+    @Test
     fun `signed in free limit offers rewarded generation without a daily retry lock`() = runTest(dispatcher) {
-        aiDailyUsageStore.storedDateKey = "2026-06-10"
-        aiDailyUsageStore.storedUsedCount = 10
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
         viewModel.updateGuestAccess(isGuest = false, areLimitsEnabled = true, areAiLimitsEnabled = true)
 
         viewModel.generateMenuIdea()
@@ -180,13 +341,13 @@ class MenuDadoViewModelTest {
 
     @Test
     fun `rewarded offer is tracked when the app starts with free uses already exhausted`() = runTest(dispatcher) {
-        aiDailyUsageStore.storedDateKey = "2026-06-10"
-        aiDailyUsageStore.storedUsedCount = 10
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
             clockMillisProvider = { localMillisAtHour(8) },
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             rewardedAiCreditStore = rewardedAiCreditStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore,
@@ -206,8 +367,7 @@ class MenuDadoViewModelTest {
 
     @Test
     fun `earned reward resumes Gemini and keeps the existing hive fallback`() = runTest(dispatcher) {
-        aiDailyUsageStore.storedDateKey = "2026-06-10"
-        aiDailyUsageStore.storedUsedCount = 10
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
         analyzer.generateFailure = IllegalStateException("internal")
         hive.searchResult = Result.success(sampleHiveCandidate())
         viewModel.generateMenuIdea()
@@ -226,8 +386,7 @@ class MenuDadoViewModelTest {
 
     @Test
     fun `dismissed rewarded ad grants no credit and starts no generation`() = runTest(dispatcher) {
-        aiDailyUsageStore.storedDateKey = "2026-06-10"
-        aiDailyUsageStore.storedUsedCount = 10
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
         viewModel.generateMenuIdea()
 
         assertTrue(viewModel.requestRewardedGeneration())
@@ -242,8 +401,7 @@ class MenuDadoViewModelTest {
 
     @Test
     fun `rewarded generation request ignores a second tap while the ad is pending`() = runTest(dispatcher) {
-        aiDailyUsageStore.storedDateKey = "2026-06-10"
-        aiDailyUsageStore.storedUsedCount = 10
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
         viewModel.generateMenuIdea()
 
         assertTrue(viewModel.requestRewardedGeneration())
@@ -253,8 +411,7 @@ class MenuDadoViewModelTest {
 
     @Test
     fun `earned reward generates with the request validated before the ad`() = runTest(dispatcher) {
-        aiDailyUsageStore.storedDateKey = "2026-06-10"
-        aiDailyUsageStore.storedUsedCount = 10
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
         viewModel.updateAiBaseIngredients("tomate")
         viewModel.generateMenuIdea()
 
@@ -269,8 +426,7 @@ class MenuDadoViewModelTest {
 
     @Test
     fun `guest reaches rewarded offer after five shared AI requests`() = runTest(dispatcher) {
-        aiDailyUsageStore.storedDateKey = "2026-06-10"
-        aiDailyUsageStore.storedUsedCount = 5
+        scopedAiUsageStore.seed(GUEST_AI_USAGE_SCOPE, "2026-06-10", usedCount = 5)
         viewModel.updateGuestAccess(
             isGuest = true,
             areLimitsEnabled = false,
@@ -286,8 +442,7 @@ class MenuDadoViewModelTest {
 
     @Test
     fun `analysis stops at free limit and never offers a rewarded credit`() = runTest(dispatcher) {
-        aiDailyUsageStore.storedDateKey = "2026-06-10"
-        aiDailyUsageStore.storedUsedCount = 10
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
         val menu = FoodMenu(
             id = 1,
             name = "Tostadas",
@@ -414,6 +569,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { localMillisAtHour(8) },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -438,6 +594,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { localMillisAtHour(13) },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -447,6 +604,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { localMillisAtHour(21) },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -513,6 +671,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -537,6 +696,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -622,8 +782,7 @@ class MenuDadoViewModelTest {
 
     @Test
     fun `guest generation uses shared five request limit when AI limits are enabled`() = runTest(dispatcher) {
-        aiDailyUsageStore.storedDateKey = "2026-06-10"
-        aiDailyUsageStore.storedUsedCount = 5
+        scopedAiUsageStore.seed(GUEST_AI_USAGE_SCOPE, "2026-06-10", usedCount = 5)
         viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true, areAiLimitsEnabled = true)
 
         viewModel.generateMenuIdea()
@@ -670,8 +829,7 @@ class MenuDadoViewModelTest {
 
     @Test
     fun `guest analysis uses shared five request limit when AI limits are enabled`() = runTest(dispatcher) {
-        aiDailyUsageStore.storedDateKey = "2026-06-10"
-        aiDailyUsageStore.storedUsedCount = 5
+        scopedAiUsageStore.seed(GUEST_AI_USAGE_SCOPE, "2026-06-10", usedCount = 5)
         viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true, areAiLimitsEnabled = true)
 
         viewModel.analyzeExisting(
@@ -726,7 +884,14 @@ class MenuDadoViewModelTest {
             ),
             guestUsageStore.state
         )
-        assertEquals(2, aiDailyUsageStore.storedUsedCount)
+        assertEquals(
+            2,
+            scopedAiUsageStore.getUsageState(GUEST_AI_USAGE_SCOPE, "2026-06-10").usedCount
+        )
+        assertEquals(
+            2,
+            scopedAiUsageStore.getUsageState(PROVIDER_AI_USAGE_SCOPE, "2026-06-10").usedCount
+        )
     }
 
     @Test
@@ -857,6 +1022,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = firstRunStore
         )
@@ -874,6 +1040,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = FakeOnboardingStore(completed = true)
         )
@@ -891,6 +1058,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = previousContentStore
         )
@@ -913,6 +1081,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -934,6 +1103,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -1211,6 +1381,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiRequestThrottleStore = aiRequestThrottleStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -1371,7 +1542,8 @@ class MenuDadoViewModelTest {
             repository = MenuRepository(dao, analyzer),
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore,
-            aiDailyUsageStore = aiDailyUsageStore
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
 
         assertEquals(10, viewModel.uiState.value.aiUsesRemainingToday)
@@ -1383,7 +1555,8 @@ class MenuDadoViewModelTest {
             repository = MenuRepository(dao, analyzer),
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore,
-            aiDailyUsageStore = aiDailyUsageStore
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -1402,7 +1575,8 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiRequestThrottleStore = aiRequestThrottleStore,
-            aiDailyUsageStore = aiDailyUsageStore
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -1424,7 +1598,8 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiRequestThrottleStore = aiRequestThrottleStore,
-            aiDailyUsageStore = aiDailyUsageStore
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -1447,7 +1622,8 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiRequestThrottleStore = aiRequestThrottleStore,
-            aiDailyUsageStore = aiDailyUsageStore
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -1469,7 +1645,8 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { currentTime },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiRequestThrottleStore = aiRequestThrottleStore,
-            aiDailyUsageStore = aiDailyUsageStore
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -1497,15 +1674,18 @@ class MenuDadoViewModelTest {
 
     @Test
     fun `generate menu idea does not call IA when daily local uses are exhausted`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(
+            LOCAL_ACCOUNT_AI_USAGE_SCOPE,
+            "1969-12-31",
+            usedCount = 20
+        )
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore,
-            aiDailyUsageStore = aiDailyUsageStore.apply {
-                storedDateKey = "1969-12-31"
-                storedUsedCount = 20
-            }
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -1636,6 +1816,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiRequestThrottleStore = aiRequestThrottleStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -1671,6 +1852,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiRequestThrottleStore = aiRequestThrottleStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -1700,6 +1882,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiRequestThrottleStore = aiRequestThrottleStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -2301,13 +2484,13 @@ class MenuDadoViewModelTest {
     @Test
     fun `active quota retry refreshes when Pacific daily reset arrives without user interaction`() = runTest(dispatcher) {
         val resetAtMillis = 1_780_642_800_000L
-        aiDailyUsageStore.storedDateKey = "2026-06-04"
-        aiDailyUsageStore.storedUsedCount = 20
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-04", usedCount = 20)
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             clockMillisProvider = { 1_780_642_799_000L + currentTime },
             aiQuotaRetryStore = aiQuotaRetryStore,
-            aiDailyUsageStore = aiDailyUsageStore
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -2451,6 +2634,7 @@ class MenuDadoViewModelTest {
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiRequestThrottleStore = aiRequestThrottleStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -2484,7 +2668,8 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiRequestThrottleStore = aiRequestThrottleStore,
-            aiDailyUsageStore = aiDailyUsageStore
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
         val analyzed = FoodMenu(
             id = 1,
@@ -3427,6 +3612,36 @@ private class FakeAiDailyUsageStore : AiDailyUsageStore {
     }
 }
 
+private class FakeScopedAiUsageStore : ScopedAiUsageStore {
+    private val states = mutableMapOf<String, AiDailyUsageState>()
+    private var migrationComplete = false
+
+    fun seed(scope: String, dateKey: String, usedCount: Int) {
+        states[scope] = AiDailyUsageState(dateKey = dateKey, usedCount = usedCount)
+    }
+
+    override fun getUsageState(scope: String, dateKey: String): AiDailyUsageState {
+        return states[scope]?.takeIf { it.dateKey == dateKey }
+            ?: AiDailyUsageState(dateKey = dateKey, usedCount = 0)
+    }
+
+    override fun saveUsageState(scope: String, state: AiDailyUsageState) {
+        states[scope] = state
+    }
+
+    override fun migrateLegacyUsage(scope: String, legacyState: AiDailyUsageState?): Boolean {
+        if (migrationComplete) {
+            return false
+        }
+        legacyState?.let { state ->
+            states.putIfAbsent(scope, state)
+            states.putIfAbsent(PROVIDER_AI_USAGE_SCOPE, state)
+        }
+        migrationComplete = true
+        return true
+    }
+}
+
 private class FakeGuestUsageStore : GuestUsageStore {
     var state: GuestDailyUsageState? = null
 
@@ -3439,15 +3654,22 @@ private class FakeGuestUsageStore : GuestUsageStore {
 
 private class FakeRewardedAiCreditStore : RewardedAiCreditStore {
     private val ledgers = mutableMapOf<String, RewardedAiCreditLedger>()
+    private var lastSavedScope: String? = null
     var ledger: RewardedAiCreditLedger?
-        get() = ledgers[GUEST_AI_USAGE_SCOPE]
+        get() = lastSavedScope?.let(ledgers::get)
         set(value) {
             if (value == null) {
-                ledgers.remove(GUEST_AI_USAGE_SCOPE)
+                lastSavedScope?.let(ledgers::remove)
+                lastSavedScope = null
             } else {
                 ledgers[GUEST_AI_USAGE_SCOPE] = value
+                lastSavedScope = GUEST_AI_USAGE_SCOPE
             }
         }
+
+    fun seed(scope: String, ledger: RewardedAiCreditLedger) {
+        ledgers[scope] = ledger
+    }
 
     override fun getLedger(scope: String, dateKey: String): RewardedAiCreditLedger {
         return ledgers[scope]?.takeIf { it.dateKey == dateKey }
@@ -3456,6 +3678,7 @@ private class FakeRewardedAiCreditStore : RewardedAiCreditStore {
 
     override fun saveLedger(scope: String, ledger: RewardedAiCreditLedger) {
         ledgers[scope] = ledger
+        lastSavedScope = scope
     }
 }
 

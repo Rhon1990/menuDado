@@ -61,6 +61,7 @@ import com.menudado.auth.authErrorMessageResId
 import com.menudado.auth.shouldStartGuestModeByDefault
 import com.menudado.auth.GuestAiLimitsRemoteConfig
 import com.menudado.auth.MenuDadoGuestLimitsRemoteConfig
+import com.menudado.data.aiUsageScope
 import com.menudado.ui.MenuDadoScreen
 import com.menudado.ui.MenuDadoViewModel
 import com.menudado.ui.theme.MenuDadoColors
@@ -93,12 +94,18 @@ class MainActivity : ComponentActivity() {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                val initialAuthSession = app.authService.currentSession()
                 return MenuDadoViewModel(
                     repository = app.repository,
                     analytics = app.analytics,
                     aiQuotaRetryStore = app.aiQuotaRetryStore,
                     aiRequestThrottleStore = app.aiRequestThrottleStore,
                     aiDailyUsageStore = app.aiDailyUsageStore,
+                    scopedAiUsageStore = app.scopedAiUsageStore,
+                    initialAiUsageScope = aiUsageScope(
+                        isGuest = initialAuthSession?.isAnonymous != false,
+                        userId = initialAuthSession?.userId
+                    ),
                     guestUsageStore = app.guestUsageStore,
                     rewardedAiCreditStore = app.rewardedAiCreditStore,
                     dietaryProfileStore = app.dietaryProfileStore,

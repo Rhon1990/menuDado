@@ -31,9 +31,15 @@ import com.menudado.data.NoOpAiRequestThrottleStore
 import com.menudado.data.NoOpGuestUsageStore
 import com.menudado.data.NoOpOnboardingStore
 import com.menudado.data.NoOpRewardedAiCreditStore
+import com.menudado.data.NoOpScopedAiUsageStore
 import com.menudado.data.OnboardingStore
+import com.menudado.data.PROVIDER_AI_USAGE_SCOPE
 import com.menudado.data.RewardedAiCreditLedger
 import com.menudado.data.RewardedAiCreditStore
+import com.menudado.data.ScopedAiUsageStore
+import com.menudado.data.GUEST_AI_USAGE_SCOPE
+import com.menudado.data.LOCAL_ACCOUNT_AI_USAGE_SCOPE
+import com.menudado.data.aiUsageScope
 import com.menudado.domain.AI_PROVIDER_DAILY_HARD_LIMIT
 import com.menudado.domain.AiDailyUsagePolicy
 import com.menudado.domain.AiGenerationAccess
@@ -177,6 +183,8 @@ class MenuDadoViewModel(
     private val aiQuotaRetryStore: AiQuotaRetryStore = NoOpAiQuotaRetryStore,
     private val aiRequestThrottleStore: AiRequestThrottleStore = NoOpAiRequestThrottleStore,
     private val aiDailyUsageStore: AiDailyUsageStore = NoOpAiDailyUsageStore,
+    private val scopedAiUsageStore: ScopedAiUsageStore = NoOpScopedAiUsageStore,
+    initialAiUsageScope: String = LOCAL_ACCOUNT_AI_USAGE_SCOPE,
     private val guestUsageStore: GuestUsageStore = NoOpGuestUsageStore,
     private val rewardedAiCreditStore: RewardedAiCreditStore = NoOpRewardedAiCreditStore,
     private val dietaryProfileStore: DietaryProfileStore = NoOpDietaryProfileStore,
@@ -202,9 +210,11 @@ class MenuDadoViewModel(
         areLimitsEnabled = true
     )
     private var areGuestAiLimitsEnabled = true
+    private var activeAiUsageScope = initialAiUsageScope
     private var pendingRewardedGenerationRequest: ValidatedGenerationRequest? = null
 
     init {
+        migrateLegacyAiUsageIfNeeded()
         refreshOnboarding()
         refreshDietaryProfile()
         refreshStoredAiRetry()
@@ -271,13 +281,39 @@ class MenuDadoViewModel(
     fun updateGuestAccess(
         isGuest: Boolean,
         areLimitsEnabled: Boolean,
-        areAiLimitsEnabled: Boolean = true
+        areAiLimitsEnabled: Boolean = true,
+        userId: String? = null
     ) {
+        val updatedScope = if (
+            !isGuest &&
+            userId.isNullOrBlank() &&
+            activeAiUsageScope.startsWith("account:")
+        ) {
+            activeAiUsageScope
+        } else {
+            aiUsageScope(isGuest = isGuest, userId = userId)
+        }
+        val didScopeChange = activeAiUsageScope != updatedScope
+        activeAiUsageScope = updatedScope
         guestAccessPolicy = GuestAccessPolicy(
             isGuest = isGuest,
             areLimitsEnabled = areLimitsEnabled
         )
         areGuestAiLimitsEnabled = areAiLimitsEnabled
+        migrateLegacyAiUsageIfNeeded()
+        if (didScopeChange && aiQuotaRetryStore.getRetryState() == null) {
+            aiRetryRefreshJob?.cancel()
+            aiRetryRefreshJob = null
+            pendingRewardedGenerationRequest = null
+            _uiState.update {
+                it.copy(
+                    aiRetryAtMillis = null,
+                    isAiRequestThrottlePause = false,
+                    isAiRetryNoticeVisible = false,
+                    isRewardedGenerationPending = false
+                )
+            }
+        }
         refreshAiUsageCounters()
     }
 
@@ -1037,14 +1073,13 @@ class MenuDadoViewModel(
         pendingRewardedGenerationRequest = null
         _uiState.update { it.copy(isRewardedGenerationPending = false) }
         val dateKey = currentPacificDateKey()
-        val ledger = rewardedAiCreditStore.getLedger(dateKey)
-        if (ledger.earnedCount >= MAX_REWARDED_AI_CREDITS_PER_DAY ||
-            currentAiDailyUsedCount(dateKey) >= AI_PROVIDER_DAILY_HARD_LIMIT
-        ) {
+        val ledger = rewardedAiCreditStore.getLedger(activeAiUsageScope, dateKey)
+        if (ledger.earnedCount >= MAX_REWARDED_AI_CREDITS_PER_DAY) {
             showAiHardLimitNotice(AI_SOURCE_GENERATE_MENU)
             return
         }
         rewardedAiCreditStore.saveLedger(
+            activeAiUsageScope,
             ledger.copy(earnedCount = ledger.earnedCount + 1)
         )
         analytics.trackAiRewardedOffer(
@@ -1139,7 +1174,12 @@ class MenuDadoViewModel(
         val cuisineInspiration = cuisineRotation.current(mealType, audience)
         analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
         startAiRequestThrottle()
-        consumeAiDailyUse()
+        consumeScopedAiUse()
+        val shouldCallProvider = currentProviderAiUsedCount(currentPacificDateKey()) <
+            AI_PROVIDER_DAILY_HARD_LIMIT
+        if (shouldCallProvider) {
+            consumeProviderAiRequest()
+        }
         _uiState.update {
             it.copy(
                 aiGenerationPhase = AiGenerationPhase.GENERATING,
@@ -1160,6 +1200,14 @@ class MenuDadoViewModel(
                 }
             }
             try {
+                if (!shouldCallProvider) {
+                    searchHiveFallback(
+                        request = request,
+                        triggerFailureType = AI_FAILURE_QUOTA_DAILY,
+                        failureNotice = null
+                    )
+                    return@launch
+                }
                 val generatedResult = withAiRequestTimeout {
                     repository.generateMenu(
                         mealType = mealType,
@@ -1213,70 +1261,90 @@ class MenuDadoViewModel(
                     }
                 } else {
                     val error = requireNotNull(generatedResult.exceptionOrNull())
-                    val notice = error.toAiFailureNotice(clockMillisProvider(), currentLanguage())
-                    showAiFailureNotice(notice)
-                    _uiState.update { it.copy(aiGenerationPhase = AiGenerationPhase.SEARCHING_HIVE) }
-                    val hiveStartedAtMillis = clockMillisProvider()
-                    val hiveResult = aiMenuHive.findCompatibleMenu(
-                        AiMenuHiveSearchRequest(
-                            language = AppLanguage.fromLocale(),
-                            mealType = mealType,
-                            audience = audience,
-                            profile = profile,
-                            baseIngredients = state.aiBaseIngredients.trim(),
-                            recentSemanticHashes = recentHiveSemanticHashes.toSet()
+                    searchHiveFallback(
+                        request = request,
+                        triggerFailureType = error.analyticsFailureType(),
+                        failureNotice = error.toAiFailureNotice(
+                            clockMillisProvider(),
+                            currentLanguage()
                         )
                     )
-                    val fallback = hiveResult.getOrNull()
-                    fallback?.let { candidate ->
-                        rememberHiveSemanticHash(candidate.semanticHash)
-                        _uiState.update {
-                            it.copy(
-                                name = candidate.generatedMenu.name,
-                                description = candidate.generatedMenu.description,
-                                notes = candidate.generatedMenu.notes,
-                                calories = candidate.generatedMenu.calories,
-                                generatedHealthAnalysis = candidate.generatedMenu.healthAnalysis,
-                                generatedShoppingProducts = candidate.generatedMenu.shoppingProducts,
-                                addGeneratedMenuToMarketList = true,
-                                generatedCuisineInspiration = candidate.cuisineInspiration,
-                                generatedDeduplicationKey = candidate.generatedMenu.deduplicationKey,
-                                generatedOrigin = GeneratedMenuOrigin.HIVE_FALLBACK,
-                                generatedSemanticHash = candidate.semanticHash,
-                                message = null,
-                                isAiRetryNoticeVisible = false,
-                                showGeneratedMenuDetail = true
-                            )
-                        }
-                    }
-                    runCatching {
-                        analytics.trackAiMenuHiveFallback(
-                            mealType = mealType,
-                            result = when {
-                                hiveResult.isFailure -> HIVE_RESULT_ERROR
-                                fallback?.source == AiMenuHiveLookupSource.CACHE -> HIVE_RESULT_CACHE_HIT
-                                fallback != null -> HIVE_RESULT_HIT
-                                else -> HIVE_RESULT_MISS
-                            },
-                            triggerFailureType = error.analyticsFailureType(),
-                            durationMillis = (
-                                clockMillisProvider() - hiveStartedAtMillis
-                            ).coerceAtLeast(0L)
-                        )
-                    }
-                    runCatching {
-                        analytics.trackAiMenuGenerationFinished(
-                            mealType = mealType,
-                            success = false,
-                            healthStatus = null,
-                            failureType = error.analyticsFailureType()
-                        )
-                    }
                 }
             } finally {
                 slowPhaseJob.cancel()
                 _uiState.update { it.copy(aiGenerationPhase = AiGenerationPhase.IDLE) }
             }
+        }
+    }
+
+    private suspend fun searchHiveFallback(
+        request: ValidatedGenerationRequest,
+        triggerFailureType: String,
+        failureNotice: AiFailureNotice?
+    ) {
+        failureNotice?.let(::showAiFailureNotice)
+        _uiState.update { it.copy(aiGenerationPhase = AiGenerationPhase.SEARCHING_HIVE) }
+        val hiveStartedAtMillis = clockMillisProvider()
+        val hiveResult = aiMenuHive.findCompatibleMenu(
+            AiMenuHiveSearchRequest(
+                language = AppLanguage.fromLocale(),
+                mealType = request.mealType,
+                audience = request.audience,
+                profile = request.profile,
+                baseIngredients = request.state.aiBaseIngredients.trim(),
+                recentSemanticHashes = recentHiveSemanticHashes.toSet()
+            )
+        )
+        val fallback = hiveResult.getOrNull()
+        if (fallback == null && failureNotice == null) {
+            _uiState.update {
+                it.copy(
+                    message = currentLanguage().aiLocalDailyLimitMessage(),
+                    isAiRetryNoticeVisible = false
+                )
+            }
+        }
+        fallback?.let { candidate ->
+            rememberHiveSemanticHash(candidate.semanticHash)
+            _uiState.update {
+                it.copy(
+                    name = candidate.generatedMenu.name,
+                    description = candidate.generatedMenu.description,
+                    notes = candidate.generatedMenu.notes,
+                    calories = candidate.generatedMenu.calories,
+                    generatedHealthAnalysis = candidate.generatedMenu.healthAnalysis,
+                    generatedShoppingProducts = candidate.generatedMenu.shoppingProducts,
+                    addGeneratedMenuToMarketList = true,
+                    generatedCuisineInspiration = candidate.cuisineInspiration,
+                    generatedDeduplicationKey = candidate.generatedMenu.deduplicationKey,
+                    generatedOrigin = GeneratedMenuOrigin.HIVE_FALLBACK,
+                    generatedSemanticHash = candidate.semanticHash,
+                    message = null,
+                    isAiRetryNoticeVisible = false,
+                    showGeneratedMenuDetail = true
+                )
+            }
+        }
+        runCatching {
+            analytics.trackAiMenuHiveFallback(
+                mealType = request.mealType,
+                result = when {
+                    hiveResult.isFailure -> HIVE_RESULT_ERROR
+                    fallback?.source == AiMenuHiveLookupSource.CACHE -> HIVE_RESULT_CACHE_HIT
+                    fallback != null -> HIVE_RESULT_HIT
+                    else -> HIVE_RESULT_MISS
+                },
+                triggerFailureType = triggerFailureType,
+                durationMillis = (clockMillisProvider() - hiveStartedAtMillis).coerceAtLeast(0L)
+            )
+        }
+        runCatching {
+            analytics.trackAiMenuGenerationFinished(
+                mealType = request.mealType,
+                success = false,
+                healthStatus = null,
+                failureType = triggerFailureType
+            )
         }
     }
 
@@ -1297,13 +1365,13 @@ class MenuDadoViewModel(
 
     private fun currentRewardedLedger(): RewardedAiCreditLedger {
         val dateKey = currentPacificDateKey()
-        return rewardedAiCreditStore.getLedger(dateKey)
+        return rewardedAiCreditStore.getLedger(activeAiUsageScope, dateKey)
     }
 
     private fun currentGenerationAccess(): AiGenerationAccess {
         val ledger = currentRewardedLedger()
         return currentAiUsagePolicy().generationAccess(
-            usedCount = currentAiDailyUsedCount(currentPacificDateKey()),
+            usedCount = currentScopedAiUsedCount(currentPacificDateKey()),
             earnedRewardedCredits = ledger.earnedCount,
             consumedRewardedCredits = ledger.consumedCount
         )
@@ -1311,12 +1379,13 @@ class MenuDadoViewModel(
 
     private fun consumeRewardedGenerationCredit(): Boolean {
         val dateKey = currentPacificDateKey()
-        val ledger = rewardedAiCreditStore.getLedger(dateKey)
+        val ledger = rewardedAiCreditStore.getLedger(activeAiUsageScope, dateKey)
         if (ledger.consumedCount >= ledger.earnedCount) {
             refreshAiUsageCounters()
             return false
         }
         rewardedAiCreditStore.saveLedger(
+            activeAiUsageScope,
             ledger.copy(consumedCount = ledger.consumedCount + 1)
         )
         refreshAiUsageCounters()
@@ -1342,12 +1411,25 @@ class MenuDadoViewModel(
     }
 
     private fun canUseAiAnalysisOrShowNotice(source: String): Boolean {
-        val usedCount = currentAiDailyUsedCount(currentPacificDateKey())
-        if (currentAiUsagePolicy().canUseAiAnalysis(usedCount)) {
+        val dateKey = currentPacificDateKey()
+        val scopedUsedCount = currentScopedAiUsedCount(dateKey)
+        val providerUsedCount = currentProviderAiUsedCount(dateKey)
+        if (
+            currentAiUsagePolicy().canUseAiAnalysis(scopedUsedCount) &&
+            providerUsedCount < AI_PROVIDER_DAILY_HARD_LIMIT
+        ) {
             return true
         }
-        if (usedCount >= AI_PROVIDER_DAILY_HARD_LIMIT) {
-            showAiHardLimitNotice(source)
+        if (providerUsedCount >= AI_PROVIDER_DAILY_HARD_LIMIT) {
+            refreshAiUsageCounters()
+            _uiState.update {
+                it.copy(
+                    message = currentLanguage().aiLocalDailyLimitMessage(),
+                    aiAnalysisUsesRemainingToday = 0,
+                    isAiRetryNoticeVisible = false
+                )
+            }
+            analytics.trackAiDailyLimitReached(source)
         } else {
             refreshAiUsageCounters()
             _uiState.update {
@@ -1530,7 +1612,8 @@ class MenuDadoViewModel(
         }
         analytics.trackAiAnalysisStarted(AI_SCOPE_SINGLE, menu.mealType, menuCount = 1)
         startAiRequestThrottle()
-        consumeAiDailyUse()
+        consumeScopedAiUse()
+        consumeProviderAiRequest()
         _uiState.update {
             it.copy(
                 isAnalyzing = true,
@@ -1613,7 +1696,8 @@ class MenuDadoViewModel(
         }
         analytics.trackAiAnalysisStarted(AI_SCOPE_BATCH, mealType = null, menuCount = pendingMenus.size)
         startAiRequestThrottle()
-        consumeAiDailyUse()
+        consumeScopedAiUse()
+        consumeProviderAiRequest()
         _uiState.update {
             it.copy(
                 isAnalyzing = true,
@@ -1814,6 +1898,8 @@ class MenuDadoViewModel(
 
     private fun refreshAiUsageCounters() {
         val freeUsesRemaining = aiDailyUsesRemaining()
+        val providerAvailable = currentProviderAiUsedCount(currentPacificDateKey()) <
+            AI_PROVIDER_DAILY_HARD_LIMIT
         val generationLimitState = when (currentGenerationAccess()) {
             AiGenerationAccess.FREE,
             AiGenerationAccess.REWARDED_CREDIT -> AiGenerationLimitState.AVAILABLE
@@ -1824,7 +1910,7 @@ class MenuDadoViewModel(
             it.copy(
                 aiUsesRemainingToday = freeUsesRemaining,
                 aiGenerationUsesRemainingToday = freeUsesRemaining,
-                aiAnalysisUsesRemainingToday = freeUsesRemaining,
+                aiAnalysisUsesRemainingToday = if (providerAvailable) freeUsesRemaining else 0,
                 aiGenerationLimitState = generationLimitState,
                 rewardedCreditsRemainingToday = rewardedCreditsRemainingToday()
             )
@@ -1887,18 +1973,49 @@ class MenuDadoViewModel(
         return currentPacificDateKey(clockMillisProvider())
     }
 
-    private fun consumeAiDailyUse() {
+    private fun migrateLegacyAiUsageIfNeeded() {
+        val legacyState = aiDailyUsageStore.getUsageState()
+        val didMigrate = scopedAiUsageStore.migrateLegacyUsage(
+            scope = activeAiUsageScope,
+            legacyState = legacyState
+        )
+        if (
+            didMigrate &&
+            activeAiUsageScope == GUEST_AI_USAGE_SCOPE &&
+            legacyState != null &&
+            legacyState.usedCount > 0
+        ) {
+            aiDailyUsageStore.saveUsageState(legacyState.copy(usedCount = 0))
+        }
+    }
+
+    private fun consumeScopedAiUse() {
         val dateKey = currentPacificDateKey()
-        val usedCount = currentAiDailyUsedCount(dateKey)
+        val usedCount = currentScopedAiUsedCount(dateKey)
         val newUsedCount = (usedCount + 1).coerceAtMost(AI_PROVIDER_DAILY_HARD_LIMIT)
 
-        aiDailyUsageStore.saveUsageState(
+        val updatedState = AiDailyUsageState(
+            dateKey = dateKey,
+            usedCount = newUsedCount
+        )
+        scopedAiUsageStore.saveUsageState(activeAiUsageScope, updatedState)
+        if (activeAiUsageScope != GUEST_AI_USAGE_SCOPE) {
+            aiDailyUsageStore.saveUsageState(updatedState)
+        }
+
+        refreshAiUsageCounters()
+    }
+
+    private fun consumeProviderAiRequest() {
+        val dateKey = currentPacificDateKey()
+        val usedCount = currentProviderAiUsedCount(dateKey)
+        scopedAiUsageStore.saveUsageState(
+            PROVIDER_AI_USAGE_SCOPE,
             AiDailyUsageState(
                 dateKey = dateKey,
-                usedCount = newUsedCount
+                usedCount = (usedCount + 1).coerceAtMost(AI_PROVIDER_DAILY_HARD_LIMIT)
             )
         )
-
         refreshAiUsageCounters()
     }
 
@@ -1908,18 +2025,20 @@ class MenuDadoViewModel(
         } else {
             SIGNED_IN_DAILY_AI_FREE_LIMIT
         }
-        return (freeLimit - currentAiDailyUsedCount(currentPacificDateKey())).coerceIn(
+        return (freeLimit - currentScopedAiUsedCount(currentPacificDateKey())).coerceIn(
             0,
             freeLimit
         )
     }
 
-    private fun currentAiDailyUsedCount(dateKey: String): Int {
-        val state = aiDailyUsageStore.getUsageState()
-        if (state?.dateKey != dateKey) {
-            return 0
-        }
-        return state.usedCount.coerceIn(0, AI_PROVIDER_DAILY_HARD_LIMIT)
+    private fun currentScopedAiUsedCount(dateKey: String): Int {
+        return scopedAiUsageStore.getUsageState(activeAiUsageScope, dateKey).usedCount
+            .coerceIn(0, AI_PROVIDER_DAILY_HARD_LIMIT)
+    }
+
+    private fun currentProviderAiUsedCount(dateKey: String): Int {
+        return scopedAiUsageStore.getUsageState(PROVIDER_AI_USAGE_SCOPE, dateKey).usedCount
+            .coerceIn(0, AI_PROVIDER_DAILY_HARD_LIMIT)
     }
 
     private fun activeAiRetryAtMillis(): Long? {

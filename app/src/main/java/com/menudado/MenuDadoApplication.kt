@@ -49,6 +49,8 @@ import com.menudado.data.SharedPreferencesGuestUsageStore
 import com.menudado.data.SharedPreferencesOnboardingStore
 import com.menudado.data.RewardedAiCreditStore
 import com.menudado.data.SharedPreferencesRewardedAiCreditStore
+import com.menudado.data.ScopedAiUsageStore
+import com.menudado.data.SharedPreferencesScopedAiUsageStore
 import com.menudado.domain.MenuAudience
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -212,6 +214,10 @@ class MenuDadoApplication : Application() {
 
     val rewardedAiCreditStore: RewardedAiCreditStore by lazy {
         SharedPreferencesRewardedAiCreditStore(applicationContext)
+    }
+
+    val scopedAiUsageStore: ScopedAiUsageStore by lazy {
+        SharedPreferencesScopedAiUsageStore(applicationContext)
     }
 
     private val pendingSyncStore: BackendPendingSyncStore by lazy {

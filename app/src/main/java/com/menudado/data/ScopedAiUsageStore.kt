@@ -4,14 +4,16 @@ import android.content.Context
 
 const val GUEST_AI_USAGE_SCOPE = "guest"
 const val PROVIDER_AI_USAGE_SCOPE = "provider"
+const val LOCAL_ACCOUNT_AI_USAGE_SCOPE = "account:local"
 
 fun accountAiUsageScope(userId: String): String = "account:$userId"
 
 fun aiUsageScope(isGuest: Boolean, userId: String?): String {
-    return if (isGuest || userId.isNullOrBlank()) {
+    return if (isGuest) {
         GUEST_AI_USAGE_SCOPE
     } else {
-        accountAiUsageScope(userId)
+        userId?.takeIf(String::isNotBlank)?.let(::accountAiUsageScope)
+            ?: LOCAL_ACCOUNT_AI_USAGE_SCOPE
     }
 }
 

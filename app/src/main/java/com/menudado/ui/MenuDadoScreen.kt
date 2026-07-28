@@ -593,7 +593,8 @@ fun MenuDadoScreen(
         viewModel.updateGuestAccess(
             isGuest = authSession?.isAnonymous != false,
             areLimitsEnabled = areGuestLimitsEnabled,
-            areAiLimitsEnabled = areGuestAiLimitsEnabled
+            areAiLimitsEnabled = areGuestAiLimitsEnabled,
+            userId = authSession?.userId
         )
     }
 

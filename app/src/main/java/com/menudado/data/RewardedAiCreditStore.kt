@@ -12,14 +12,6 @@ data class RewardedAiCreditLedger(
 interface RewardedAiCreditStore {
     fun getLedger(scope: String, dateKey: String): RewardedAiCreditLedger
     fun saveLedger(scope: String, ledger: RewardedAiCreditLedger)
-
-    fun getLedger(dateKey: String): RewardedAiCreditLedger {
-        return getLedger(GUEST_AI_USAGE_SCOPE, dateKey)
-    }
-
-    fun saveLedger(ledger: RewardedAiCreditLedger) {
-        saveLedger(GUEST_AI_USAGE_SCOPE, ledger)
-    }
 }
 
 object NoOpRewardedAiCreditStore : RewardedAiCreditStore {
