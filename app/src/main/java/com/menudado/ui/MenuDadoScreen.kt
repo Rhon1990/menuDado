@@ -5948,7 +5948,7 @@ internal fun menuShouldOpenDetailFromDiceResult(
 }
 
 internal fun generatedMenuDetailPreview(state: MenuDadoUiState): FoodMenu? {
-    if (!state.showGeneratedMenuDetail) return null
+    if (!state.showGeneratedMenuDetail || state.isRewardedMenuRevealPending) return null
     val mealType = state.formMealType ?: return null
     val audience = state.formAudience ?: return null
     if (audience !in state.enabledAudiences) return null

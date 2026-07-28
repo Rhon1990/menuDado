@@ -1106,6 +1106,26 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `rewarded menu detail stays hidden until dice transition finishes`() {
+        val pendingState = MenuDadoUiState(
+            showGeneratedMenuDetail = true,
+            isRewardedMenuRevealPending = true,
+            formMealType = MealType.LUNCH,
+            formAudience = MenuAudience.ADULT,
+            name = "Idea bonificada",
+            description = "Lista para mostrar"
+        )
+
+        assertNull(generatedMenuDetailPreview(pendingState))
+        assertEquals(
+            "Idea bonificada",
+            generatedMenuDetailPreview(
+                pendingState.copy(isRewardedMenuRevealPending = false)
+            )?.name
+        )
+    }
+
+    @Test
     fun `contenido del boton del dado queda centrado en pantallas anchas`() {
         assertEquals(Alignment.Center, contextualDiceButtonContentAlignment())
         assertEquals(280, contextualDiceButtonTextMaxWidthDp())

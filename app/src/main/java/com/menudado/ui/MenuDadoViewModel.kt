@@ -129,6 +129,7 @@ data class MenuDadoUiState(
     val aiGenerationLimitState: AiGenerationLimitState = AiGenerationLimitState.AVAILABLE,
     val rewardedCreditsRemainingToday: Int = MAX_REWARDED_AI_CREDITS_PER_DAY,
     val isRewardedGenerationPending: Boolean = false,
+    val isRewardedMenuRevealPending: Boolean = false,
     val enabledAudiences: List<MenuAudience> = MenuAudience.entries,
     val audienceAgeRanges: Map<MenuAudience, String> = MenuAudience.entries.associateWith { it.defaultAgeRange },
     val dietaryProfileAudience: MenuAudience = MenuAudience.ADULT,
@@ -1036,16 +1037,21 @@ class MenuDadoViewModel(
         startValidatedGenerationRequest(request)
     }
 
-    private fun startValidatedGenerationRequest(request: ValidatedGenerationRequest) {
+    private fun startValidatedGenerationRequest(
+        request: ValidatedGenerationRequest,
+        minimumPresentationMillis: Long = 0L
+    ) {
         when (currentGenerationAccess()) {
-            AiGenerationAccess.FREE -> startGeneratedMenuRequest(request)
+            AiGenerationAccess.FREE -> {
+                startGeneratedMenuRequest(request, minimumPresentationMillis)
+            }
             AiGenerationAccess.REWARDED_CREDIT -> {
                 if (consumeRewardedGenerationCredit()) {
                     analytics.trackAiRewardedOffer(
                         status = AI_REWARDED_STATUS_GENERATION_STARTED,
                         creditsRemaining = rewardedCreditsRemainingToday()
                     )
-                    startGeneratedMenuRequest(request)
+                    startGeneratedMenuRequest(request, minimumPresentationMillis)
                 }
             }
             AiGenerationAccess.REWARDED_OFFER -> showRewardedGenerationOffer()
@@ -1091,7 +1097,10 @@ class MenuDadoViewModel(
             creditsRemaining = rewardedCreditsRemainingToday()
         )
         refreshAiUsageCounters()
-        startValidatedGenerationRequest(request)
+        startValidatedGenerationRequest(
+            request = request,
+            minimumPresentationMillis = REWARDED_AI_DICE_MINIMUM_PRESENTATION_MILLIS
+        )
     }
 
     fun onRewardedGenerationDismissed() {
@@ -1173,11 +1182,15 @@ class MenuDadoViewModel(
         return ValidatedGenerationRequest(state, mealType, audience, profile)
     }
 
-    private fun startGeneratedMenuRequest(request: ValidatedGenerationRequest) {
+    private fun startGeneratedMenuRequest(
+        request: ValidatedGenerationRequest,
+        minimumPresentationMillis: Long
+    ) {
         val state = request.state
         val mealType = request.mealType
         val audience = request.audience
         val profile = request.profile
+        val hasMinimumPresentation = minimumPresentationMillis > 0L
         val avoidIdeas = state.buildAvoidIdeas(mealType, audience)
         val cuisineInspiration = cuisineRotation.current(mealType, audience)
         analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
@@ -1193,12 +1206,18 @@ class MenuDadoViewModel(
         _uiState.update {
             it.copy(
                 aiGenerationPhase = AiGenerationPhase.GENERATING,
+                isRewardedMenuRevealPending = hasMinimumPresentation,
                 message = null,
                 isAiRetryNoticeVisible = false
             )
         }
 
         viewModelScope.launch {
+            val minimumPresentationJob = if (hasMinimumPresentation) {
+                launch { delay(minimumPresentationMillis) }
+            } else {
+                null
+            }
             val slowPhaseJob = launch {
                 delay(AI_GENERATION_SLOW_NOTICE_MILLIS)
                 _uiState.update { current ->
@@ -1282,7 +1301,13 @@ class MenuDadoViewModel(
                 }
             } finally {
                 slowPhaseJob.cancel()
-                _uiState.update { it.copy(aiGenerationPhase = AiGenerationPhase.IDLE) }
+                minimumPresentationJob?.join()
+                _uiState.update {
+                    it.copy(
+                        aiGenerationPhase = AiGenerationPhase.IDLE,
+                        isRewardedMenuRevealPending = false
+                    )
+                }
             }
         }
     }
@@ -2575,6 +2600,7 @@ private const val MAX_QUOTA_BACKOFF_MILLIS = 30 * 60 * 1000L
 private const val AI_REQUEST_THROTTLE_MILLIS = 1 * 1000L
 private const val AI_REQUEST_TIMEOUT_MILLIS = 45 * 1000L
 private const val AI_GENERATION_SLOW_NOTICE_MILLIS = 12 * 1000L
+internal const val REWARDED_AI_DICE_MINIMUM_PRESENTATION_MILLIS = 1_500L
 private const val HIVE_RESULT_HIT = "hit"
 private const val HIVE_RESULT_CACHE_HIT = "cache_hit"
 private const val HIVE_RESULT_MISS = "miss"

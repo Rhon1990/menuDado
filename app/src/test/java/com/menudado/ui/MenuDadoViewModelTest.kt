@@ -488,6 +488,63 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `fast rewarded generation keeps dice active for minimum presentation`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
+        viewModel.generateMenuIdea()
+        assertTrue(viewModel.requestRewardedGeneration())
+
+        viewModel.onRewardedGenerationEarned()
+        runCurrent()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertTrue(viewModel.uiState.value.isGeneratingMenu)
+        assertTrue(viewModel.uiState.value.isRewardedMenuRevealPending)
+
+        advanceTimeBy(REWARDED_AI_DICE_MINIMUM_PRESENTATION_MILLIS - 1L)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isRewardedMenuRevealPending)
+
+        advanceTimeBy(1L)
+        runCurrent()
+        assertFalse(viewModel.uiState.value.isRewardedMenuRevealPending)
+        assertFalse(viewModel.uiState.value.isGeneratingMenu)
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+    }
+
+    @Test
+    fun `normal generation does not use rewarded minimum presentation`() = runTest(dispatcher) {
+        viewModel.generateMenuIdea()
+        runCurrent()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertFalse(viewModel.uiState.value.isRewardedMenuRevealPending)
+        assertFalse(viewModel.uiState.value.isGeneratingMenu)
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+    }
+
+    @Test
+    fun `slow rewarded generation adds no wait after AI finishes`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
+        analyzer.generateDelayMillis = REWARDED_AI_DICE_MINIMUM_PRESENTATION_MILLIS + 500L
+        viewModel.generateMenuIdea()
+        assertTrue(viewModel.requestRewardedGeneration())
+
+        viewModel.onRewardedGenerationEarned()
+        runCurrent()
+        advanceTimeBy(REWARDED_AI_DICE_MINIMUM_PRESENTATION_MILLIS)
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.isGeneratingMenu)
+
+        advanceTimeBy(500L)
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.isGeneratingMenu)
+        assertFalse(viewModel.uiState.value.isRewardedMenuRevealPending)
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+    }
+
+    @Test
     fun `dismissed rewarded ad grants no credit and starts no generation`() = runTest(dispatcher) {
         scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
         viewModel.generateMenuIdea()
