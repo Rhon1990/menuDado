@@ -471,4 +471,3 @@ Confirm that Debug displays the Google test unit, ReleaseDebuggable also uses th
 - [ ] **Step 4: Record evidence and request review.**
 
 Report test counts, lint/build result, actual ad load/reward behavior, Remote Config values, residual limits (ad availability, provider quota and local reward-ledger integrity), and the paths to APK/AAB artifacts.
-

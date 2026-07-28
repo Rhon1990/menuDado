@@ -1,7 +1,7 @@
 # Diseño: créditos IA mediante anuncios recompensados
 
-**Fecha:** 2026-07-27  
-**Estado:** aprobado para especificación; pendiente de revisión del documento  
+**Fecha:** 2026-07-27
+**Estado:** aprobado para especificación; pendiente de revisión del documento
 **Alcance:** límites diarios de IA, anuncio recompensado opcional y configuración de AdMob.
 
 ## Objetivo
