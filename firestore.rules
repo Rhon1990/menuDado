@@ -12,13 +12,15 @@ service cloud.firestore {
 
     function hasValidHiveShape(id) {
       return request.resource.data.keys().hasOnly([
-          'schemaVersion', 'semanticHash', 'semanticKey', 'language',
+          'schemaVersion', 'identityVersion',
+          'semanticHash', 'semanticKey', 'language',
           'name', 'description', 'notes',
           'calories', 'healthStatus', 'healthReason', 'healthSuggestion',
           'cuisineInspiration', 'shoppingProducts', 'eligibilityKeys',
           'createdAt', 'updatedAt'
         ])
         && request.resource.data.schemaVersion == 1
+        && request.resource.data.identityVersion == 2
         && request.resource.data.semanticHash == id
         && isHash(request.resource.data.semanticHash)
         && request.resource.data.semanticKey is string

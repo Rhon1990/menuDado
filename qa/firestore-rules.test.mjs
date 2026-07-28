@@ -35,6 +35,7 @@ function validDocument() {
   const now = Timestamp.now();
   return {
     schemaVersion: 1,
+    identityVersion: 2,
     semanticHash: HASH,
     semanticKey: "pasta|tomato|sauce",
     language: "SPANISH",
@@ -81,6 +82,14 @@ test("identity and unknown fields are rejected", async () => {
   const db = testEnv.authenticatedContext("user-a").firestore();
   await assertFails(
     setDoc(doc(db, "sharedAiMenus", HASH), { ...validDocument(), uid: "user-a" })
+  );
+});
+
+test("legacy identity cannot create a new hive document", async () => {
+  const db = testEnv.authenticatedContext("user-a").firestore();
+  const { identityVersion, ...legacyDocument } = validDocument();
+  await assertFails(
+    setDoc(doc(db, "sharedAiMenus", HASH), legacyDocument)
   );
 });
 

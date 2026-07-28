@@ -13,6 +13,7 @@ import com.menudado.domain.MealType
 import com.menudado.domain.ShoppingProduct
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -24,6 +25,7 @@ class AiMenuHiveDataSourceTest {
         val document = AiMenuHiveFirestoreMapper.toDocument(menu)
 
         assertEquals(1, document["schemaVersion"])
+        assertEquals(2, document["identityVersion"])
         assertEquals(menu.semanticHash, document["semanticHash"])
         assertEquals("SPANISH", document["language"])
         assertEquals(1, (document["eligibilityKeys"] as List<*>).size)
@@ -44,6 +46,25 @@ class AiMenuHiveDataSourceTest {
             AiMenuHiveFirestoreMapper.fromDocument(
                 documentId = "bad",
                 document = mapOf("name" to "Sin contrato")
+            )
+        )
+    }
+
+    @Test
+    fun `legacy document is readable but unknown identity version is ignored`() {
+        val menu = sampleSharedAiMenu()
+        val document = AiMenuHiveFirestoreMapper.toDocument(menu)
+
+        assertNotNull(
+            AiMenuHiveFirestoreMapper.fromDocument(
+                documentId = menu.semanticHash,
+                document = document - "identityVersion"
+            )
+        )
+        assertNull(
+            AiMenuHiveFirestoreMapper.fromDocument(
+                documentId = menu.semanticHash,
+                document = document + ("identityVersion" to 3)
             )
         )
     }

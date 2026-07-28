@@ -76,6 +76,7 @@ internal object AiMenuHiveFirestoreMapper {
         val health = menu.generatedMenu.healthAnalysis
         return mapOf(
             "schemaVersion" to 1,
+            "identityVersion" to 2,
             "semanticHash" to menu.semanticHash,
             "semanticKey" to menu.semanticKey,
             "language" to menu.language.name,
@@ -103,6 +104,8 @@ internal object AiMenuHiveFirestoreMapper {
         document: Map<String, Any?>
     ): SharedAiMenu? {
         if ((document["schemaVersion"] as? Number)?.toInt() != 1) return null
+        val identityVersion = (document["identityVersion"] as? Number)?.toInt()
+        if (identityVersion != null && identityVersion != 2) return null
         val semanticHash = document["semanticHash"] as? String
         if (semanticHash != documentId || !semanticHash.matches(SEMANTIC_HASH_REGEX)) return null
         val semanticKey = (document["semanticKey"] as? String).nonBlankOrNull() ?: return null
