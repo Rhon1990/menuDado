@@ -5,11 +5,15 @@
         <exclude domain="sharedpref" path="menu-dado-ai-quota.xml" />
         <exclude domain="sharedpref" path="menu-dado-ai-request-throttle.xml" />
         <exclude domain="sharedpref" path="menu-dado-guest-daily-usage.xml" />
+        <exclude domain="sharedpref" path="menu-dado-scoped-ai-usage.xml" />
+        <exclude domain="sharedpref" path="menu-dado-rewarded-ai-credits.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="menu-dado-ai-daily-usage.xml" />
         <exclude domain="sharedpref" path="menu-dado-ai-quota.xml" />
         <exclude domain="sharedpref" path="menu-dado-ai-request-throttle.xml" />
         <exclude domain="sharedpref" path="menu-dado-guest-daily-usage.xml" />
+        <exclude domain="sharedpref" path="menu-dado-scoped-ai-usage.xml" />
+        <exclude domain="sharedpref" path="menu-dado-rewarded-ai-credits.xml" />
     </device-transfer>
 </data-extraction-rules>

@@ -122,6 +122,7 @@ data class MenuDadoUiState(
     val aiUsesRemainingToday: Int = SIGNED_IN_DAILY_AI_FREE_LIMIT,
     val aiGenerationUsesRemainingToday: Int = SIGNED_IN_DAILY_AI_FREE_LIMIT,
     val aiAnalysisUsesRemainingToday: Int = SIGNED_IN_DAILY_AI_FREE_LIMIT,
+    val isAiProviderAvailableToday: Boolean = true,
     val aiGenerationLimitState: AiGenerationLimitState = AiGenerationLimitState.AVAILABLE,
     val rewardedCreditsRemainingToday: Int = MAX_REWARDED_AI_CREDITS_PER_DAY,
     val isRewardedGenerationPending: Boolean = false,
@@ -1152,15 +1153,19 @@ class MenuDadoViewModel(
             }
             return null
         }
-        val activeRetryAtMillis = activeAiRetryAtMillis()
-        if (activeRetryAtMillis != null) {
-            showActiveAiRetryNotice(activeRetryAtMillis)
-            return null
-        }
-        val activeRequestThrottleAtMillis = activeAiRequestThrottleAtMillis()
-        if (activeRequestThrottleAtMillis != null) {
-            showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
-            return null
+        val shouldCallProvider = currentProviderAiUsedCount(currentPacificDateKey()) <
+            AI_PROVIDER_DAILY_HARD_LIMIT
+        if (shouldCallProvider) {
+            val activeRetryAtMillis = activeAiRetryAtMillis()
+            if (activeRetryAtMillis != null) {
+                showActiveAiRetryNotice(activeRetryAtMillis)
+                return null
+            }
+            val activeRequestThrottleAtMillis = activeAiRequestThrottleAtMillis()
+            if (activeRequestThrottleAtMillis != null) {
+                showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
+                return null
+            }
         }
         return ValidatedGenerationRequest(state, mealType, audience, profile)
     }
@@ -1173,10 +1178,12 @@ class MenuDadoViewModel(
         val avoidIdeas = state.buildAvoidIdeas(mealType, audience)
         val cuisineInspiration = cuisineRotation.current(mealType, audience)
         analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
-        startAiRequestThrottle()
-        consumeScopedAiUse()
         val shouldCallProvider = currentProviderAiUsedCount(currentPacificDateKey()) <
             AI_PROVIDER_DAILY_HARD_LIMIT
+        if (shouldCallProvider) {
+            startAiRequestThrottle()
+        }
+        consumeScopedAiUse()
         if (shouldCallProvider) {
             consumeProviderAiRequest()
         }
@@ -1911,6 +1918,7 @@ class MenuDadoViewModel(
                 aiUsesRemainingToday = freeUsesRemaining,
                 aiGenerationUsesRemainingToday = freeUsesRemaining,
                 aiAnalysisUsesRemainingToday = if (providerAvailable) freeUsesRemaining else 0,
+                isAiProviderAvailableToday = providerAvailable,
                 aiGenerationLimitState = generationLimitState,
                 rewardedCreditsRemainingToday = rewardedCreditsRemainingToday()
             )
@@ -1975,18 +1983,10 @@ class MenuDadoViewModel(
 
     private fun migrateLegacyAiUsageIfNeeded() {
         val legacyState = aiDailyUsageStore.getUsageState()
-        val didMigrate = scopedAiUsageStore.migrateLegacyUsage(
+        scopedAiUsageStore.migrateLegacyUsage(
             scope = activeAiUsageScope,
             legacyState = legacyState
         )
-        if (
-            didMigrate &&
-            activeAiUsageScope == GUEST_AI_USAGE_SCOPE &&
-            legacyState != null &&
-            legacyState.usedCount > 0
-        ) {
-            aiDailyUsageStore.saveUsageState(legacyState.copy(usedCount = 0))
-        }
     }
 
     private fun consumeScopedAiUse() {

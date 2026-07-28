@@ -4,4 +4,6 @@
     <exclude domain="sharedpref" path="menu-dado-ai-quota.xml" />
     <exclude domain="sharedpref" path="menu-dado-ai-request-throttle.xml" />
     <exclude domain="sharedpref" path="menu-dado-guest-daily-usage.xml" />
+    <exclude domain="sharedpref" path="menu-dado-scoped-ai-usage.xml" />
+    <exclude domain="sharedpref" path="menu-dado-rewarded-ai-credits.xml" />
 </full-backup-content>

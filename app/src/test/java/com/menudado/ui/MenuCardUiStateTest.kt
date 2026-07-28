@@ -968,6 +968,22 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `pausa del proveedor no bloquea el dado cuando la generacion usa colmena`() {
+        assertTrue(
+            aiGenerationIsPaused(
+                aiRetryAtMillis = 123L,
+                isAiProviderAvailableToday = true
+            )
+        )
+        assertFalse(
+            aiGenerationIsPaused(
+                aiRetryAtMillis = 123L,
+                isAiProviderAvailableToday = false
+            )
+        )
+    }
+
+    @Test
     fun `limite maximo no ofrece otro anuncio recompensado`() {
         assertFalse(
             aiDiceShouldOfferRewardedGeneration(

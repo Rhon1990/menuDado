@@ -1686,6 +1686,11 @@ internal fun aiDiceActionEnabled(
         limitState != AiGenerationLimitState.HARD_LIMIT
 }
 
+internal fun aiGenerationIsPaused(
+    aiRetryAtMillis: Long?,
+    isAiProviderAvailableToday: Boolean
+): Boolean = aiRetryAtMillis != null && isAiProviderAvailableToday
+
 internal fun contextualDicePrimaryTextMaxLines(): Int = 2
 
 internal fun contextualDicePrimaryTextSoftWrap(): Boolean = true
@@ -3135,9 +3140,13 @@ private fun TodayMenuSection(
     } else {
         state.aiGenerationLimitState
     }
+    val isAiGenerationPaused = aiGenerationIsPaused(
+        aiRetryAtMillis = state.aiRetryAtMillis,
+        isAiProviderAvailableToday = state.isAiProviderAvailableToday
+    )
     val canUseAiActions = aiDiceActionEnabled(
         canUseFormActions = canUseFormActions,
-        isAiPaused = state.aiRetryAtMillis != null,
+        isAiPaused = isAiGenerationPaused,
         limitState = displayedLimitState,
         isRewardedGenerationPending = state.isRewardedGenerationPending
     )
@@ -3145,7 +3154,7 @@ private fun TodayMenuSection(
     val aiDiceDisabledReason = aiDiceDisabledReasonRes(
         hasMealType = state.formMealType != null,
         hasAudience = state.formAudience != null,
-        isAiPaused = state.aiRetryAtMillis != null
+        isAiPaused = isAiGenerationPaused
     )?.let { reasonRes -> stringResource(id = reasonRes) }
 
     Card(
@@ -3213,7 +3222,7 @@ private fun TodayMenuSection(
                         body = stringResource(id = R.string.home_ai_dice_body),
                         primaryText = when {
                             state.isGeneratingMenu -> stringResource(id = R.string.ai_generating)
-                            state.aiRetryAtMillis != null &&
+                            isAiGenerationPaused &&
                                 displayedLimitState != AiGenerationLimitState.HARD_LIMIT -> {
                                 stringResource(id = R.string.ai_resting)
                             }

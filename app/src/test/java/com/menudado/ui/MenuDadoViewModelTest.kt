@@ -265,6 +265,24 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `provider safeguard ignores provider retry and throttle while using hive`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        aiQuotaRetryStore.storedRetryAtMillis = Long.MAX_VALUE
+        aiRequestThrottleStore.storedLastRequestAtMillis = Long.MAX_VALUE
+        hive.searchResult = Result.success(sampleHiveCandidate())
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(1, hive.searches.size)
+        assertEquals(Long.MAX_VALUE, aiRequestThrottleStore.storedLastRequestAtMillis)
+        assertFalse(viewModel.uiState.value.isAiProviderAvailableToday)
+        assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
+    }
+
+    @Test
     fun `provider safeguard blocks analysis without consuming account allowance`() = runTest(dispatcher) {
         scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
         viewModel.updateGuestAccess(false, true, true, userId = "user-a")
@@ -318,7 +336,8 @@ class MenuDadoViewModelTest {
             5,
             migratedScopedStore.getUsageState(PROVIDER_AI_USAGE_SCOPE, "2026-06-10").usedCount
         )
-        assertEquals(0, legacyStore.storedUsedCount)
+        assertEquals(5, legacyStore.storedUsedCount)
+        assertEquals(0, legacyStore.saveCalls)
 
         migratedViewModel.updateGuestAccess(false, true, true, userId = "user-a")
 
@@ -3596,6 +3615,7 @@ private class FakeAiRequestThrottleStore : AiRequestThrottleStore {
 private class FakeAiDailyUsageStore : AiDailyUsageStore {
     var storedDateKey: String? = null
     var storedUsedCount = 0
+    var saveCalls = 0
 
     override fun getUsageState(): AiDailyUsageState? {
         return storedDateKey?.let { dateKey ->
@@ -3607,6 +3627,7 @@ private class FakeAiDailyUsageStore : AiDailyUsageStore {
     }
 
     override fun saveUsageState(state: AiDailyUsageState) {
+        saveCalls += 1
         storedDateKey = state.dateKey
         storedUsedCount = state.usedCount
     }
