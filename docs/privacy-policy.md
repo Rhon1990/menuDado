@@ -5,7 +5,7 @@ permalink: /privacy-policy/
 
 # Politica de Privacidad de MenuDado
 
-Ultima actualizacion: 27 de julio de 2026
+Ultima actualizacion: 28 de julio de 2026
 
 MenuDado es una app Android creada por Rhonal A. Delgado Padilla para ayudar a guardar menus, elegir que comer y obtener apoyo opcional de IA para generar ideas de menu o analizar si un menu puede ser saludable.
 
@@ -23,7 +23,7 @@ MenuDado funciona principalmente de forma local. La app puede guardar en el disp
 
 - Menus creados por el usuario, incluyendo nombre, tipo de comida, publico objetivo, descripcion o ingredientes, notas, foto opcional del menu, favoritos, calorias estimadas y analisis saludable cuando exista.
 - Preferencias del perfil alimentario, como publico activo, embarazo, opcion vegana, alergias seleccionadas y otros alimentos a evitar o condiciones indicadas por el usuario.
-- Estado de onboarding, contador local de usos de IA y datos tecnicos necesarios para gestionar pausas temporales de cuota de IA.
+- Estado de onboarding, contador local de usos de IA, recompensas publicitarias obtenidas durante el dia y datos tecnicos necesarios para gestionar pausas temporales de cuota de IA.
 - Datos de sesion necesarios para usar la app como invitado o con una cuenta registrada.
 
 Estos datos se almacenan en el propio dispositivo. Si usas MenuDado como invitado, Firebase puede crear un identificador anonimo para sincronizar datos. Si creas una cuenta o inicias sesion, MenuDado puede asociar tus datos a esa cuenta para recuperarlos al reinstalar la app o usar otro dispositivo.
@@ -63,6 +63,8 @@ MenuDado no envia a Firebase Analytics nombres de menus, ingredientes, recetas, 
 ## Publicidad
 
 MenuDado puede mostrar anuncios mediante Google AdMob para ayudar a financiar el mantenimiento de la app.
+
+Cuando se alcanza el limite gratuito diario de IA, MenuDado puede ofrecer voluntariamente ver un anuncio bonificado para desbloquear un intento adicional de generar una idea. La recompensa se concede solo cuando AdMob confirma que el anuncio se ha completado; cerrar el anuncio o un fallo de carga no consume una llamada de IA ni concede la recompensa. La app limita localmente estas recompensas a 10 por dia.
 
 Antes de solicitar anuncios cuando corresponda, la app usa la plataforma de consentimiento de Google (User Messaging Platform) para mostrar las opciones de privacidad aplicables segun la region del usuario. Si Google indica que estas opciones deben estar disponibles, MenuDado muestra un acceso a `Opciones de privacidad` dentro del menu lateral.
 
