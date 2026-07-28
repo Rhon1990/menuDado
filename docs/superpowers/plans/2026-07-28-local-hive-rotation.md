@@ -64,6 +64,18 @@ class HiveRotationStoreTest {
 
         assertEquals((6 until 30).map { "hash-$it" }, store.snapshot("guest").seenHashes)
     }
+
+    @Test
+    fun `history survives store recreation on the same phone`() {
+        val context = FakeHiveRotationContext()
+        SharedPreferencesHiveRotationStore(context)
+            .recordShown("account:a", "persisted-hash", startsNewCycle = false)
+
+        val restored = SharedPreferencesHiveRotationStore(context).snapshot("account:a")
+
+        assertEquals(listOf("persisted-hash"), restored.seenHashes)
+        assertEquals("persisted-hash", restored.lastShownHash)
+    }
 }
 
 private class FakeHiveRotationContext : ContextWrapper(null) {
@@ -365,10 +377,13 @@ Add to `MenuDadoViewModel`:
 private val hiveRotationStore: HiveRotationStore = NoOpHiveRotationStore
 ```
 
-Before `findCompatibleMenu`:
+Before `findCompatibleMenu`, capture the scope so an auth change during the
+suspending read cannot save the result under a different identity:
 
 ```kotlin
-val rotation = hiveRotationStore.snapshot(activeAiUsageScope)
+val rotationScope = activeAiUsageScope
+val rotation = runCatching { hiveRotationStore.snapshot(rotationScope) }
+    .getOrDefault(HiveRotationSnapshot())
 AiMenuHiveSearchRequest(
     // existing fields
     recentSemanticHashes = rotation.seenHashes.toSet(),
@@ -379,11 +394,13 @@ AiMenuHiveSearchRequest(
 After a candidate is accepted:
 
 ```kotlin
-hiveRotationStore.recordShown(
-    scope = activeAiUsageScope,
-    semanticHash = candidate.semanticHash,
-    startsNewCycle = candidate.startsNewRotationCycle
-)
+runCatching {
+    hiveRotationStore.recordShown(
+        scope = rotationScope,
+        semanticHash = candidate.semanticHash,
+        startsNewCycle = candidate.startsNewRotationCycle
+    )
+}
 ```
 
 Remove `recentHiveSemanticHashes`, `rememberHiveSemanticHash` and `MAX_RECENT_HIVE_HASHES`.
