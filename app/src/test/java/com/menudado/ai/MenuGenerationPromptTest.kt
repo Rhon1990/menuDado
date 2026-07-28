@@ -253,4 +253,26 @@ class MenuGenerationPromptTest {
         assertTrue(prompt.contains("spaghetti, macaroni and similar shapes as pasta"))
         assertFalse(prompt.contains("make another request", ignoreCase = true))
     }
+
+    @Test
+    fun `canonical identity guidance replaces legacy rules with shorter text`() {
+        val prompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList()
+        )
+        val canonicalRule = prompt.lineSequence()
+            .single { it.contains("deduplication_key:") }
+            .trim()
+        val previousRules = """
+            - deduplication_key debe estar en ingles y usar exactamente: dish family|main ingredients|preparation.
+            - Si hay varios ingredientes principales, separalos con + y ordenalos alfabeticamente.
+            - Normaliza variantes equivalentes: classify spaghetti, macaroni and similar shapes as pasta; use canonical ingredient names such as tomato.
+            - La clave es tecnica, breve y no debe contener texto del perfil del usuario.
+        """.trimIndent()
+
+        assertTrue(canonicalRule.length < previousRules.length)
+        assertTrue(canonicalRule.contains("vegetables, lentils, tomato"))
+        assertTrue(canonicalRule.contains("mixed"))
+        assertEquals(1, prompt.split("deduplication_key:").size - 1)
+    }
 }

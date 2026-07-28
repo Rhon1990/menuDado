@@ -67,10 +67,7 @@ internal object MenuGenerationPrompt {
             - shopping_products debe incluir entre 1 y 20 productos reales de supermercado necesarios para preparar el menu.
             - Escribe cada producto en singular, sin cantidades, unidades, marcas ni instrucciones y elimina duplicados.
             - No incluyas agua ni ingredientes opcionales que no formen parte real de la receta.
-            - deduplication_key debe estar en ingles y usar exactamente: dish family|main ingredients|preparation.
-            - Si hay varios ingredientes principales, separalos con + y ordenalos alfabeticamente.
-            - Normaliza variantes equivalentes: classify spaghetti, macaroni and similar shapes as pasta; use canonical ingredient names such as tomato.
-            - La clave es tecnica, breve y no debe contener texto del perfil del usuario.
+            - deduplication_key: English, exactly dish family|main ingredients|preparation with main ingredients alphabetically sorted; use canonical ingredients (vegetables, lentils, tomato), canonical preparation forms (mixed, baked, grilled, boiled, stewed); classify spaghetti, macaroni and similar shapes as pasta; no profile data.
 
             Variedad real:
             - Debe ser distinta de los platos previos; no basta con cambiar el nombre.
