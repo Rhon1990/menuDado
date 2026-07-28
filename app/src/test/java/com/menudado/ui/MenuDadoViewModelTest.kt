@@ -488,6 +488,52 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `quota fallback success keeps retry internal and reveals only generated menu`() =
+        runTest(dispatcher) {
+            analyzer.generateFailure =
+                IllegalStateException("Quota exceeded. Please retry in 57s.")
+            hive.searchResult = Result.success(sampleHiveCandidate())
+            hive.searchDelayMillis = 1_000L
+
+            viewModel.generateMenuIdea()
+            runCurrent()
+
+            assertEquals(AiGenerationPhase.SEARCHING_HIVE, viewModel.uiState.value.aiGenerationPhase)
+            assertNull(viewModel.uiState.value.message)
+            assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
+
+            advanceTimeBy(1_000L)
+            runCurrent()
+
+            val state = viewModel.uiState.value
+            assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, state.generatedOrigin)
+            assertTrue(state.showGeneratedMenuDetail)
+            assertNull(state.message)
+            assertFalse(state.isAiRetryNoticeVisible)
+            assertTrue(state.aiRetryAtMillis != null)
+        }
+
+    @Test
+    fun `quota fallback miss reveals one retry notice after loading`() = runTest(dispatcher) {
+        analyzer.generateFailure =
+            IllegalStateException("Quota exceeded. Please retry in 57s.")
+        hive.searchResult = Result.success(null)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isGeneratingMenu)
+        assertFalse(state.showGeneratedMenuDetail)
+        assertEquals(
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
+            state.message
+        )
+        assertTrue(state.isAiRetryNoticeVisible)
+        assertTrue(state.aiRetryAtMillis != null)
+    }
+
+    @Test
     fun `fast rewarded generation keeps dice active for minimum presentation`() = runTest(dispatcher) {
         scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
         viewModel.generateMenuIdea()
@@ -3658,6 +3704,7 @@ private fun sampleHiveCandidate(
 
 private class RecordingAiMenuHiveGateway : AiMenuHiveGateway {
     var searchResult: Result<AiMenuHiveCandidate?> = Result.success(null)
+    var searchDelayMillis: Long = 0L
     val searches = mutableListOf<AiMenuHiveSearchRequest>()
     val contributions = mutableListOf<AiMenuHiveContribution>()
 
@@ -3665,6 +3712,7 @@ private class RecordingAiMenuHiveGateway : AiMenuHiveGateway {
         request: AiMenuHiveSearchRequest
     ): Result<AiMenuHiveCandidate?> {
         searches += request
+        delay(searchDelayMillis)
         return searchResult
     }
 

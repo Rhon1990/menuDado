@@ -1317,7 +1317,8 @@ class MenuDadoViewModel(
         triggerFailureType: String,
         failureNotice: AiFailureNotice?
     ) {
-        failureNotice?.let(::showAiFailureNotice)
+        val preparedFailureNotice = failureNotice?.prepareAiFailureNotice()
+        preparedFailureNotice?.recordAiFailurePause()
         _uiState.update { it.copy(aiGenerationPhase = AiGenerationPhase.SEARCHING_HIVE) }
         val hiveStartedAtMillis = clockMillisProvider()
         val rotationScope = activeAiUsageScope
@@ -1335,12 +1336,16 @@ class MenuDadoViewModel(
             )
         )
         val fallback = hiveResult.getOrNull()
-        if (fallback == null && failureNotice == null) {
-            _uiState.update {
-                it.copy(
-                    message = currentLanguage().aiLocalDailyLimitMessage(),
-                    isAiRetryNoticeVisible = false
-                )
+        if (fallback == null) {
+            if (preparedFailureNotice != null) {
+                showPreparedAiFailureNotice(preparedFailureNotice)
+            } else {
+                _uiState.update {
+                    it.copy(
+                        message = currentLanguage().aiLocalDailyLimitMessage(),
+                        isAiRetryNoticeVisible = false
+                    )
+                }
             }
         }
         fallback?.let { candidate ->
@@ -2183,24 +2188,42 @@ class MenuDadoViewModel(
         scheduleAiRetryRefresh(retryAtMillis)
     }
 
+    private fun AiFailureNotice.prepareAiFailureNotice(): AiFailureNotice {
+        return copy(retryAtMillis = retryAtMillis?.withQuotaBackoff())
+    }
+
+    private fun AiFailureNotice.recordAiFailurePause() {
+        val retryAtMillis = retryAtMillis ?: return
+        _uiState.update {
+            it.copy(
+                message = null,
+                aiRetryAtMillis = retryAtMillis,
+                isAiRequestThrottlePause = false,
+                isAiRetryNoticeVisible = false
+            )
+        }
+        scheduleAiRetryRefresh(retryAtMillis)
+    }
+
     private fun showAiFailureNotice(notice: AiFailureNotice) {
-        val retryAtMillis = notice.retryAtMillis?.withQuotaBackoff()
+        showPreparedAiFailureNotice(notice.prepareAiFailureNotice())
+    }
+
+    private fun showPreparedAiFailureNotice(notice: AiFailureNotice) {
+        val retryAtMillis = notice.retryAtMillis
         val refreshAtMillis = retryAtMillis ?: _uiState.value.aiRetryAtMillis
             ?.takeIf { _uiState.value.isAiRequestThrottlePause }
         _uiState.update { current ->
-            if (retryAtMillis == null) {
-                current.copy(
-                    message = notice.message,
-                    isAiRetryNoticeVisible = false
-                )
-            } else {
-                current.copy(
-                    message = notice.message,
-                    aiRetryAtMillis = retryAtMillis,
-                    isAiRequestThrottlePause = false,
-                    isAiRetryNoticeVisible = true
-                )
-            }
+            current.copy(
+                message = notice.message,
+                aiRetryAtMillis = retryAtMillis ?: current.aiRetryAtMillis,
+                isAiRequestThrottlePause = if (retryAtMillis != null) {
+                    false
+                } else {
+                    current.isAiRequestThrottlePause
+                },
+                isAiRetryNoticeVisible = retryAtMillis != null
+            )
         }
         scheduleAiRetryRefresh(refreshAtMillis)
     }
