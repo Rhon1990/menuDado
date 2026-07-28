@@ -18,6 +18,7 @@ import com.menudado.data.CuisineRotation
 import com.menudado.data.CuisineRotationStateStore
 import com.menudado.data.GuestDailyUsageState
 import com.menudado.data.GuestUsageStore
+import com.menudado.data.GUEST_AI_USAGE_SCOPE
 import com.menudado.data.MenuDao
 import com.menudado.data.MenuEntity
 import com.menudado.data.MenuRepository
@@ -3437,15 +3438,24 @@ private class FakeGuestUsageStore : GuestUsageStore {
 }
 
 private class FakeRewardedAiCreditStore : RewardedAiCreditStore {
-    var ledger: RewardedAiCreditLedger? = null
+    private val ledgers = mutableMapOf<String, RewardedAiCreditLedger>()
+    var ledger: RewardedAiCreditLedger?
+        get() = ledgers[GUEST_AI_USAGE_SCOPE]
+        set(value) {
+            if (value == null) {
+                ledgers.remove(GUEST_AI_USAGE_SCOPE)
+            } else {
+                ledgers[GUEST_AI_USAGE_SCOPE] = value
+            }
+        }
 
-    override fun getLedger(dateKey: String): RewardedAiCreditLedger {
-        return ledger?.takeIf { it.dateKey == dateKey }
+    override fun getLedger(scope: String, dateKey: String): RewardedAiCreditLedger {
+        return ledgers[scope]?.takeIf { it.dateKey == dateKey }
             ?: RewardedAiCreditLedger(dateKey = dateKey, earnedCount = 0, consumedCount = 0)
     }
 
-    override fun saveLedger(ledger: RewardedAiCreditLedger) {
-        this.ledger = ledger
+    override fun saveLedger(scope: String, ledger: RewardedAiCreditLedger) {
+        ledgers[scope] = ledger
     }
 }
 

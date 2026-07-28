@@ -19,7 +19,7 @@ class RewardedAiCreditStoreTest {
                 earnedCount = 0,
                 consumedCount = 0
             ),
-            store.getLedger("2026-07-27")
+            store.getLedger(GUEST_AI_USAGE_SCOPE, "2026-07-27")
         )
     }
 
@@ -29,6 +29,7 @@ class RewardedAiCreditStoreTest {
         val store = SharedPreferencesRewardedAiCreditStore(context)
 
         store.saveLedger(
+            GUEST_AI_USAGE_SCOPE,
             RewardedAiCreditLedger(
                 dateKey = "2026-07-27",
                 earnedCount = -1,
@@ -43,7 +44,10 @@ class RewardedAiCreditStoreTest {
                 earnedCount = 0,
                 consumedCount = 0
             ),
-            SharedPreferencesRewardedAiCreditStore(context).getLedger("2026-07-27")
+            SharedPreferencesRewardedAiCreditStore(context).getLedger(
+                GUEST_AI_USAGE_SCOPE,
+                "2026-07-27"
+            )
         )
     }
 
@@ -51,6 +55,7 @@ class RewardedAiCreditStoreTest {
     fun `store resets credits logically when the requested date changes`() {
         val store = SharedPreferencesRewardedAiCreditStore(FakeContext())
         store.saveLedger(
+            GUEST_AI_USAGE_SCOPE,
             RewardedAiCreditLedger(
                 dateKey = "2026-07-26",
                 earnedCount = 4,
@@ -64,13 +69,68 @@ class RewardedAiCreditStoreTest {
                 earnedCount = 0,
                 consumedCount = 0
             ),
-            store.getLedger("2026-07-27")
+            store.getLedger(GUEST_AI_USAGE_SCOPE, "2026-07-27")
+        )
+    }
+
+    @Test
+    fun `guest rewards do not reduce account rewards`() {
+        val store = SharedPreferencesRewardedAiCreditStore(FakeContext())
+        store.saveLedger(
+            GUEST_AI_USAGE_SCOPE,
+            RewardedAiCreditLedger(
+                dateKey = "2026-07-27",
+                earnedCount = MAX_REWARDED_AI_CREDITS_PER_DAY,
+                consumedCount = MAX_REWARDED_AI_CREDITS_PER_DAY
+            )
+        )
+
+        assertEquals(
+            RewardedAiCreditLedger(
+                dateKey = "2026-07-27",
+                earnedCount = 0,
+                consumedCount = 0
+            ),
+            store.getLedger(accountAiUsageScope("user-a"), "2026-07-27")
+        )
+    }
+
+    @Test
+    fun `authenticated accounts keep independent reward ledgers`() {
+        val store = SharedPreferencesRewardedAiCreditStore(FakeContext())
+        store.saveLedger(
+            accountAiUsageScope("user-a"),
+            RewardedAiCreditLedger(
+                dateKey = "2026-07-27",
+                earnedCount = 4,
+                consumedCount = 2
+            )
+        )
+
+        assertEquals(4, store.getLedger(accountAiUsageScope("user-a"), "2026-07-27").earnedCount)
+        assertEquals(0, store.getLedger(accountAiUsageScope("user-b"), "2026-07-27").earnedCount)
+    }
+
+    @Test
+    fun `legacy ledger migrates once into first resolved identity`() {
+        val context = FakeContext()
+        context.seedLegacyLedger("2026-07-27", earnedCount = 4, consumedCount = 2)
+        val store = SharedPreferencesRewardedAiCreditStore(context)
+
+        assertEquals(
+            RewardedAiCreditLedger("2026-07-27", earnedCount = 4, consumedCount = 2),
+            store.getLedger(accountAiUsageScope("user-a"), "2026-07-27")
+        )
+        assertEquals(
+            RewardedAiCreditLedger("2026-07-27", earnedCount = 0, consumedCount = 0),
+            store.getLedger(GUEST_AI_USAGE_SCOPE, "2026-07-27")
         )
     }
 
     @Test
     fun `no op store always returns an empty ledger for the requested date`() {
         NoOpRewardedAiCreditStore.saveLedger(
+            GUEST_AI_USAGE_SCOPE,
             RewardedAiCreditLedger(
                 dateKey = "2026-07-27",
                 earnedCount = 3,
@@ -84,7 +144,7 @@ class RewardedAiCreditStoreTest {
                 earnedCount = 0,
                 consumedCount = 0
             ),
-            NoOpRewardedAiCreditStore.getLedger("2026-07-27")
+            NoOpRewardedAiCreditStore.getLedger(GUEST_AI_USAGE_SCOPE, "2026-07-27")
         )
     }
 }
@@ -96,6 +156,15 @@ private class FakeContext : ContextWrapper(null) {
     override fun getSharedPreferences(name: String, mode: Int): SharedPreferences {
         requestedPreferencesNames += name
         return preferenceStores.getOrPut(name) { createInMemorySharedPreferences() }
+    }
+
+    fun seedLegacyLedger(dateKey: String, earnedCount: Int, consumedCount: Int) {
+        getSharedPreferences("menu-dado-rewarded-ai-credits", Context.MODE_PRIVATE)
+            .edit()
+            .putString("date", dateKey)
+            .putInt("earned_count", earnedCount)
+            .putInt("consumed_count", consumedCount)
+            .apply()
     }
 }
 
