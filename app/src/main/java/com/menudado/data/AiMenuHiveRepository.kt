@@ -40,7 +40,8 @@ data class AiMenuHiveSearchRequest(
     val audience: MenuAudience,
     val profile: DietaryProfile,
     val baseIngredients: String,
-    val recentSemanticHashes: Set<String>
+    val recentSemanticHashes: Set<String>,
+    val lastShownHash: String? = null
 )
 
 data class AiMenuHiveContribution(
@@ -56,7 +57,8 @@ data class AiMenuHiveCandidate(
     val generatedMenu: GeneratedMenu,
     val cuisineInspiration: CuisineInspiration?,
     val semanticHash: String,
-    val source: AiMenuHiveLookupSource
+    val source: AiMenuHiveLookupSource,
+    val startsNewRotationCycle: Boolean = false
 )
 
 interface AiMenuHiveGateway {
@@ -104,13 +106,15 @@ class AiMenuHiveRepository(
             }
             cache.getOrThrow() to AiMenuHiveLookupSource.CACHE
         }
-        val selected = selectCandidate(resolved.first, request) ?: return Result.success(null)
+        val selection = selectCandidate(resolved.first, request) ?: return Result.success(null)
+        val selected = selection.menu
         return Result.success(
             AiMenuHiveCandidate(
                 generatedMenu = selected.generatedMenu,
                 cuisineInspiration = selected.cuisineInspiration,
                 semanticHash = selected.semanticHash,
-                source = resolved.second
+                source = resolved.second,
+                startsNewRotationCycle = selection.startsNewCycle
             )
         )
     }
@@ -145,18 +149,32 @@ class AiMenuHiveRepository(
     private fun selectCandidate(
         candidates: List<SharedAiMenu>,
         request: AiMenuHiveSearchRequest
-    ): SharedAiMenu? {
+    ): HiveSelection? {
         val safe = candidates.filter { request.profile.accepts(it.generatedMenu) }
         if (safe.isEmpty()) return null
         val unseen = safe.filterNot { it.semanticHash in request.recentSemanticHashes }
-        val eligible = unseen.ifEmpty { safe }
-        val preferred = eligible.filter { candidate ->
+        val startsNewCycle = unseen.isEmpty()
+        val cycleCandidates = when {
+            !startsNewCycle -> unseen
+            safe.size > 1 -> safe.filterNot { it.semanticHash == request.lastShownHash }
+                .ifEmpty { safe }
+            else -> safe
+        }
+        val preferred = cycleCandidates.filter { candidate ->
             candidate.generatedMenu.searchableText()
                 .containsAnyRequestedIngredient(request.baseIngredients)
-        }.ifEmpty { eligible }
-        return preferred[pickIndexProvider(preferred.size).coerceIn(preferred.indices)]
+        }.ifEmpty { cycleCandidates }
+        return HiveSelection(
+            menu = preferred[pickIndexProvider(preferred.size).coerceIn(preferred.indices)],
+            startsNewCycle = startsNewCycle
+        )
     }
 }
+
+private data class HiveSelection(
+    val menu: SharedAiMenu,
+    val startsNewCycle: Boolean
+)
 
 private fun GeneratedMenu.searchableText(): String = buildList {
     add(name)

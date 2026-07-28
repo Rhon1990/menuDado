@@ -9,6 +9,7 @@ import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -80,6 +81,69 @@ class AiMenuHiveRepositoryTest {
     }
 
     @Test
+    fun `all unseen candidates are selected before rotation restarts`() = runTest {
+        val first = sharedMenu("rice|vegetables|bowl")
+        val second = sharedMenu("lentils|vegetables|stew")
+        val dataSource = RecordingAiMenuHiveDataSource(
+            server = Result.success(listOf(first, second))
+        )
+        val repository = AiMenuHiveRepository(dataSource, AiMenuHiveFeatureToggle(true)) { 0 }
+
+        val result = requireNotNull(
+            repository.findCompatibleMenu(
+                request(
+                    recentSemanticHashes = setOf(first.semanticHash),
+                    lastShownHash = first.semanticHash
+                )
+            ).getOrThrow()
+        )
+
+        assertEquals(second.semanticHash, result.semanticHash)
+        assertFalse(result.startsNewRotationCycle)
+    }
+
+    @Test
+    fun `completed rotation starts new cycle without immediate repeat`() = runTest {
+        val first = sharedMenu("rice|vegetables|bowl")
+        val second = sharedMenu("lentils|vegetables|stew")
+        val dataSource = RecordingAiMenuHiveDataSource(
+            server = Result.success(listOf(first, second))
+        )
+        val repository = AiMenuHiveRepository(dataSource, AiMenuHiveFeatureToggle(true)) { 0 }
+
+        val result = requireNotNull(
+            repository.findCompatibleMenu(
+                request(
+                    recentSemanticHashes = setOf(first.semanticHash, second.semanticHash),
+                    lastShownHash = first.semanticHash
+                )
+            ).getOrThrow()
+        )
+
+        assertEquals(second.semanticHash, result.semanticHash)
+        assertTrue(result.startsNewRotationCycle)
+    }
+
+    @Test
+    fun `single compatible candidate can repeat after its cycle`() = runTest {
+        val only = sharedMenu("rice|vegetables|bowl")
+        val dataSource = RecordingAiMenuHiveDataSource(server = Result.success(listOf(only)))
+        val repository = AiMenuHiveRepository(dataSource, AiMenuHiveFeatureToggle(true)) { 0 }
+
+        val result = requireNotNull(
+            repository.findCompatibleMenu(
+                request(
+                    recentSemanticHashes = setOf(only.semanticHash),
+                    lastShownHash = only.semanticHash
+                )
+            ).getOrThrow()
+        )
+
+        assertEquals(only.semanticHash, result.semanticHash)
+        assertTrue(result.startsNewRotationCycle)
+    }
+
+    @Test
     fun `disabled hive performs no read or contribution`() = runTest {
         val dataSource = RecordingAiMenuHiveDataSource()
         val repository = AiMenuHiveRepository(dataSource, AiMenuHiveFeatureToggle(false)) { 0 }
@@ -93,14 +157,16 @@ class AiMenuHiveRepositoryTest {
 
     private fun request(
         profile: DietaryProfile = DietaryProfile(ageRange = "18+ años"),
-        recentSemanticHashes: Set<String> = emptySet()
+        recentSemanticHashes: Set<String> = emptySet(),
+        lastShownHash: String? = null
     ) = AiMenuHiveSearchRequest(
         language = AppLanguage.SPANISH,
         mealType = MealType.LUNCH,
         audience = MenuAudience.ADULT,
         profile = profile,
         baseIngredients = "",
-        recentSemanticHashes = recentSemanticHashes
+        recentSemanticHashes = recentSemanticHashes,
+        lastShownHash = lastShownHash
     )
 
     private fun contribution() = AiMenuHiveContribution(
