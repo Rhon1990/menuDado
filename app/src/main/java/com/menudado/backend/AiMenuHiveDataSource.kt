@@ -46,6 +46,7 @@ class FirebaseAiMenuHiveDataSource(
                 transaction.update(
                     reference,
                     mapOf(
+                        FIELD_IDENTITY_VERSION to 2,
                         FIELD_ELIGIBILITY_KEYS to FieldValue.arrayUnion(menu.eligibilityKeys.single()),
                         FIELD_UPDATED_AT to FieldValue.serverTimestamp()
                     )
@@ -65,6 +66,7 @@ class FirebaseAiMenuHiveDataSource(
 
     private companion object {
         const val COLLECTION = "sharedAiMenus"
+        const val FIELD_IDENTITY_VERSION = "identityVersion"
         const val FIELD_ELIGIBILITY_KEYS = "eligibilityKeys"
         const val FIELD_CREATED_AT = "createdAt"
         const val FIELD_UPDATED_AT = "updatedAt"

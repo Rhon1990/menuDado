@@ -93,6 +93,31 @@ test("legacy identity cannot create a new hive document", async () => {
   );
 });
 
+test("existing legacy document can only be upgraded to identity version two", async () => {
+  const { identityVersion, ...legacyDocument } = validDocument();
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), "sharedAiMenus", HASH),
+      legacyDocument
+    );
+  });
+  const db = testEnv.authenticatedContext("user-a").firestore();
+
+  await assertFails(
+    updateDoc(doc(db, "sharedAiMenus", HASH), {
+      identityVersion: 3,
+      updatedAt: Timestamp.now()
+    })
+  );
+  await assertSucceeds(
+    updateDoc(doc(db, "sharedAiMenus", HASH), {
+      identityVersion: 2,
+      eligibilityKeys: [ELIGIBILITY_HASH, "c".repeat(64)],
+      updatedAt: Timestamp.now()
+    })
+  );
+});
+
 test("recipe overwrite and delete are rejected", async () => {
   const db = testEnv.authenticatedContext("user-a").firestore();
   await assertSucceeds(setDoc(doc(db, "sharedAiMenus", HASH), validDocument()));

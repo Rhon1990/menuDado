@@ -61,7 +61,8 @@ service cloud.firestore {
       allow create: if isSignedIn() && hasValidHiveShape(semanticHash);
       allow update: if isSignedIn()
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['eligibilityKeys', 'updatedAt'])
+          .hasOnly(['identityVersion', 'eligibilityKeys', 'updatedAt'])
+        && request.resource.data.identityVersion == 2
         && request.resource.data.eligibilityKeys is list
         && request.resource.data.eligibilityKeys.size()
           >= resource.data.eligibilityKeys.size()
