@@ -6,4 +6,5 @@
     <exclude domain="sharedpref" path="menu-dado-guest-daily-usage.xml" />
     <exclude domain="sharedpref" path="menu-dado-scoped-ai-usage.xml" />
     <exclude domain="sharedpref" path="menu-dado-rewarded-ai-credits.xml" />
+    <exclude domain="sharedpref" path="menu-dado-hive-rotation.xml" />
 </full-backup-content>

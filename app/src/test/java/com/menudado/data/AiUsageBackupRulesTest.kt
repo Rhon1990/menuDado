@@ -12,16 +12,17 @@ import javax.xml.parsers.DocumentBuilderFactory
 class AiUsageBackupRulesTest {
 
     @Test
-    fun `volatile identity usage and rewards are excluded from every backup mode`() {
-        val volatilePreferences = setOf(
+    fun `local only identity state is excluded from every backup mode`() {
+        val localOnlyPreferences = setOf(
             "menu-dado-scoped-ai-usage.xml",
-            "menu-dado-rewarded-ai-credits.xml"
+            "menu-dado-rewarded-ai-credits.xml",
+            "menu-dado-hive-rotation.xml"
         )
 
         val legacyBackupExclusions = excludedSharedPreferences("backup_rules.xml")
         val modernBackupExclusions = excludedSharedPreferences("data_extraction_rules.xml")
 
-        volatilePreferences.forEach { preferencesFile ->
+        localOnlyPreferences.forEach { preferencesFile ->
             assertTrue(
                 "$preferencesFile must be excluded from legacy backups",
                 preferencesFile in legacyBackupExclusions
