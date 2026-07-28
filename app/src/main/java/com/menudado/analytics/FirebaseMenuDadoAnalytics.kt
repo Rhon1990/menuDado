@@ -333,6 +333,13 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
+    override fun trackAiRewardedOffer(status: String, creditsRemaining: Int) {
+        logEvent(EVENT_AI_REWARDED_OFFER) {
+            putString(PARAM_STATUS, status.sanitized())
+            putLong(PARAM_CREDITS_REMAINING, creditsRemaining.coerceAtLeast(0).toLong())
+        }
+    }
+
     private fun logEvent(name: String, buildParams: Bundle.() -> Unit = {}) {
         runCatching {
             firebaseAnalytics.logEvent(name, Bundle().apply(buildParams))
@@ -412,6 +419,7 @@ class FirebaseMenuDadoAnalytics(
         const val EVENT_AI_ANALYSIS_STARTED = "ai_analysis_started"
         const val EVENT_AI_ANALYSIS_FINISHED = "ai_analysis_finished"
         const val EVENT_AI_DAILY_LIMIT_REACHED = "ai_daily_limit_reached"
+        const val EVENT_AI_REWARDED_OFFER = "ai_rewarded_offer"
 
         const val PARAM_DEVICE_MANUFACTURER = "device_manufacturer"
         const val PARAM_DEVICE_MODEL = "device_model"
@@ -455,6 +463,7 @@ class FirebaseMenuDadoAnalytics(
         const val PARAM_ACTIVE_AUDIENCE_COUNT = "active_audience_count"
         const val PARAM_PENDING_MENU_COUNT = "pending_menu_count"
         const val PARAM_DURATION_MS = "duration_ms"
+        const val PARAM_CREDITS_REMAINING = "credits_remaining"
 
         const val VALUE_ALL = "all"
         const val VALUE_NONE = "none"

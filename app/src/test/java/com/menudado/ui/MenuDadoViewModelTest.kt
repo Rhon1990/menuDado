@@ -23,6 +23,8 @@ import com.menudado.data.MenuEntity
 import com.menudado.data.MenuRepository
 import com.menudado.data.OnboardingStore
 import com.menudado.data.RemoteSyncState
+import com.menudado.data.RewardedAiCreditLedger
+import com.menudado.data.RewardedAiCreditStore
 import com.menudado.data.toEntity
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.GeneratedMenu
@@ -71,6 +73,7 @@ class MenuDadoViewModelTest {
     private lateinit var aiRequestThrottleStore: FakeAiRequestThrottleStore
     private lateinit var aiDailyUsageStore: FakeAiDailyUsageStore
     private lateinit var guestUsageStore: FakeGuestUsageStore
+    private lateinit var rewardedAiCreditStore: FakeRewardedAiCreditStore
     private lateinit var dietaryProfileStore: FakeDietaryProfileStore
     private lateinit var onboardingStore: FakeOnboardingStore
     private lateinit var cuisineRotationStateStore: FakeCuisineRotationStateStore
@@ -91,6 +94,7 @@ class MenuDadoViewModelTest {
         aiRequestThrottleStore = FakeAiRequestThrottleStore()
         aiDailyUsageStore = FakeAiDailyUsageStore()
         guestUsageStore = FakeGuestUsageStore()
+        rewardedAiCreditStore = FakeRewardedAiCreditStore()
         dietaryProfileStore = FakeDietaryProfileStore()
         onboardingStore = FakeOnboardingStore(completed = true)
         cuisineRotationStateStore = FakeCuisineRotationStateStore()
@@ -106,6 +110,7 @@ class MenuDadoViewModelTest {
             aiRequestThrottleStore = aiRequestThrottleStore,
             aiDailyUsageStore = aiDailyUsageStore,
             guestUsageStore = guestUsageStore,
+            rewardedAiCreditStore = rewardedAiCreditStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore,
             cuisineRotation = cuisineRotation,
@@ -155,6 +160,130 @@ class MenuDadoViewModelTest {
         assertEquals("Idea recuperada", viewModel.uiState.value.name)
         assertEquals(AiGenerationPhase.IDLE, viewModel.uiState.value.aiGenerationPhase)
         assertFalse(viewModel.uiState.value.isGeneratingMenu)
+    }
+
+    @Test
+    fun `signed in free limit offers rewarded generation without a daily retry lock`() = runTest(dispatcher) {
+        aiDailyUsageStore.storedDateKey = "2026-06-10"
+        aiDailyUsageStore.storedUsedCount = 10
+        viewModel.updateGuestAccess(isGuest = false, areLimitsEnabled = true, areAiLimitsEnabled = true)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(AiGenerationLimitState.REWARDED_OFFER, viewModel.uiState.value.aiGenerationLimitState)
+        assertTrue(viewModel.uiState.value.canRequestRewardedGeneration)
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
+    }
+
+    @Test
+    fun `rewarded offer is tracked when the app starts with free uses already exhausted`() = runTest(dispatcher) {
+        aiDailyUsageStore.storedDateKey = "2026-06-10"
+        aiDailyUsageStore.storedUsedCount = 10
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { localMillisAtHour(8) },
+            aiDailyUsageStore = aiDailyUsageStore,
+            rewardedAiCreditStore = rewardedAiCreditStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore,
+            cuisineRotation = cuisineRotation,
+            aiMenuHive = hive
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        analytics.events.clear()
+
+        viewModel.generateMenuIdea()
+
+        assertTrue(analytics.events.contains("ai_rewarded_offer:shown:10"))
+    }
+
+    @Test
+    fun `earned reward resumes Gemini and keeps the existing hive fallback`() = runTest(dispatcher) {
+        aiDailyUsageStore.storedDateKey = "2026-06-10"
+        aiDailyUsageStore.storedUsedCount = 10
+        analyzer.generateFailure = IllegalStateException("internal")
+        hive.searchResult = Result.success(sampleHiveCandidate())
+        viewModel.generateMenuIdea()
+
+        assertTrue(viewModel.requestRewardedGeneration())
+        viewModel.onRewardedGenerationEarned()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals(1, hive.searches.size)
+        assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
+        assertEquals(11, aiDailyUsageStore.storedUsedCount)
+        assertEquals(1, rewardedAiCreditStore.ledger?.earnedCount)
+        assertEquals(1, rewardedAiCreditStore.ledger?.consumedCount)
+    }
+
+    @Test
+    fun `dismissed rewarded ad grants no credit and starts no generation`() = runTest(dispatcher) {
+        aiDailyUsageStore.storedDateKey = "2026-06-10"
+        aiDailyUsageStore.storedUsedCount = 10
+        viewModel.generateMenuIdea()
+
+        assertTrue(viewModel.requestRewardedGeneration())
+        viewModel.onRewardedGenerationDismissed()
+        viewModel.onRewardedGenerationEarned()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertNull(rewardedAiCreditStore.ledger)
+        assertFalse(viewModel.uiState.value.isRewardedGenerationPending)
+    }
+
+    @Test
+    fun `rewarded generation request ignores a second tap while the ad is pending`() = runTest(dispatcher) {
+        aiDailyUsageStore.storedDateKey = "2026-06-10"
+        aiDailyUsageStore.storedUsedCount = 10
+        viewModel.generateMenuIdea()
+
+        assertTrue(viewModel.requestRewardedGeneration())
+        assertFalse(viewModel.requestRewardedGeneration())
+        assertTrue(viewModel.uiState.value.isRewardedGenerationPending)
+    }
+
+    @Test
+    fun `guest reaches rewarded offer after five shared AI requests`() = runTest(dispatcher) {
+        aiDailyUsageStore.storedDateKey = "2026-06-10"
+        aiDailyUsageStore.storedUsedCount = 5
+        viewModel.updateGuestAccess(
+            isGuest = true,
+            areLimitsEnabled = false,
+            areAiLimitsEnabled = true
+        )
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(AiGenerationLimitState.REWARDED_OFFER, viewModel.uiState.value.aiGenerationLimitState)
+    }
+
+    @Test
+    fun `analysis stops at free limit and never offers a rewarded credit`() = runTest(dispatcher) {
+        aiDailyUsageStore.storedDateKey = "2026-06-10"
+        aiDailyUsageStore.storedUsedCount = 10
+        val menu = FoodMenu(
+            id = 1,
+            name = "Tostadas",
+            mealType = MealType.BREAKFAST,
+            audience = MenuAudience.ADULT,
+            description = "Pan, tomate y aguacate"
+        )
+
+        viewModel.analyzeExisting(menu)
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.analysisCalls)
+        assertEquals(AiGenerationLimitState.REWARDED_OFFER, viewModel.uiState.value.aiGenerationLimitState)
+        assertTrue(viewModel.uiState.value.canRequestRewardedGeneration)
+        assertNull(rewardedAiCreditStore.ledger)
     }
 
     @Test
@@ -473,20 +602,16 @@ class MenuDadoViewModelTest {
     }
 
     @Test
-    fun `guest cannot generate more than five AI ideas per day when limits are enabled`() = runTest(dispatcher) {
-        guestUsageStore.state = GuestDailyUsageState(
-            dateKey = "2026-06-11",
-            savedMenuCount = 0,
-            generatedIdeaCount = 5,
-            analysisCount = 0
-        )
-        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
+    fun `guest generation uses shared five request limit when AI limits are enabled`() = runTest(dispatcher) {
+        aiDailyUsageStore.storedDateKey = "2026-06-10"
+        aiDailyUsageStore.storedUsedCount = 5
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true, areAiLimitsEnabled = true)
 
         viewModel.generateMenuIdea()
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
-        assertTrue(viewModel.uiState.value.message.orEmpty().contains("5 ideas"))
+        assertEquals(AiGenerationLimitState.REWARDED_OFFER, viewModel.uiState.value.aiGenerationLimitState)
     }
 
     @Test
@@ -500,9 +625,9 @@ class MenuDadoViewModelTest {
 
         viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
 
-        assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(5, viewModel.uiState.value.aiUsesRemainingToday)
         assertEquals(5, viewModel.uiState.value.aiGenerationUsesRemainingToday)
-        assertEquals(3, viewModel.uiState.value.aiAnalysisUsesRemainingToday)
+        assertEquals(5, viewModel.uiState.value.aiAnalysisUsesRemainingToday)
     }
 
     @Test
@@ -514,21 +639,21 @@ class MenuDadoViewModelTest {
             analysisCount = 5
         )
 
-        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = false)
+        viewModel.updateGuestAccess(
+            isGuest = true,
+            areLimitsEnabled = false,
+            areAiLimitsEnabled = false
+        )
 
-        assertEquals(20, viewModel.uiState.value.aiGenerationUsesRemainingToday)
-        assertEquals(20, viewModel.uiState.value.aiAnalysisUsesRemainingToday)
+        assertEquals(10, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+        assertEquals(10, viewModel.uiState.value.aiAnalysisUsesRemainingToday)
     }
 
     @Test
-    fun `guest cannot analyze more than five menus per day when limits are enabled`() = runTest(dispatcher) {
-        guestUsageStore.state = GuestDailyUsageState(
-            dateKey = "2026-06-11",
-            savedMenuCount = 0,
-            generatedIdeaCount = 0,
-            analysisCount = 5
-        )
-        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
+    fun `guest analysis uses shared five request limit when AI limits are enabled`() = runTest(dispatcher) {
+        aiDailyUsageStore.storedDateKey = "2026-06-10"
+        aiDailyUsageStore.storedUsedCount = 5
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true, areAiLimitsEnabled = true)
 
         viewModel.analyzeExisting(
             FoodMenu(
@@ -542,11 +667,11 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, analyzer.analysisCalls)
-        assertTrue(viewModel.uiState.value.message.orEmpty().contains("5 análisis"))
+        assertTrue(viewModel.uiState.value.message.orEmpty().contains("IA gratuita"))
     }
 
     @Test
-    fun `guest successful actions consume separate daily counters`() = runTest(dispatcher) {
+    fun `guest AI actions share the provider request counter`() = runTest(dispatcher) {
         guestUsageStore.state = GuestDailyUsageState(
             dateKey = "2026-06-11",
             savedMenuCount = 4,
@@ -577,11 +702,12 @@ class MenuDadoViewModelTest {
             GuestDailyUsageState(
                 dateKey = "2026-06-11",
                 savedMenuCount = 5,
-                generatedIdeaCount = 5,
-                analysisCount = 5
+                generatedIdeaCount = 4,
+                analysisCount = 4
             ),
             guestUsageStore.state
         )
+        assertEquals(2, aiDailyUsageStore.storedUsedCount)
     }
 
     @Test
@@ -1229,7 +1355,7 @@ class MenuDadoViewModelTest {
             aiDailyUsageStore = aiDailyUsageStore
         )
 
-        assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(10, viewModel.uiState.value.aiUsesRemainingToday)
     }
 
     @Test
@@ -1246,7 +1372,7 @@ class MenuDadoViewModelTest {
         viewModel.generateMenuIdea()
         advanceUntilIdle()
 
-        assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
         assertEquals(1, aiDailyUsageStore.storedUsedCount)
     }
 
@@ -1476,7 +1602,7 @@ class MenuDadoViewModelTest {
         runCurrent()
 
         assertEquals(1, analyzer.generateCalls)
-        assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
         advanceTimeBy(1_000L)
         advanceUntilIdle()
     }
@@ -1502,7 +1628,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
-        assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(10, viewModel.uiState.value.aiUsesRemainingToday)
         assertEquals(100_500L, viewModel.uiState.value.aiRetryAtMillis)
         assertNull(viewModel.uiState.value.message)
         assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
@@ -1512,7 +1638,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(1, analyzer.generateCalls)
-        assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
         assertEquals(100_500L, aiRequestThrottleStore.storedLastRequestAtMillis)
     }
 
@@ -1539,7 +1665,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(2, analyzer.generateCalls)
-        assertEquals(18, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(8, viewModel.uiState.value.aiUsesRemainingToday)
         assertNull(viewModel.uiState.value.message)
         assertNull(viewModel.uiState.value.aiRetryAtMillis)
         assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
@@ -1894,7 +2020,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
-        assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(10, viewModel.uiState.value.aiUsesRemainingToday)
         assertEquals(0, aiDailyUsageStore.storedUsedCount)
         assertEquals(
             "Revisa los ingredientes: crema no encaja con tu perfil alimentario.",
@@ -2175,7 +2301,7 @@ class MenuDadoViewModelTest {
         runCurrent()
 
         assertNull(viewModel.uiState.value.aiRetryAtMillis)
-        assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(10, viewModel.uiState.value.aiUsesRemainingToday)
     }
 
     @Test
@@ -2291,7 +2417,7 @@ class MenuDadoViewModelTest {
         runCurrent()
 
         assertEquals(1, analyzer.analysisCalls)
-        assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
         advanceTimeBy(1_000L)
         advanceUntilIdle()
     }
@@ -2327,7 +2453,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(1, analyzer.generateCalls)
         assertEquals(0, analyzer.analysisCalls)
-        assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
         assertEquals(201_000L, viewModel.uiState.value.aiRetryAtMillis)
     }
 
@@ -2389,7 +2515,7 @@ class MenuDadoViewModelTest {
         val savedById = dao.saved.map { it.toDomain() }.associateBy { it.id }
         assertEquals(1, analyzer.batchAnalyzeCalls)
         assertEquals(listOf(2L, 3L), analyzer.batchAnalyzeMenuIds)
-        assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
         assertEquals(1, aiDailyUsageStore.storedUsedCount)
         assertEquals(HealthStatus.IMPROVABLE, savedById.getValue(2L).healthAnalysis?.status)
         assertEquals(620, savedById.getValue(2L).calories)
@@ -3292,6 +3418,19 @@ private class FakeGuestUsageStore : GuestUsageStore {
     }
 }
 
+private class FakeRewardedAiCreditStore : RewardedAiCreditStore {
+    var ledger: RewardedAiCreditLedger? = null
+
+    override fun getLedger(dateKey: String): RewardedAiCreditLedger {
+        return ledger?.takeIf { it.dateKey == dateKey }
+            ?: RewardedAiCreditLedger(dateKey = dateKey, earnedCount = 0, consumedCount = 0)
+    }
+
+    override fun saveLedger(ledger: RewardedAiCreditLedger) {
+        this.ledger = ledger
+    }
+}
+
 private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
     val events = mutableListOf<String>()
     var throwOnAiMenuGenerationFinished = false
@@ -3489,5 +3628,9 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
 
     override fun trackAiDailyLimitReached(source: String) {
         events += "ai_daily_limit_reached:$source"
+    }
+
+    override fun trackAiRewardedOffer(status: String, creditsRemaining: Int) {
+        events += "ai_rewarded_offer:$status:$creditsRemaining"
     }
 }

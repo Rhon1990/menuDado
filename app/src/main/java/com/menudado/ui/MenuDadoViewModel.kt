@@ -32,7 +32,11 @@ import com.menudado.data.NoOpGuestUsageStore
 import com.menudado.data.NoOpOnboardingStore
 import com.menudado.data.NoOpRewardedAiCreditStore
 import com.menudado.data.OnboardingStore
+import com.menudado.data.RewardedAiCreditLedger
 import com.menudado.data.RewardedAiCreditStore
+import com.menudado.domain.AI_PROVIDER_DAILY_HARD_LIMIT
+import com.menudado.domain.AiDailyUsagePolicy
+import com.menudado.domain.AiGenerationAccess
 import com.menudado.domain.DiceSelector
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
@@ -41,9 +45,12 @@ import com.menudado.domain.FoodMenu
 import com.menudado.domain.GeneratedMenu
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.MarketProduct
+import com.menudado.domain.MAX_REWARDED_AI_CREDITS_PER_DAY
+import com.menudado.domain.SIGNED_IN_DAILY_AI_FREE_LIMIT
 import com.menudado.domain.ShoppingProduct
 import com.menudado.domain.AppLanguage
 import com.menudado.domain.GUEST_DAILY_AI_ANALYSIS_LIMIT
+import com.menudado.domain.GUEST_DAILY_AI_FREE_LIMIT
 import com.menudado.domain.GUEST_DAILY_AI_GENERATION_LIMIT
 import com.menudado.domain.GUEST_DAILY_MENU_SAVE_LIMIT
 import com.menudado.domain.GuestAccessPolicy
@@ -106,9 +113,12 @@ data class MenuDadoUiState(
     val aiRetryAtMillis: Long? = null,
     val isAiRequestThrottlePause: Boolean = false,
     val isAiRetryNoticeVisible: Boolean = false,
-    val aiUsesRemainingToday: Int = AI_DAILY_FREE_REQUEST_LIMIT,
-    val aiGenerationUsesRemainingToday: Int = AI_DAILY_FREE_REQUEST_LIMIT,
-    val aiAnalysisUsesRemainingToday: Int = AI_DAILY_FREE_REQUEST_LIMIT,
+    val aiUsesRemainingToday: Int = SIGNED_IN_DAILY_AI_FREE_LIMIT,
+    val aiGenerationUsesRemainingToday: Int = SIGNED_IN_DAILY_AI_FREE_LIMIT,
+    val aiAnalysisUsesRemainingToday: Int = SIGNED_IN_DAILY_AI_FREE_LIMIT,
+    val aiGenerationLimitState: AiGenerationLimitState = AiGenerationLimitState.AVAILABLE,
+    val rewardedCreditsRemainingToday: Int = MAX_REWARDED_AI_CREDITS_PER_DAY,
+    val isRewardedGenerationPending: Boolean = false,
     val enabledAudiences: List<MenuAudience> = MenuAudience.entries,
     val audienceAgeRanges: Map<MenuAudience, String> = MenuAudience.entries.associateWith { it.defaultAgeRange },
     val dietaryProfileAudience: MenuAudience = MenuAudience.ADULT,
@@ -119,6 +129,16 @@ data class MenuDadoUiState(
 ) {
     val isGeneratingMenu: Boolean
         get() = aiGenerationPhase.isActive
+
+    val canRequestRewardedGeneration: Boolean
+        get() = aiGenerationLimitState == AiGenerationLimitState.REWARDED_OFFER &&
+            !isRewardedGenerationPending
+}
+
+enum class AiGenerationLimitState {
+    AVAILABLE,
+    REWARDED_OFFER,
+    HARD_LIMIT
 }
 
 enum class AiGenerationPhase {
@@ -961,19 +981,112 @@ class MenuDadoViewModel(
     }
 
     fun generateMenuIdea() {
-        val state = _uiState.value
-        if (state.isGeneratingMenu) {
+        val request = validatedGenerationRequestOrNull() ?: return
+        when (currentGenerationAccess()) {
+            AiGenerationAccess.FREE -> startGeneratedMenuRequest(request)
+            AiGenerationAccess.REWARDED_CREDIT -> {
+                if (consumeRewardedGenerationCredit()) {
+                    analytics.trackAiRewardedOffer(
+                        status = AI_REWARDED_STATUS_GENERATION_STARTED,
+                        creditsRemaining = rewardedCreditsRemainingToday()
+                    )
+                    startGeneratedMenuRequest(request)
+                }
+            }
+            AiGenerationAccess.REWARDED_OFFER -> showRewardedGenerationOffer()
+            AiGenerationAccess.HARD_LIMIT -> showAiHardLimitNotice(AI_SOURCE_GENERATE_MENU)
+        }
+    }
+
+    fun requestRewardedGeneration(): Boolean {
+        if (validatedGenerationRequestOrNull() == null ||
+            currentGenerationAccess() != AiGenerationAccess.REWARDED_OFFER
+        ) {
+            refreshAiUsageCounters()
+            return false
+        }
+        _uiState.update {
+            it.copy(
+                isRewardedGenerationPending = true,
+                message = null,
+                isAiRetryNoticeVisible = false
+            )
+        }
+        return true
+    }
+
+    fun onRewardedGenerationEarned() {
+        if (!_uiState.value.isRewardedGenerationPending) {
             return
+        }
+        _uiState.update { it.copy(isRewardedGenerationPending = false) }
+        val dateKey = currentPacificDateKey()
+        val ledger = rewardedAiCreditStore.getLedger(dateKey)
+        if (ledger.earnedCount >= MAX_REWARDED_AI_CREDITS_PER_DAY ||
+            currentAiDailyUsedCount(dateKey) >= AI_PROVIDER_DAILY_HARD_LIMIT
+        ) {
+            showAiHardLimitNotice(AI_SOURCE_GENERATE_MENU)
+            return
+        }
+        rewardedAiCreditStore.saveLedger(
+            ledger.copy(earnedCount = ledger.earnedCount + 1)
+        )
+        analytics.trackAiRewardedOffer(
+            status = AI_REWARDED_STATUS_EARNED,
+            creditsRemaining = rewardedCreditsRemainingToday()
+        )
+        refreshAiUsageCounters()
+        generateMenuIdea()
+    }
+
+    fun onRewardedGenerationDismissed() {
+        if (!_uiState.value.isRewardedGenerationPending) {
+            return
+        }
+        _uiState.update {
+            it.copy(
+                isRewardedGenerationPending = false,
+                message = currentLanguage().rewardedAdDismissedMessage(),
+                isAiRetryNoticeVisible = false
+            )
+        }
+        analytics.trackAiRewardedOffer(
+            status = AI_REWARDED_STATUS_DISMISSED,
+            creditsRemaining = rewardedCreditsRemainingToday()
+        )
+    }
+
+    fun onRewardedGenerationUnavailable() {
+        if (!_uiState.value.isRewardedGenerationPending) {
+            return
+        }
+        _uiState.update {
+            it.copy(
+                isRewardedGenerationPending = false,
+                message = currentLanguage().rewardedAdUnavailableMessage(),
+                isAiRetryNoticeVisible = false
+            )
+        }
+        analytics.trackAiRewardedOffer(
+            status = AI_REWARDED_STATUS_UNAVAILABLE,
+            creditsRemaining = rewardedCreditsRemainingToday()
+        )
+    }
+
+    private fun validatedGenerationRequestOrNull(): ValidatedGenerationRequest? {
+        val state = _uiState.value
+        if (state.isGeneratingMenu || state.isRewardedGenerationPending) {
+            return null
         }
         val mealType = state.formMealType
         val audience = state.formAudience
         if (mealType == null) {
             _uiState.update { it.copy(message = currentLanguage().mealTypeRequiredMessage(), isAiRetryNoticeVisible = false) }
-            return
+            return null
         }
         if (audience == null) {
             _uiState.update { it.copy(message = currentLanguage().audienceRequiredMessage(), isAiRetryNoticeVisible = false) }
-            return
+            return null
         }
         val profile = dietaryProfileStore.getProfile(audience)
         val ingredientConflicts = profile.findIngredientConflicts(state.aiBaseIngredients)
@@ -984,31 +1097,31 @@ class MenuDadoViewModel(
                     isAiRetryNoticeVisible = false
                 )
             }
-            return
+            return null
         }
         val activeRetryAtMillis = activeAiRetryAtMillis()
         if (activeRetryAtMillis != null) {
             showActiveAiRetryNotice(activeRetryAtMillis)
-            return
+            return null
         }
         val activeRequestThrottleAtMillis = activeAiRequestThrottleAtMillis()
         if (activeRequestThrottleAtMillis != null) {
             showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
-            return
+            return null
         }
+        return ValidatedGenerationRequest(state, mealType, audience, profile)
+    }
 
-        if (!canGuestGenerateIdeaOrShowNotice()) {
-            return
-        }
-        if (!canUseAiDailyOrShowNotice(AI_SOURCE_GENERATE_MENU)) {
-            return
-        }
+    private fun startGeneratedMenuRequest(request: ValidatedGenerationRequest) {
+        val state = request.state
+        val mealType = request.mealType
+        val audience = request.audience
+        val profile = request.profile
         val avoidIdeas = state.buildAvoidIdeas(mealType, audience)
         val cuisineInspiration = cuisineRotation.current(mealType, audience)
         analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
         startAiRequestThrottle()
         consumeAiDailyUse()
-        consumeGuestGeneratedIdea()
         _uiState.update {
             it.copy(
                 aiGenerationPhase = AiGenerationPhase.GENERATING,
@@ -1157,29 +1270,100 @@ class MenuDadoViewModel(
         }
     }
 
-    private fun canUseAiDailyOrShowNotice(source: String): Boolean {
-        val dateKey = currentPacificDateKey()
-        val usedCount = currentAiDailyUsedCount(dateKey)
+    private fun currentAiUsagePolicy(): AiDailyUsagePolicy {
+        return AiDailyUsagePolicy(
+            isGuest = guestAccessPolicy.isGuest,
+            guestAiLimitsEnabled = areGuestAiLimitsEnabled
+        )
+    }
 
-        if (usedCount >= AI_DAILY_FREE_REQUEST_LIMIT) {
-            val retryAtMillis = nextPacificMidnightMillis(clockMillisProvider())
+    private fun currentRewardedLedger(): RewardedAiCreditLedger {
+        val dateKey = currentPacificDateKey()
+        return rewardedAiCreditStore.getLedger(dateKey)
+    }
+
+    private fun currentGenerationAccess(): AiGenerationAccess {
+        val ledger = currentRewardedLedger()
+        return currentAiUsagePolicy().generationAccess(
+            usedCount = currentAiDailyUsedCount(currentPacificDateKey()),
+            earnedRewardedCredits = ledger.earnedCount,
+            consumedRewardedCredits = ledger.consumedCount
+        )
+    }
+
+    private fun consumeRewardedGenerationCredit(): Boolean {
+        val dateKey = currentPacificDateKey()
+        val ledger = rewardedAiCreditStore.getLedger(dateKey)
+        if (ledger.consumedCount >= ledger.earnedCount) {
+            refreshAiUsageCounters()
+            return false
+        }
+        rewardedAiCreditStore.saveLedger(
+            ledger.copy(consumedCount = ledger.consumedCount + 1)
+        )
+        refreshAiUsageCounters()
+        return true
+    }
+
+    private fun rewardedCreditsRemainingToday(): Int {
+        return (MAX_REWARDED_AI_CREDITS_PER_DAY - currentRewardedLedger().earnedCount)
+            .coerceIn(0, MAX_REWARDED_AI_CREDITS_PER_DAY)
+    }
+
+    private fun showRewardedGenerationOffer() {
+        refreshAiUsageCounters()
+        _uiState.update {
+            it.copy(
+                aiGenerationLimitState = AiGenerationLimitState.REWARDED_OFFER,
+                message = null,
+                aiRetryAtMillis = null,
+                isAiRequestThrottlePause = false,
+                isAiRetryNoticeVisible = false
+            )
+        }
+        analytics.trackAiRewardedOffer(
+            status = AI_REWARDED_STATUS_SHOWN,
+            creditsRemaining = rewardedCreditsRemainingToday()
+        )
+    }
+
+    private fun canUseAiAnalysisOrShowNotice(source: String): Boolean {
+        val usedCount = currentAiDailyUsedCount(currentPacificDateKey())
+        if (currentAiUsagePolicy().canUseAiAnalysis(usedCount)) {
+            return true
+        }
+        if (usedCount >= AI_PROVIDER_DAILY_HARD_LIMIT) {
+            showAiHardLimitNotice(source)
+        } else {
+            refreshAiUsageCounters()
             _uiState.update {
                 it.copy(
                     message = currentLanguage().aiLocalDailyLimitMessage(),
-                    aiRetryAtMillis = retryAtMillis,
-                    isAiRequestThrottlePause = false,
-                    isAiRetryNoticeVisible = true,
-                    aiUsesRemainingToday = 0,
-                    aiGenerationUsesRemainingToday = 0,
-                    aiAnalysisUsesRemainingToday = 0
+                    isAiRetryNoticeVisible = false
                 )
             }
-            scheduleAiRetryRefresh(retryAtMillis)
             analytics.trackAiDailyLimitReached(source)
-            return false
         }
+        return false
+    }
 
-        return true
+    private fun showAiHardLimitNotice(source: String) {
+        val retryAtMillis = nextPacificMidnightMillis(clockMillisProvider())
+        _uiState.update {
+            it.copy(
+                message = currentLanguage().aiLocalDailyLimitMessage(),
+                aiRetryAtMillis = retryAtMillis,
+                isAiRequestThrottlePause = false,
+                isAiRetryNoticeVisible = true,
+                aiUsesRemainingToday = 0,
+                aiGenerationUsesRemainingToday = 0,
+                aiAnalysisUsesRemainingToday = 0,
+                aiGenerationLimitState = AiGenerationLimitState.HARD_LIMIT,
+                isRewardedGenerationPending = false
+            )
+        }
+        scheduleAiRetryRefresh(retryAtMillis)
+        analytics.trackAiDailyLimitReached(source)
     }
 
     private fun MenuDadoUiState.buildAvoidIdeas(mealType: MealType, audience: MenuAudience): List<String> {
@@ -1326,16 +1510,12 @@ class MenuDadoViewModel(
             showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
             return
         }
-        if (!canGuestAnalyzeOrShowNotice()) {
-            return
-        }
-        if (!canUseAiDailyOrShowNotice(AI_SOURCE_ANALYZE_SINGLE)) {
+        if (!canUseAiAnalysisOrShowNotice(AI_SOURCE_ANALYZE_SINGLE)) {
             return
         }
         analytics.trackAiAnalysisStarted(AI_SCOPE_SINGLE, menu.mealType, menuCount = 1)
         startAiRequestThrottle()
         consumeAiDailyUse()
-        consumeGuestAnalysis()
         _uiState.update {
             it.copy(
                 isAnalyzing = true,
@@ -1413,16 +1593,12 @@ class MenuDadoViewModel(
             showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
             return
         }
-        if (!canGuestAnalyzeOrShowNotice()) {
-            return
-        }
-        if (!canUseAiDailyOrShowNotice(AI_SOURCE_ANALYZE_BATCH)) {
+        if (!canUseAiAnalysisOrShowNotice(AI_SOURCE_ANALYZE_BATCH)) {
             return
         }
         analytics.trackAiAnalysisStarted(AI_SCOPE_BATCH, mealType = null, menuCount = pendingMenus.size)
         startAiRequestThrottle()
         consumeAiDailyUse()
-        consumeGuestAnalysis()
         _uiState.update {
             it.copy(
                 isAnalyzing = true,
@@ -1622,12 +1798,20 @@ class MenuDadoViewModel(
     }
 
     private fun refreshAiUsageCounters() {
+        val freeUsesRemaining = aiDailyUsesRemaining()
+        val generationLimitState = when (currentGenerationAccess()) {
+            AiGenerationAccess.FREE,
+            AiGenerationAccess.REWARDED_CREDIT -> AiGenerationLimitState.AVAILABLE
+            AiGenerationAccess.REWARDED_OFFER -> AiGenerationLimitState.REWARDED_OFFER
+            AiGenerationAccess.HARD_LIMIT -> AiGenerationLimitState.HARD_LIMIT
+        }
         _uiState.update {
-            val dailyUsesRemaining = aiDailyUsesRemaining()
             it.copy(
-                aiUsesRemainingToday = dailyUsesRemaining,
-                aiGenerationUsesRemainingToday = aiGenerationUsesRemaining(dailyUsesRemaining),
-                aiAnalysisUsesRemainingToday = aiAnalysisUsesRemaining(dailyUsesRemaining)
+                aiUsesRemainingToday = freeUsesRemaining,
+                aiGenerationUsesRemainingToday = freeUsesRemaining,
+                aiAnalysisUsesRemainingToday = freeUsesRemaining,
+                aiGenerationLimitState = generationLimitState,
+                rewardedCreditsRemainingToday = rewardedCreditsRemainingToday()
             )
         }
     }
@@ -1648,38 +1832,6 @@ class MenuDadoViewModel(
         return false
     }
 
-    private fun canGuestGenerateIdeaOrShowNotice(): Boolean {
-        val dateKey = todayProvider()
-        val usedCount = currentGuestUsageState(dateKey).generatedIdeaCount
-        if (guestAccessPolicy.canUseAction(usedCount, GUEST_DAILY_AI_GENERATION_LIMIT)) {
-            return true
-        }
-        analytics.trackGuestLimitReached(GUEST_LIMIT_AI_GENERATION, usedCount)
-        _uiState.update {
-            it.copy(
-                message = currentLanguage().guestAiGenerationLimitMessage(),
-                isAiRetryNoticeVisible = false
-            )
-        }
-        return false
-    }
-
-    private fun canGuestAnalyzeOrShowNotice(): Boolean {
-        val dateKey = todayProvider()
-        val usedCount = currentGuestUsageState(dateKey).analysisCount
-        if (guestAccessPolicy.canUseAction(usedCount, GUEST_DAILY_AI_ANALYSIS_LIMIT)) {
-            return true
-        }
-        analytics.trackGuestLimitReached(GUEST_LIMIT_AI_ANALYSIS, usedCount)
-        _uiState.update {
-            it.copy(
-                message = currentLanguage().guestAiAnalysisLimitMessage(),
-                isAiRetryNoticeVisible = false
-            )
-        }
-        return false
-    }
-
     private fun consumeGuestMenuSave() {
         if (!guestAccessPolicy.isGuest || !guestAccessPolicy.areLimitsEnabled) {
             return
@@ -1689,45 +1841,9 @@ class MenuDadoViewModel(
         }
     }
 
-    private fun consumeGuestGeneratedIdea() {
-        if (!guestAccessPolicy.isGuest || !guestAccessPolicy.areLimitsEnabled) {
-            return
-        }
-        saveGuestUsageState { state ->
-            state.copy(generatedIdeaCount = (state.generatedIdeaCount + 1).coerceAtMost(GUEST_DAILY_AI_GENERATION_LIMIT))
-        }
-        refreshAiUsageCounters()
-    }
-
-    private fun consumeGuestAnalysis() {
-        if (!guestAccessPolicy.isGuest || !guestAccessPolicy.areLimitsEnabled) {
-            return
-        }
-        saveGuestUsageState { state ->
-            state.copy(analysisCount = (state.analysisCount + 1).coerceAtMost(GUEST_DAILY_AI_ANALYSIS_LIMIT))
-        }
-        refreshAiUsageCounters()
-    }
-
     private fun saveGuestUsageState(transform: (GuestDailyUsageState) -> GuestDailyUsageState) {
         val dateKey = todayProvider()
         guestUsageStore.saveUsageState(transform(currentGuestUsageState(dateKey)))
-    }
-
-    private fun aiGenerationUsesRemaining(dailyUsesRemaining: Int): Int {
-        if (!guestAccessPolicy.isGuest || !guestAccessPolicy.areLimitsEnabled) {
-            return dailyUsesRemaining
-        }
-        val usedCount = currentGuestUsageState(todayProvider()).generatedIdeaCount
-        return minOf(dailyUsesRemaining, (GUEST_DAILY_AI_GENERATION_LIMIT - usedCount).coerceAtLeast(0))
-    }
-
-    private fun aiAnalysisUsesRemaining(dailyUsesRemaining: Int): Int {
-        if (!guestAccessPolicy.isGuest || !guestAccessPolicy.areLimitsEnabled) {
-            return dailyUsesRemaining
-        }
-        val usedCount = currentGuestUsageState(todayProvider()).analysisCount
-        return minOf(dailyUsesRemaining, (GUEST_DAILY_AI_ANALYSIS_LIMIT - usedCount).coerceAtLeast(0))
     }
 
     private fun currentGuestUsageState(dateKey: String): GuestDailyUsageState {
@@ -1759,7 +1875,7 @@ class MenuDadoViewModel(
     private fun consumeAiDailyUse() {
         val dateKey = currentPacificDateKey()
         val usedCount = currentAiDailyUsedCount(dateKey)
-        val newUsedCount = (usedCount + 1).coerceAtMost(AI_DAILY_FREE_REQUEST_LIMIT)
+        val newUsedCount = (usedCount + 1).coerceAtMost(AI_PROVIDER_DAILY_HARD_LIMIT)
 
         aiDailyUsageStore.saveUsageState(
             AiDailyUsageState(
@@ -1772,9 +1888,14 @@ class MenuDadoViewModel(
     }
 
     private fun aiDailyUsesRemaining(): Int {
-        return (AI_DAILY_FREE_REQUEST_LIMIT - currentAiDailyUsedCount(currentPacificDateKey())).coerceIn(
+        val freeLimit = if (guestAccessPolicy.isGuest && areGuestAiLimitsEnabled) {
+            GUEST_DAILY_AI_FREE_LIMIT
+        } else {
+            SIGNED_IN_DAILY_AI_FREE_LIMIT
+        }
+        return (freeLimit - currentAiDailyUsedCount(currentPacificDateKey())).coerceIn(
             0,
-            AI_DAILY_FREE_REQUEST_LIMIT
+            freeLimit
         )
     }
 
@@ -1783,7 +1904,7 @@ class MenuDadoViewModel(
         if (state?.dateKey != dateKey) {
             return 0
         }
-        return state.usedCount.coerceIn(0, AI_DAILY_FREE_REQUEST_LIMIT)
+        return state.usedCount.coerceIn(0, AI_PROVIDER_DAILY_HARD_LIMIT)
     }
 
     private fun activeAiRetryAtMillis(): Long? {
@@ -1837,16 +1958,13 @@ class MenuDadoViewModel(
         }
 
         _uiState.update {
-            val dailyUsesRemaining = aiDailyUsesRemaining()
             it.copy(
                 aiRetryAtMillis = null,
                 isAiRequestThrottlePause = false,
-                isAiRetryNoticeVisible = false,
-                aiUsesRemainingToday = dailyUsesRemaining,
-                aiGenerationUsesRemainingToday = aiGenerationUsesRemaining(dailyUsesRemaining),
-                aiAnalysisUsesRemainingToday = aiAnalysisUsesRemaining(dailyUsesRemaining)
+                isAiRetryNoticeVisible = false
             )
         }
+        refreshAiUsageCounters()
         scheduleAiRetryRefresh(null)
         return true
     }
@@ -1865,17 +1983,14 @@ class MenuDadoViewModel(
             if (!it.isAiRequestThrottlePause) {
                 it
             } else {
-                val dailyUsesRemaining = aiDailyUsesRemaining()
                 it.copy(
                     aiRetryAtMillis = null,
                     isAiRequestThrottlePause = false,
-                    isAiRetryNoticeVisible = false,
-                    aiUsesRemainingToday = dailyUsesRemaining,
-                    aiGenerationUsesRemainingToday = aiGenerationUsesRemaining(dailyUsesRemaining),
-                    aiAnalysisUsesRemainingToday = aiAnalysisUsesRemaining(dailyUsesRemaining)
+                    isAiRetryNoticeVisible = false
                 )
             }
         }
+        refreshAiUsageCounters()
         scheduleAiRetryRefresh(null)
         return true
     }
@@ -2152,6 +2267,22 @@ private fun AppLanguage.aiLocalDailyLimitMessage(): String {
     }
 }
 
+private fun AppLanguage.rewardedAdDismissedMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "The video was closed before the reward. You can try again when you are ready."
+        AppLanguage.FRENCH -> "La vidéo a été fermée avant la récompense. Vous pouvez réessayer quand vous le souhaitez."
+        AppLanguage.SPANISH -> "El vídeo se cerró antes de la recompensa. Puedes intentarlo de nuevo cuando quieras."
+    }
+}
+
+private fun AppLanguage.rewardedAdUnavailableMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "The video is not available right now. Try again in a moment."
+        AppLanguage.FRENCH -> "La vidéo n'est pas disponible pour le moment. Réessayez dans un instant."
+        AppLanguage.SPANISH -> "El vídeo no está disponible ahora. Inténtalo de nuevo en un momento."
+    }
+}
+
 private fun AppLanguage.guestMenuSaveLimitMessage(): String {
     return when (this) {
         AppLanguage.ENGLISH -> "You have saved your 5 guest menus for today. Create a free account to keep saving and recover your menus later."
@@ -2243,12 +2374,23 @@ private data class GeneratedIdeaMemory(
     val description: String
 )
 
+private data class ValidatedGenerationRequest(
+    val state: MenuDadoUiState,
+    val mealType: MealType,
+    val audience: MenuAudience,
+    val profile: DietaryProfile
+)
+
 private const val RETRY_GRACE_SECONDS = 2L
-private const val AI_DAILY_FREE_REQUEST_LIMIT = 20
 private const val AI_BATCH_ANALYSIS_LIMIT = 5
 private const val AI_SOURCE_GENERATE_MENU = "generate_menu"
 private const val AI_SOURCE_ANALYZE_SINGLE = "analyze_single"
 private const val AI_SOURCE_ANALYZE_BATCH = "analyze_batch"
+private const val AI_REWARDED_STATUS_SHOWN = "shown"
+private const val AI_REWARDED_STATUS_UNAVAILABLE = "unavailable"
+private const val AI_REWARDED_STATUS_DISMISSED = "dismissed"
+private const val AI_REWARDED_STATUS_EARNED = "earned"
+private const val AI_REWARDED_STATUS_GENERATION_STARTED = "generation_started"
 private const val AI_SCOPE_SINGLE = "single"
 private const val AI_SCOPE_BATCH = "batch"
 private const val AUTH_MODE_GUEST = "guest"

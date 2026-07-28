@@ -128,6 +128,8 @@ interface MenuDadoAnalytics {
     )
 
     fun trackAiDailyLimitReached(source: String)
+
+    fun trackAiRewardedOffer(status: String, creditsRemaining: Int)
 }
 
 object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
@@ -246,4 +248,6 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
     ) = Unit
 
     override fun trackAiDailyLimitReached(source: String) = Unit
+
+    override fun trackAiRewardedOffer(status: String, creditsRemaining: Int) = Unit
 }
