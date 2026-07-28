@@ -283,6 +283,11 @@ fun MenuDadoScreen(
         visibleMenus.firstOrNull { it.id == actionMenuId }
     }
     val generatedDetailMenu = generatedMenuDetailPreview(state)
+    val aiSurface = aiFlowSurface(
+        isGenerating = state.isGeneratingMenu,
+        hasGeneratedMenu = generatedDetailMenu != null,
+        hasMessage = message != null
+    )
     fun openMenuDetail(menuId: Long, fromRandomSelection: Boolean = false) {
         openedFromRandomSelection = fromRandomSelection
         selectedDetailMenuId = menuId
@@ -507,7 +512,12 @@ fun MenuDadoScreen(
         }
     }
 
-    if (message != null && aiRetryAtMillis != null && state.isAiRetryNoticeVisible) {
+    if (
+        aiSurface == AiFlowSurface.MESSAGE &&
+        message != null &&
+        aiRetryAtMillis != null &&
+        state.isAiRetryNoticeVisible
+    ) {
         AiQuotaDialog(
             message = message,
             retryAtMillis = aiRetryAtMillis,
@@ -516,7 +526,7 @@ fun MenuDadoScreen(
                 viewModel.clearMessage()
             }
         )
-    } else if (message != null) {
+    } else if (aiSurface == AiFlowSurface.MESSAGE && message != null) {
         AlertDialog(
             onDismissRequest = viewModel::clearMessage,
             confirmButton = {
@@ -740,34 +750,51 @@ fun MenuDadoScreen(
         )
     }
 
-    generatedDetailMenu?.let { menu ->
-        GeneratedMenuDetailDialog(
-            menu = menu,
-            cuisineInspiration = state.generatedCuisineInspiration,
-            isGenerating = state.isGeneratingMenu,
-            aiUsesRemainingToday = state.aiGenerationUsesRemainingToday,
-            addToMarketList = state.addGeneratedMenuToMarketList,
-            onAddToMarketListChanged = { isEnabled ->
-                viewModel.trackCtaTapped(
-                    ANALYTICS_SCREEN_MENU_DETAIL,
-                    if (isEnabled) ANALYTICS_CTA_MARKET_MENU_ADDED else ANALYTICS_CTA_MARKET_MENU_REMOVED
-                )
-                viewModel.setAddGeneratedMenuToMarketList(isEnabled)
-            },
-            onSave = {
-                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_SAVE_GENERATED_MENU)
-                viewModel.saveGeneratedMenuIdea()
-            },
-            onTryAnother = {
-                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_TRY_ANOTHER_GENERATED_MENU)
-                viewModel.tryAnotherGeneratedMenuIdea()
-            },
-            onDiscard = {
-                viewModel.trackCtaTapped(ANALYTICS_SCREEN_MENU_DETAIL, ANALYTICS_CTA_DISCARD_GENERATED_MENU)
-                viewModel.discardGeneratedMenuIdea()
-            }
-        )
-    }
+    generatedDetailMenu
+        ?.takeIf { aiSurface == AiFlowSurface.GENERATED_MENU }
+        ?.let { menu ->
+            GeneratedMenuDetailDialog(
+                menu = menu,
+                cuisineInspiration = state.generatedCuisineInspiration,
+                isGenerating = state.isGeneratingMenu,
+                isAiPaused = state.aiRetryAtMillis != null,
+                limitState = state.aiGenerationLimitState,
+                aiUsesRemainingToday = state.aiGenerationUsesRemainingToday,
+                addToMarketList = state.addGeneratedMenuToMarketList,
+                onAddToMarketListChanged = { isEnabled ->
+                    viewModel.trackCtaTapped(
+                        ANALYTICS_SCREEN_MENU_DETAIL,
+                        if (isEnabled) {
+                            ANALYTICS_CTA_MARKET_MENU_ADDED
+                        } else {
+                            ANALYTICS_CTA_MARKET_MENU_REMOVED
+                        }
+                    )
+                    viewModel.setAddGeneratedMenuToMarketList(isEnabled)
+                },
+                onSave = {
+                    viewModel.trackCtaTapped(
+                        ANALYTICS_SCREEN_MENU_DETAIL,
+                        ANALYTICS_CTA_SAVE_GENERATED_MENU
+                    )
+                    viewModel.saveGeneratedMenuIdea()
+                },
+                onTryAnother = {
+                    viewModel.trackCtaTapped(
+                        ANALYTICS_SCREEN_MENU_DETAIL,
+                        ANALYTICS_CTA_TRY_ANOTHER_GENERATED_MENU
+                    )
+                    viewModel.tryAnotherGeneratedMenuIdea()
+                },
+                onDiscard = {
+                    viewModel.trackCtaTapped(
+                        ANALYTICS_SCREEN_MENU_DETAIL,
+                        ANALYTICS_CTA_DISCARD_GENERATED_MENU
+                    )
+                    viewModel.discardGeneratedMenuIdea()
+                }
+            )
+        }
 
     Box(
         modifier = Modifier.hideKeyboardOnTouch(focusManager, keyboardController)
@@ -1169,7 +1196,7 @@ fun MenuDadoScreen(
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 20.dp, vertical = 118.dp)
         )
-        if (state.isGeneratingMenu) {
+        if (aiSurface == AiFlowSurface.LOADING) {
             AiGenerationLoadingOverlay(
                 phase = state.aiGenerationPhase,
                 diceFaceIndex = diceFaceIndex,
@@ -1630,6 +1657,24 @@ internal fun aiGenerationLoadingUsesMenuDadoDiceCube(): Boolean = true
 
 internal fun aiGenerationLoadingDiceFaceIndex(buttonDiceFaceIndex: Int): Int = buttonDiceFaceIndex
 
+internal enum class AiFlowSurface {
+    LOADING,
+    GENERATED_MENU,
+    MESSAGE,
+    NONE
+}
+
+internal fun aiFlowSurface(
+    isGenerating: Boolean,
+    hasGeneratedMenu: Boolean,
+    hasMessage: Boolean
+): AiFlowSurface = when {
+    isGenerating -> AiFlowSurface.LOADING
+    hasGeneratedMenu -> AiFlowSurface.GENERATED_MENU
+    hasMessage -> AiFlowSurface.MESSAGE
+    else -> AiFlowSurface.NONE
+}
+
 @StringRes
 internal fun aiDiceDisabledReasonRes(
     hasMealType: Boolean,
@@ -1690,6 +1735,26 @@ internal fun aiGenerationIsPaused(
     aiRetryAtMillis: Long?,
     isAiProviderAvailableToday: Boolean
 ): Boolean = aiRetryAtMillis != null && isAiProviderAvailableToday
+
+internal fun generatedMenuCanTryAnother(
+    isGenerating: Boolean,
+    isAiPaused: Boolean,
+    limitState: AiGenerationLimitState
+): Boolean {
+    return !isGenerating &&
+        !isAiPaused &&
+        limitState != AiGenerationLimitState.HARD_LIMIT
+}
+
+@StringRes
+internal fun generatedMenuTryAnotherTextRes(
+    isAiPaused: Boolean,
+    limitState: AiGenerationLimitState
+): Int = when {
+    isAiPaused -> R.string.ai_resting
+    limitState == AiGenerationLimitState.HARD_LIMIT -> R.string.dice_ai_daily_maximum
+    else -> R.string.generated_menu_try_another
+}
 
 internal fun contextualDicePrimaryTextMaxLines(): Int = 2
 
@@ -5570,6 +5635,8 @@ private fun GeneratedMenuDetailDialog(
     menu: FoodMenu,
     cuisineInspiration: CuisineInspiration?,
     isGenerating: Boolean,
+    isAiPaused: Boolean,
+    limitState: AiGenerationLimitState,
     aiUsesRemainingToday: Int,
     addToMarketList: Boolean,
     onAddToMarketListChanged: (Boolean) -> Unit,
@@ -5577,6 +5644,20 @@ private fun GeneratedMenuDetailDialog(
     onTryAnother: () -> Unit,
     onDiscard: () -> Unit
 ) {
+    val canTryAnother = generatedMenuCanTryAnother(
+        isGenerating = isGenerating,
+        isAiPaused = isAiPaused,
+        limitState = limitState
+    )
+    val tryAnotherTextRes = generatedMenuTryAnotherTextRes(
+        isAiPaused = isAiPaused,
+        limitState = limitState
+    )
+    val tryAnotherText = if (tryAnotherTextRes == R.string.generated_menu_try_another) {
+        stringResource(id = tryAnotherTextRes, aiUsesRemainingToday)
+    } else {
+        stringResource(id = tryAnotherTextRes)
+    }
     Dialog(
         onDismissRequest = onDiscard,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -5703,15 +5784,12 @@ private fun GeneratedMenuDetailDialog(
                     }
                     OutlinedButton(
                         onClick = onTryAnother,
-                        enabled = !isGenerating,
+                        enabled = canTryAnother,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
                     ) {
                         Text(
-                            text = stringResource(
-                                id = R.string.generated_menu_try_another,
-                                aiUsesRemainingToday
-                            ),
+                            text = tryAnotherText,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )

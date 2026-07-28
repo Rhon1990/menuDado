@@ -1126,6 +1126,76 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `flujo IA prioriza carga luego menu y finalmente aviso`() {
+        assertEquals(
+            AiFlowSurface.LOADING,
+            aiFlowSurface(isGenerating = true, hasGeneratedMenu = true, hasMessage = true)
+        )
+        assertEquals(
+            AiFlowSurface.GENERATED_MENU,
+            aiFlowSurface(isGenerating = false, hasGeneratedMenu = true, hasMessage = true)
+        )
+        assertEquals(
+            AiFlowSurface.MESSAGE,
+            aiFlowSurface(isGenerating = false, hasGeneratedMenu = false, hasMessage = true)
+        )
+        assertEquals(
+            AiFlowSurface.NONE,
+            aiFlowSurface(isGenerating = false, hasGeneratedMenu = false, hasMessage = false)
+        )
+    }
+
+    @Test
+    fun `probar otra idea se bloquea durante pausa o maximo diario`() {
+        assertTrue(
+            generatedMenuCanTryAnother(
+                isGenerating = false,
+                isAiPaused = false,
+                limitState = AiGenerationLimitState.AVAILABLE
+            )
+        )
+        assertFalse(
+            generatedMenuCanTryAnother(
+                isGenerating = false,
+                isAiPaused = true,
+                limitState = AiGenerationLimitState.AVAILABLE
+            )
+        )
+        assertFalse(
+            generatedMenuCanTryAnother(
+                isGenerating = false,
+                isAiPaused = false,
+                limitState = AiGenerationLimitState.HARD_LIMIT
+            )
+        )
+    }
+
+    @Test
+    fun `probar otra idea explica pausa o maximo sin prometer otro menu`() {
+        assertEquals(
+            R.string.ai_resting,
+            generatedMenuTryAnotherTextRes(
+                isAiPaused = true,
+                limitState = AiGenerationLimitState.AVAILABLE
+            )
+        )
+        assertEquals(
+            R.string.dice_ai_daily_maximum,
+            generatedMenuTryAnotherTextRes(
+                isAiPaused = false,
+                limitState = AiGenerationLimitState.HARD_LIMIT
+            )
+        )
+        assertEquals(
+            R.string.generated_menu_try_another,
+            generatedMenuTryAnotherTextRes(
+                isAiPaused = false,
+                limitState = AiGenerationLimitState.REWARDED_OFFER
+            )
+        )
+    }
+
+    @Test
     fun `contenido del boton del dado queda centrado en pantallas anchas`() {
         assertEquals(Alignment.Center, contextualDiceButtonContentAlignment())
         assertEquals(280, contextualDiceButtonTextMaxWidthDp())
