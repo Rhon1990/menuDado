@@ -1689,6 +1689,10 @@ internal fun contextualDicePrimaryTextMaxLines(): Int = 2
 
 internal fun contextualDicePrimaryTextSoftWrap(): Boolean = true
 
+internal fun contextualDiceSecondaryTextMaxLines(): Int = 2
+
+internal fun contextualDiceSecondaryTextSoftWrap(): Boolean = true
+
 internal fun contextualDiceEnabledContainerColor(): Color = MenuDadoColors.ActionTerracotta
 
 internal fun contextualDiceDisabledContainerColor(): Color = MenuDadoColors.SoftSand
@@ -3721,9 +3725,9 @@ private fun ContextualDiceButton(
                             text = secondaryText,
                             color = contextualDiceSecondaryTextColor(enabled),
                             style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
+                            maxLines = contextualDiceSecondaryTextMaxLines(),
                             overflow = TextOverflow.Ellipsis,
-                            softWrap = false
+                            softWrap = contextualDiceSecondaryTextSoftWrap()
                         )
                     }
                 }

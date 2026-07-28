@@ -150,8 +150,8 @@
     <string name="dice_action">Choose what to eat today</string>
     <string name="dice_roll_ai_with_count">Help me choose (%1$d)</string>
     <string name="dice_ai_action">Create healthy idea</string>
-    <string name="dice_ai_rewarded_primary">Watch ad · unlock 1 AI idea</string>
-    <string name="dice_ai_rewarded_secondary">Today’s free limit reached</string>
+    <string name="dice_ai_rewarded_primary">Watch ad · get 1 more AI idea</string>
+    <string name="dice_ai_rewarded_secondary">Daily free limit reached</string>
     <string name="dice_ai_rewarded_loading">Preparing video…</string>
     <string name="dice_ai_daily_maximum">You have reached today’s maximum AI ideas</string>
     <string name="dice_ai_daily_maximum_secondary">You can try again tomorrow</string>

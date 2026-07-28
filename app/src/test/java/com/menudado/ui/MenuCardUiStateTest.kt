@@ -933,6 +933,12 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `texto secundario del boton permite dos lineas sin puntos suspensivos prematuros`() {
+        assertEquals(2, contextualDiceSecondaryTextMaxLines())
+        assertTrue(contextualDiceSecondaryTextSoftWrap())
+    }
+
+    @Test
     fun `oferta recompensada mantiene el dado accionable con una recompensa clara`() {
         assertEquals(
             R.string.dice_ai_rewarded_primary,
