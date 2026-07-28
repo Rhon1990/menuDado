@@ -196,11 +196,11 @@ expects create to fail. Update `validDocument()` to include
 
 ```bash
 ./gradlew :app:testDebugUnitTest --tests com.menudado.backend.AiMenuHiveDataSourceTest
-cd qa && npm run test:firestore-rules
+firebase emulators:exec --only firestore "cd qa && npm run test:firestore-rules"
 ```
 
 Expected: mapper assertion fails and rules reject the new valid fixture because
-the field is not yet allowed.
+the field is not yet allowed. Firebase CLI requires JDK 21 or newer.
 
 - [ ] **Step 3: Write v2 identity metadata**
 
@@ -433,7 +433,7 @@ prompt replacement does not add calls, fields, or prompt length.
 ./gradlew :app:testDebugUnitTest
 ./gradlew :app:compileDebugKotlin
 cd qa && npm run test:hive-migration
-cd qa && npm run test:firestore-rules
+firebase emulators:exec --only firestore "cd qa && npm run test:firestore-rules"
 git diff --check
 ```
 
