@@ -19,6 +19,8 @@ import com.menudado.data.CuisineRotationStateStore
 import com.menudado.data.GuestDailyUsageState
 import com.menudado.data.GuestUsageStore
 import com.menudado.data.GUEST_AI_USAGE_SCOPE
+import com.menudado.data.HiveRotationSnapshot
+import com.menudado.data.HiveRotationStore
 import com.menudado.data.LOCAL_ACCOUNT_AI_USAGE_SCOPE
 import com.menudado.data.MenuDao
 import com.menudado.data.MenuEntity
@@ -86,6 +88,7 @@ class MenuDadoViewModelTest {
     private lateinit var cuisineRotation: CuisineRotation
     private lateinit var analytics: RecordingMenuDadoAnalytics
     private lateinit var hive: RecordingAiMenuHiveGateway
+    private lateinit var hiveRotationStore: FakeHiveRotationStore
     private lateinit var viewModel: MenuDadoViewModel
     private lateinit var originalLocale: Locale
 
@@ -108,6 +111,7 @@ class MenuDadoViewModelTest {
         cuisineRotation = CuisineRotation(cuisineRotationStateStore) { 2 }
         analytics = RecordingMenuDadoAnalytics()
         hive = RecordingAiMenuHiveGateway()
+        hiveRotationStore = FakeHiveRotationStore()
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
@@ -123,7 +127,8 @@ class MenuDadoViewModelTest {
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore,
             cuisineRotation = cuisineRotation,
-            aiMenuHive = hive
+            aiMenuHive = hive,
+            hiveRotationStore = hiveRotationStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -279,6 +284,85 @@ class MenuDadoViewModelTest {
         assertEquals(1, hive.searches.size)
         assertEquals(Long.MAX_VALUE, aiRequestThrottleStore.storedLastRequestAtMillis)
         assertFalse(viewModel.uiState.value.isAiProviderAvailableToday)
+        assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
+    }
+
+    @Test
+    fun `hive fallback reads and records active account rotation`() = runTest(dispatcher) {
+        val candidate = sampleHiveCandidate(startsNewRotationCycle = true)
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        hive.searchResult = Result.success(candidate)
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(listOf(accountAiUsageScope("user-a")), hiveRotationStore.snapshotScopes)
+        assertEquals(
+            listOf(
+                Triple(
+                    accountAiUsageScope("user-a"),
+                    candidate.semanticHash,
+                    true
+                )
+            ),
+            hiveRotationStore.records
+        )
+    }
+
+    @Test
+    fun `guest and account pass independent hive histories`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        hive.searchResult = Result.success(sampleHiveCandidate())
+        hiveRotationStore.seed(
+            GUEST_AI_USAGE_SCOPE,
+            hashes = listOf("guest-hash"),
+            lastShownHash = "guest-hash"
+        )
+        hiveRotationStore.seed(
+            accountAiUsageScope("user-a"),
+            hashes = listOf("account-hash"),
+            lastShownHash = "account-hash"
+        )
+
+        viewModel.updateGuestAccess(true, true, true, userId = "anonymous")
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        viewModel.discardGeneratedMenuIdea()
+
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(setOf("guest-hash"), hive.searches[0].recentSemanticHashes)
+        assertEquals("guest-hash", hive.searches[0].lastShownHash)
+        assertEquals(setOf("account-hash"), hive.searches[1].recentSemanticHashes)
+        assertEquals("account-hash", hive.searches[1].lastShownHash)
+    }
+
+    @Test
+    fun `hive fallback continues when local rotation cannot be read`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        hive.searchResult = Result.success(sampleHiveCandidate())
+        hiveRotationStore.throwOnSnapshot = true
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, hive.searches.size)
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+    }
+
+    @Test
+    fun `hive result remains visible when local rotation cannot be written`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        hive.searchResult = Result.success(sampleHiveCandidate())
+        hiveRotationStore.throwOnRecord = true
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
         assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
     }
 
@@ -3498,7 +3582,10 @@ private fun sampleGeneratedMenu(
     deduplicationKey = deduplicationKey
 )
 
-private fun sampleHiveCandidate(name: String = "Idea recuperada"): AiMenuHiveCandidate {
+private fun sampleHiveCandidate(
+    name: String = "Idea recuperada",
+    startsNewRotationCycle: Boolean = false
+): AiMenuHiveCandidate {
     val generated = sampleGeneratedMenu(name)
     val identity = requireNotNull(
         AiMenuHiveIdentity.from(AppLanguage.SPANISH, generated.deduplicationKey)
@@ -3507,7 +3594,8 @@ private fun sampleHiveCandidate(name: String = "Idea recuperada"): AiMenuHiveCan
         generatedMenu = generated,
         cuisineInspiration = CuisineInspiration.ITALIAN,
         semanticHash = identity.semanticHash,
-        source = AiMenuHiveLookupSource.SERVER
+        source = AiMenuHiveLookupSource.SERVER,
+        startsNewRotationCycle = startsNewRotationCycle
     )
 }
 
@@ -3526,6 +3614,40 @@ private class RecordingAiMenuHiveGateway : AiMenuHiveGateway {
     override suspend fun contribute(contribution: AiMenuHiveContribution): Result<Unit> {
         contributions += contribution
         return Result.success(Unit)
+    }
+}
+
+private class FakeHiveRotationStore : HiveRotationStore {
+    private val snapshots = mutableMapOf<String, HiveRotationSnapshot>()
+    val snapshotScopes = mutableListOf<String>()
+    val records = mutableListOf<Triple<String, String, Boolean>>()
+    var throwOnSnapshot = false
+    var throwOnRecord = false
+
+    fun seed(scope: String, hashes: List<String>, lastShownHash: String?) {
+        snapshots[scope] = HiveRotationSnapshot(hashes, lastShownHash)
+    }
+
+    override fun snapshot(scope: String): HiveRotationSnapshot {
+        if (throwOnSnapshot) error("rotation read failed")
+        snapshotScopes += scope
+        return snapshots[scope] ?: HiveRotationSnapshot()
+    }
+
+    override fun recordShown(
+        scope: String,
+        semanticHash: String,
+        startsNewCycle: Boolean
+    ) {
+        if (throwOnRecord) error("rotation write failed")
+        records += Triple(scope, semanticHash, startsNewCycle)
+        val existing = snapshots[scope] ?: HiveRotationSnapshot()
+        val hashes = if (startsNewCycle) {
+            listOf(semanticHash)
+        } else {
+            (existing.seenHashes - semanticHash + semanticHash).takeLast(24)
+        }
+        snapshots[scope] = HiveRotationSnapshot(hashes, semanticHash)
     }
 }
 

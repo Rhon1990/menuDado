@@ -111,7 +111,8 @@ class MainActivity : ComponentActivity() {
                     dietaryProfileStore = app.dietaryProfileStore,
                     onboardingStore = app.onboardingStore,
                     cuisineRotation = app.cuisineRotation,
-                    aiMenuHive = app.aiMenuHiveGateway
+                    aiMenuHive = app.aiMenuHiveGateway,
+                    hiveRotationStore = app.hiveRotationStore
                 ) as T
             }
         }

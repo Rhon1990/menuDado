@@ -24,11 +24,14 @@ import com.menudado.data.CuisineRotation
 import com.menudado.data.InMemoryCuisineRotationStateStore
 import com.menudado.data.GuestDailyUsageState
 import com.menudado.data.GuestUsageStore
+import com.menudado.data.HiveRotationSnapshot
+import com.menudado.data.HiveRotationStore
 import com.menudado.data.MenuRepository
 import com.menudado.data.NoOpAiDailyUsageStore
 import com.menudado.data.NoOpAiQuotaRetryStore
 import com.menudado.data.NoOpAiRequestThrottleStore
 import com.menudado.data.NoOpGuestUsageStore
+import com.menudado.data.NoOpHiveRotationStore
 import com.menudado.data.NoOpOnboardingStore
 import com.menudado.data.NoOpRewardedAiCreditStore
 import com.menudado.data.NoOpScopedAiUsageStore
@@ -191,7 +194,8 @@ class MenuDadoViewModel(
     private val dietaryProfileStore: DietaryProfileStore = NoOpDietaryProfileStore,
     private val onboardingStore: OnboardingStore = NoOpOnboardingStore,
     private val cuisineRotation: CuisineRotation = CuisineRotation(InMemoryCuisineRotationStateStore()),
-    private val aiMenuHive: AiMenuHiveGateway = NoOpAiMenuHiveGateway
+    private val aiMenuHive: AiMenuHiveGateway = NoOpAiMenuHiveGateway,
+    private val hiveRotationStore: HiveRotationStore = NoOpHiveRotationStore
 ) : ViewModel() {
     private val suggestedMealType = suggestedMealTypeForDeviceTime(clockMillisProvider())
     private val _uiState = MutableStateFlow(
@@ -205,7 +209,6 @@ class MenuDadoViewModel(
     private var hasTrackedMenuFormStarted = false
     private var generatedIdeaDateKey: String? = null
     private val generatedIdeasToday = mutableListOf<GeneratedIdeaMemory>()
-    private val recentHiveSemanticHashes = ArrayDeque<String>()
     private var guestAccessPolicy = GuestAccessPolicy(
         isGuest = false,
         areLimitsEnabled = true
@@ -1292,6 +1295,9 @@ class MenuDadoViewModel(
         failureNotice?.let(::showAiFailureNotice)
         _uiState.update { it.copy(aiGenerationPhase = AiGenerationPhase.SEARCHING_HIVE) }
         val hiveStartedAtMillis = clockMillisProvider()
+        val rotationScope = activeAiUsageScope
+        val rotation = runCatching { hiveRotationStore.snapshot(rotationScope) }
+            .getOrDefault(HiveRotationSnapshot())
         val hiveResult = aiMenuHive.findCompatibleMenu(
             AiMenuHiveSearchRequest(
                 language = AppLanguage.fromLocale(),
@@ -1299,7 +1305,8 @@ class MenuDadoViewModel(
                 audience = request.audience,
                 profile = request.profile,
                 baseIngredients = request.state.aiBaseIngredients.trim(),
-                recentSemanticHashes = recentHiveSemanticHashes.toSet()
+                recentSemanticHashes = rotation.seenHashes.toSet(),
+                lastShownHash = rotation.lastShownHash
             )
         )
         val fallback = hiveResult.getOrNull()
@@ -1312,7 +1319,6 @@ class MenuDadoViewModel(
             }
         }
         fallback?.let { candidate ->
-            rememberHiveSemanticHash(candidate.semanticHash)
             _uiState.update {
                 it.copy(
                     name = candidate.generatedMenu.name,
@@ -1329,6 +1335,13 @@ class MenuDadoViewModel(
                     message = null,
                     isAiRetryNoticeVisible = false,
                     showGeneratedMenuDetail = true
+                )
+            }
+            runCatching {
+                hiveRotationStore.recordShown(
+                    scope = rotationScope,
+                    semanticHash = candidate.semanticHash,
+                    startsNewCycle = candidate.startsNewRotationCycle
                 )
             }
         }
@@ -1352,14 +1365,6 @@ class MenuDadoViewModel(
                 healthStatus = null,
                 failureType = triggerFailureType
             )
-        }
-    }
-
-    private fun rememberHiveSemanticHash(hash: String) {
-        recentHiveSemanticHashes.remove(hash)
-        recentHiveSemanticHashes.addLast(hash)
-        while (recentHiveSemanticHashes.size > MAX_RECENT_HIVE_HASHES) {
-            recentHiveSemanticHashes.removeFirst()
         }
     }
 
@@ -2570,7 +2575,6 @@ private const val MAX_QUOTA_BACKOFF_MILLIS = 30 * 60 * 1000L
 private const val AI_REQUEST_THROTTLE_MILLIS = 1 * 1000L
 private const val AI_REQUEST_TIMEOUT_MILLIS = 45 * 1000L
 private const val AI_GENERATION_SLOW_NOTICE_MILLIS = 12 * 1000L
-private const val MAX_RECENT_HIVE_HASHES = 8
 private const val HIVE_RESULT_HIT = "hit"
 private const val HIVE_RESULT_CACHE_HIT = "cache_hit"
 private const val HIVE_RESULT_MISS = "miss"

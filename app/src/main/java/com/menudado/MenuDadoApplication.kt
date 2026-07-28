@@ -46,6 +46,7 @@ import com.menudado.data.SharedPreferencesAiRequestThrottleStore
 import com.menudado.data.SharedPreferencesCuisineRotationStateStore
 import com.menudado.data.SharedPreferencesDietaryProfileStore
 import com.menudado.data.SharedPreferencesGuestUsageStore
+import com.menudado.data.SharedPreferencesHiveRotationStore
 import com.menudado.data.SharedPreferencesOnboardingStore
 import com.menudado.data.RewardedAiCreditStore
 import com.menudado.data.SharedPreferencesRewardedAiCreditStore
@@ -182,6 +183,10 @@ class MenuDadoApplication : Application() {
             dataSource = FirebaseAiMenuHiveDataSource(),
             featureToggle = aiMenuHiveFeatureToggle
         )
+    }
+
+    val hiveRotationStore by lazy {
+        SharedPreferencesHiveRotationStore(applicationContext)
     }
 
     val aiQuotaRetryStore: AiQuotaRetryStore by lazy {
