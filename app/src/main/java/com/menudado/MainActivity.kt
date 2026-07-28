@@ -283,8 +283,8 @@ class MainActivity : ComponentActivity() {
                 val adsController = remember {
                     MenuDadoAdsController(
                         activity = this@MainActivity,
-                        onAdsReady = {
-                            areAdsReady = true
+                        onAdsReadinessChanged = { isReady ->
+                            areAdsReady = isReady
                         },
                         onPrivacyOptionsRequirementChanged = { isRequired ->
                             areAdsPrivacyOptionsRequired = isRequired
@@ -411,6 +411,7 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     } else {
+                        rewardedAdController.disable()
                         isRewardedAdReady = false
                     }
                 }

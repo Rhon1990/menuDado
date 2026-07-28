@@ -15,6 +15,8 @@ class MenuDadoRewardedAd(
 ) {
     private var loadedAd: RewardedAd? = null
     private var isLoading = false
+    private var isEnabled = false
+    private var loadGeneration = 0
     private var onReadyChanged: (Boolean) -> Unit = {}
     private var onLoadFailure: () -> Unit = {}
 
@@ -22,9 +24,18 @@ class MenuDadoRewardedAd(
         onReadyChanged: (Boolean) -> Unit,
         onLoadFailure: () -> Unit = {}
     ) {
+        isEnabled = true
         this.onReadyChanged = onReadyChanged
         this.onLoadFailure = onLoadFailure
         loadIfNeeded()
+    }
+
+    fun disable() {
+        isEnabled = false
+        loadGeneration += 1
+        loadedAd = null
+        isLoading = false
+        onReadyChanged(false)
     }
 
     fun show(
@@ -32,6 +43,10 @@ class MenuDadoRewardedAd(
         onDismissedWithoutReward: () -> Unit,
         onUnavailable: () -> Unit
     ) {
+        if (!isEnabled) {
+            onUnavailable()
+            return
+        }
         val ad = loadedAd ?: run {
             onUnavailable()
             loadIfNeeded()
@@ -63,6 +78,10 @@ class MenuDadoRewardedAd(
     }
 
     private fun loadIfNeeded() {
+        if (!isEnabled) {
+            onReadyChanged(false)
+            return
+        }
         if (adUnitId.isBlank()) {
             loadedAd = null
             isLoading = false
@@ -78,6 +97,7 @@ class MenuDadoRewardedAd(
             return
         }
         isLoading = true
+        val requestGeneration = loadGeneration
         onReadyChanged(false)
         RewardedAd.load(
             activity,
@@ -85,16 +105,29 @@ class MenuDadoRewardedAd(
             requestFactory(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(rewardedAd: RewardedAd) {
+                    if (requestGeneration != loadGeneration) {
+                        return
+                    }
                     isLoading = false
+                    if (!isEnabled) {
+                        loadedAd = null
+                        onReadyChanged(false)
+                        return
+                    }
                     loadedAd = rewardedAd
                     onReadyChanged(true)
                 }
 
                 override fun onAdFailedToLoad(loadAdError: LoadAdError) {
+                    if (requestGeneration != loadGeneration) {
+                        return
+                    }
                     isLoading = false
                     loadedAd = null
                     onReadyChanged(false)
-                    onLoadFailure()
+                    if (isEnabled) {
+                        onLoadFailure()
+                    }
                 }
             }
         )

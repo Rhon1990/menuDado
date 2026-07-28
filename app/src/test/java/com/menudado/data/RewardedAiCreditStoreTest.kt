@@ -41,7 +41,7 @@ class RewardedAiCreditStoreTest {
             RewardedAiCreditLedger(
                 dateKey = "2026-07-27",
                 earnedCount = 0,
-                consumedCount = MAX_REWARDED_AI_CREDITS_PER_DAY
+                consumedCount = 0
             ),
             SharedPreferencesRewardedAiCreditStore(context).getLedger("2026-07-27")
         )

@@ -202,6 +202,14 @@ fun MenuDadoScreen(
     onAuthErrorDismiss: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
+    LaunchedEffect(state.aiGenerationLimitState, isRewardedAiEnabled) {
+        if (
+            state.aiGenerationLimitState == AiGenerationLimitState.REWARDED_OFFER &&
+            isRewardedAiEnabled
+        ) {
+            viewModel.trackRewardedGenerationOfferShown()
+        }
+    }
     val result = state.result
     val message = state.message
     val aiRetryAtMillis = state.aiRetryAtMillis

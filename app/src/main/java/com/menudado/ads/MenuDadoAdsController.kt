@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 
 class MenuDadoAdsController(
     private val activity: Activity,
-    private val onAdsReady: () -> Unit,
+    private val onAdsReadinessChanged: (Boolean) -> Unit,
     private val onPrivacyOptionsRequirementChanged: (Boolean) -> Unit,
     private val onPrivacyOptionsUnavailable: () -> Unit
 ) {
@@ -21,6 +21,12 @@ class MenuDadoAdsController(
     private var hasInitializedMobileAds = false
 
     fun requestConsentAndInitialize() {
+        onAdsReadinessChanged(
+            shouldReportReady(
+                canRequestAds = consentInformation.canRequestAds(),
+                hasInitializedMobileAds = hasInitializedMobileAds
+            )
+        )
         val params = ConsentRequestParameters.Builder().build()
         consentInformation.requestConsentInfoUpdate(
             activity,
@@ -39,6 +45,7 @@ class MenuDadoAdsController(
     }
 
     fun showPrivacyOptionsForm() {
+        onAdsReadinessChanged(false)
         UserMessagingPlatform.showPrivacyOptionsForm(activity) { formError ->
             reportPrivacyOptionsRequirement()
             if (shouldNotifyPrivacyOptionsUnavailable(formError != null)) {
@@ -50,17 +57,23 @@ class MenuDadoAdsController(
 
     private fun initializeIfAllowed() {
         if (!consentInformation.canRequestAds()) {
+            onAdsReadinessChanged(false)
             return
         }
         if (hasInitializedMobileAds) {
-            onAdsReady()
+            onAdsReadinessChanged(true)
             return
         }
         hasInitializedMobileAds = true
         CoroutineScope(Dispatchers.IO).launch {
             MobileAds.initialize(activity) {
                 activity.runOnUiThread {
-                    onAdsReady()
+                    onAdsReadinessChanged(
+                        shouldReportReady(
+                            canRequestAds = consentInformation.canRequestAds(),
+                            hasInitializedMobileAds = hasInitializedMobileAds
+                        )
+                    )
                 }
             }
         }
@@ -75,7 +88,7 @@ class MenuDadoAdsController(
 
     companion object {
         internal fun shouldReportReady(canRequestAds: Boolean, hasInitializedMobileAds: Boolean): Boolean {
-            return canRequestAds || hasInitializedMobileAds && canRequestAds
+            return canRequestAds && hasInitializedMobileAds
         }
 
         internal fun shouldNotifyPrivacyOptionsUnavailable(hasFormError: Boolean): Boolean {

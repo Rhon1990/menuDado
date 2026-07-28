@@ -39,26 +39,22 @@ class SharedPreferencesRewardedAiCreditStore(context: Context) : RewardedAiCredi
             )
         }
 
+        val earnedCount = preferences.getInt(KEY_EARNED_COUNT, 0)
+            .coerceIn(0, MAX_REWARDED_AI_CREDITS_PER_DAY)
         return RewardedAiCreditLedger(
             dateKey = dateKey,
-            earnedCount = preferences.getInt(KEY_EARNED_COUNT, 0)
-                .coerceIn(0, MAX_REWARDED_AI_CREDITS_PER_DAY),
+            earnedCount = earnedCount,
             consumedCount = preferences.getInt(KEY_CONSUMED_COUNT, 0)
-                .coerceIn(0, MAX_REWARDED_AI_CREDITS_PER_DAY)
+                .coerceIn(0, earnedCount)
         )
     }
 
     override fun saveLedger(ledger: RewardedAiCreditLedger) {
+        val earnedCount = ledger.earnedCount.coerceIn(0, MAX_REWARDED_AI_CREDITS_PER_DAY)
         preferences.edit()
             .putString(KEY_DATE, ledger.dateKey)
-            .putInt(
-                KEY_EARNED_COUNT,
-                ledger.earnedCount.coerceIn(0, MAX_REWARDED_AI_CREDITS_PER_DAY)
-            )
-            .putInt(
-                KEY_CONSUMED_COUNT,
-                ledger.consumedCount.coerceIn(0, MAX_REWARDED_AI_CREDITS_PER_DAY)
-            )
+            .putInt(KEY_EARNED_COUNT, earnedCount)
+            .putInt(KEY_CONSUMED_COUNT, ledger.consumedCount.coerceIn(0, earnedCount))
             .apply()
     }
 

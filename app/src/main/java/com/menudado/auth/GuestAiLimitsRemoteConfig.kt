@@ -9,7 +9,13 @@ class GuestAiLimitsRemoteConfig(
     private val onGuestAiLimitsEnabledChanged: (Boolean) -> Unit
 ) {
     fun fetchGuestAiLimitsEnabled() {
-        onGuestAiLimitsEnabledChanged(remoteConfig.getBoolean(KEY_GUEST_AI_LIMITS_ENABLED))
+        val currentValue = remoteConfig.getValue(KEY_GUEST_AI_LIMITS_ENABLED)
+        onGuestAiLimitsEnabledChanged(
+            initialGuestAiLimitsEnabled(
+                remoteValue = currentValue.asBoolean(),
+                valueSource = currentValue.source
+            )
+        )
         remoteConfig.setConfigSettingsAsync(
             FirebaseRemoteConfigSettings.Builder()
                 .setMinimumFetchIntervalInSeconds(fetchIntervalSeconds(BuildConfig.DEBUG))
@@ -33,6 +39,14 @@ class GuestAiLimitsRemoteConfig(
 
         fun fetchIntervalSeconds(isDebugBuild: Boolean): Long {
             return if (isDebugBuild) DEBUG_MINIMUM_FETCH_INTERVAL_SECONDS else MINIMUM_FETCH_INTERVAL_SECONDS
+        }
+
+        fun initialGuestAiLimitsEnabled(remoteValue: Boolean, valueSource: Int): Boolean {
+            return if (valueSource == FirebaseRemoteConfig.VALUE_SOURCE_STATIC) {
+                DEFAULT_GUEST_AI_LIMITS_ENABLED
+            } else {
+                remoteValue
+            }
         }
     }
 }

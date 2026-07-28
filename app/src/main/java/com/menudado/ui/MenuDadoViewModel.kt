@@ -202,6 +202,7 @@ class MenuDadoViewModel(
         areLimitsEnabled = true
     )
     private var areGuestAiLimitsEnabled = true
+    private var pendingRewardedGenerationRequest: ValidatedGenerationRequest? = null
 
     init {
         refreshOnboarding()
@@ -232,6 +233,16 @@ class MenuDadoViewModel(
 
     fun trackCtaTapped(screen: String, cta: String) {
         analytics.trackCtaTapped(screen, cta)
+    }
+
+    fun trackRewardedGenerationOfferShown() {
+        if (_uiState.value.aiGenerationLimitState != AiGenerationLimitState.REWARDED_OFFER) {
+            return
+        }
+        analytics.trackAiRewardedOffer(
+            status = AI_REWARDED_STATUS_SHOWN,
+            creditsRemaining = rewardedCreditsRemainingToday()
+        )
     }
 
     fun trackMyZoneOpened() {
@@ -982,6 +993,10 @@ class MenuDadoViewModel(
 
     fun generateMenuIdea() {
         val request = validatedGenerationRequestOrNull() ?: return
+        startValidatedGenerationRequest(request)
+    }
+
+    private fun startValidatedGenerationRequest(request: ValidatedGenerationRequest) {
         when (currentGenerationAccess()) {
             AiGenerationAccess.FREE -> startGeneratedMenuRequest(request)
             AiGenerationAccess.REWARDED_CREDIT -> {
@@ -999,12 +1014,12 @@ class MenuDadoViewModel(
     }
 
     fun requestRewardedGeneration(): Boolean {
-        if (validatedGenerationRequestOrNull() == null ||
-            currentGenerationAccess() != AiGenerationAccess.REWARDED_OFFER
-        ) {
+        val request = validatedGenerationRequestOrNull()
+        if (request == null || currentGenerationAccess() != AiGenerationAccess.REWARDED_OFFER) {
             refreshAiUsageCounters()
             return false
         }
+        pendingRewardedGenerationRequest = request
         _uiState.update {
             it.copy(
                 isRewardedGenerationPending = true,
@@ -1016,9 +1031,10 @@ class MenuDadoViewModel(
     }
 
     fun onRewardedGenerationEarned() {
-        if (!_uiState.value.isRewardedGenerationPending) {
-            return
-        }
+        val request = pendingRewardedGenerationRequest
+            ?.takeIf { _uiState.value.isRewardedGenerationPending }
+            ?: return
+        pendingRewardedGenerationRequest = null
         _uiState.update { it.copy(isRewardedGenerationPending = false) }
         val dateKey = currentPacificDateKey()
         val ledger = rewardedAiCreditStore.getLedger(dateKey)
@@ -1036,13 +1052,14 @@ class MenuDadoViewModel(
             creditsRemaining = rewardedCreditsRemainingToday()
         )
         refreshAiUsageCounters()
-        generateMenuIdea()
+        startValidatedGenerationRequest(request)
     }
 
     fun onRewardedGenerationDismissed() {
         if (!_uiState.value.isRewardedGenerationPending) {
             return
         }
+        pendingRewardedGenerationRequest = null
         _uiState.update {
             it.copy(
                 isRewardedGenerationPending = false,
@@ -1060,6 +1077,7 @@ class MenuDadoViewModel(
         if (!_uiState.value.isRewardedGenerationPending) {
             return
         }
+        pendingRewardedGenerationRequest = null
         _uiState.update {
             it.copy(
                 isRewardedGenerationPending = false,
@@ -1321,10 +1339,6 @@ class MenuDadoViewModel(
                 isAiRetryNoticeVisible = false
             )
         }
-        analytics.trackAiRewardedOffer(
-            status = AI_REWARDED_STATUS_SHOWN,
-            creditsRemaining = rewardedCreditsRemainingToday()
-        )
     }
 
     private fun canUseAiAnalysisOrShowNotice(source: String): Boolean {
@@ -1349,6 +1363,7 @@ class MenuDadoViewModel(
 
     private fun showAiHardLimitNotice(source: String) {
         val retryAtMillis = nextPacificMidnightMillis(clockMillisProvider())
+        pendingRewardedGenerationRequest = null
         _uiState.update {
             it.copy(
                 message = currentLanguage().aiLocalDailyLimitMessage(),

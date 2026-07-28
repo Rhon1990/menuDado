@@ -197,6 +197,8 @@ class MenuDadoViewModelTest {
         analytics.events.clear()
 
         viewModel.generateMenuIdea()
+        assertFalse(analytics.events.contains("ai_rewarded_offer:shown:10"))
+        viewModel.trackRewardedGenerationOfferShown()
 
         assertTrue(analytics.events.contains("ai_rewarded_offer:shown:10"))
     }
@@ -246,6 +248,22 @@ class MenuDadoViewModelTest {
         assertTrue(viewModel.requestRewardedGeneration())
         assertFalse(viewModel.requestRewardedGeneration())
         assertTrue(viewModel.uiState.value.isRewardedGenerationPending)
+    }
+
+    @Test
+    fun `earned reward generates with the request validated before the ad`() = runTest(dispatcher) {
+        aiDailyUsageStore.storedDateKey = "2026-06-10"
+        aiDailyUsageStore.storedUsedCount = 10
+        viewModel.updateAiBaseIngredients("tomate")
+        viewModel.generateMenuIdea()
+
+        assertTrue(viewModel.requestRewardedGeneration())
+        viewModel.updateAiBaseIngredients("pollo")
+        viewModel.onRewardedGenerationEarned()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals("tomate", analyzer.requestedBaseIngredients)
     }
 
     @Test

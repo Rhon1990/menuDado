@@ -59,10 +59,11 @@ class MenuDadoAdsConfigTest {
     }
 
     @Test
-    fun `ads controller reports ready again when ads are re-enabled after initialization`() {
+    fun `ads readiness requires both active consent and initialized SDK`() {
         assertTrue(MenuDadoAdsController.shouldReportReady(canRequestAds = true, hasInitializedMobileAds = true))
-        assertTrue(MenuDadoAdsController.shouldReportReady(canRequestAds = true, hasInitializedMobileAds = false))
+        assertFalse(MenuDadoAdsController.shouldReportReady(canRequestAds = true, hasInitializedMobileAds = false))
         assertFalse(MenuDadoAdsController.shouldReportReady(canRequestAds = false, hasInitializedMobileAds = true))
+        assertFalse(MenuDadoAdsController.shouldReportReady(canRequestAds = false, hasInitializedMobileAds = false))
     }
 
     @Test
