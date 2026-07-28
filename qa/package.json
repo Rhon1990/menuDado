@@ -3,10 +3,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:firestore-rules": "node --test firestore-rules.test.mjs"
+    "test:firestore-rules": "node --test firestore-rules.test.mjs",
+    "test:hive-migration": "node --test ai-menu-hive-identity-v2.test.mjs",
+    "migrate:hive-v2": "node migrate-ai-menu-hive-v2.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "5.0.1",
+    "@google-cloud/firestore": "^8.7.0",
     "firebase": "12.16.0"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.8",
+    "minimatch": "10.2.6"
   }
 }

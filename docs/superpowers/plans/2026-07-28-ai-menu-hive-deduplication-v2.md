@@ -4,9 +4,9 @@
 
 **Goal:** Canonicalize equivalent AI menu identities before hashing, prevent old duplicates from rotating as different recipes, and provide a safe Firebase consolidation tool without increasing AI calls or prompt size.
 
-**Architecture:** Keep SHA-256 document IDs and the existing transaction, but feed them a position-aware canonical identity. Canonicalize again on reads for backward compatibility, mark new documents with `identityVersion: 2`, and use a dry-run-first Admin SDK tool to merge old documents.
+**Architecture:** Keep SHA-256 document IDs and the existing transaction, but feed them a position-aware canonical identity. Canonicalize again on reads for backward compatibility, mark new documents with `identityVersion: 2`, and use a dry-run-first authenticated Firestore tool to merge old documents.
 
-**Tech Stack:** Kotlin/JUnit, Android Gradle, Firebase Firestore rules emulator, Node.js test runner, Firebase Admin SDK.
+**Tech Stack:** Kotlin/JUnit, Android Gradle, Firebase Firestore rules emulator, Node.js test runner, Google Cloud Firestore client.
 
 ---
 
@@ -377,7 +377,7 @@ Use the same explicit aliases as Kotlin, preserve the oldest valid recipe,
 merge and sort eligibility hashes, and return immutable `writes` and `deletes`
 arrays.
 
-- [ ] **Step 4: Implement the guarded Admin CLI**
+- [ ] **Step 4: Implement the guarded Firestore CLI**
 
 Require `--project=<exact-id>`. Default to dry-run. Require both `--apply` and
 `--confirm-project=<same-id>` before writes. Before applying:
@@ -392,7 +392,7 @@ IDs. Never store credentials or backup output in Git.
 
 - [ ] **Step 5: Add dependency and scripts**
 
-Add `firebase-admin` and:
+Add `@google-cloud/firestore` and:
 
 ```json
 "test:hive-migration": "node --test ai-menu-hive-identity-v2.test.mjs",
