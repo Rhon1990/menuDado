@@ -152,6 +152,11 @@
     <string name="dice_action">Elegir qué comer hoy</string>
     <string name="dice_roll_ai_with_count">Ayúdame a elegir (%1$d)</string>
     <string name="dice_ai_action">Crear idea saludable</string>
+    <string name="dice_ai_rewarded_primary">Ver anuncio · desbloquea 1 idea IA</string>
+    <string name="dice_ai_rewarded_secondary">Límite gratuito de hoy alcanzado</string>
+    <string name="dice_ai_rewarded_loading">Preparando vídeo…</string>
+    <string name="dice_ai_daily_maximum">Has alcanzado el máximo de ideas IA de hoy</string>
+    <string name="dice_ai_daily_maximum_secondary">Podrás volver a intentarlo mañana</string>
     <string name="dice_ai_blocked_notice_title">Para usar IA</string>
     <string name="dice_ai_blocked_missing_meal_and_audience">Elige comida y para quién es el menú. También puedes usar Escribir menú.</string>
     <string name="dice_ai_blocked_missing_meal">Elige desayuno, almuerzo o cena. También puedes usar Escribir menú.</string>

@@ -181,6 +181,8 @@ fun MenuDadoScreen(
     onAdsPrivacyOptionsClick: () -> Unit = {},
     authSession: MenuDadoAuthSession? = null,
     isRewardedAiEnabled: Boolean = false,
+    isRewardedAdReady: Boolean = false,
+    onRequestRewardedGeneration: () -> Unit = {},
     areGuestLimitsEnabled: Boolean = true,
     areGuestAiLimitsEnabled: Boolean = true,
     isAuthLoading: Boolean = false,
@@ -981,9 +983,17 @@ fun MenuDadoScreen(
                                 onDescriptionChanged = viewModel::updateDescription,
                                 onNotesChanged = viewModel::updateNotes,
                                 onAiBaseIngredientsChanged = viewModel::updateAiBaseIngredients,
+                                isRewardedFeatureAvailable = isRewardedAiEnabled,
+                                isRewardedAdReady = isRewardedAdReady,
                                 onGenerate = {
                                     viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_GENERATE_MENU)
                                     viewModel.generateMenuIdea()
+                                },
+                                onRewardedGenerate = {
+                                    viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_GENERATE_MENU)
+                                    if (viewModel.requestRewardedGeneration()) {
+                                        onRequestRewardedGeneration()
+                                    }
                                 },
                                 onRollSavedMenu = {
                                     viewModel.trackCtaTapped(ANALYTICS_SCREEN_HOME, ANALYTICS_CTA_CHOOSE_SAVED_MENU)
@@ -1624,6 +1634,47 @@ internal fun aiDiceDisabledReasonRes(
         isAiPaused -> R.string.dice_ai_blocked_ai_paused
         else -> null
     }
+}
+
+internal fun aiDicePrimaryTextRes(
+    limitState: AiGenerationLimitState,
+    isRewardedAdReady: Boolean
+): Int = when (limitState) {
+    AiGenerationLimitState.AVAILABLE -> R.string.dice_roll_ai_with_count
+    AiGenerationLimitState.REWARDED_OFFER -> if (isRewardedAdReady) {
+        R.string.dice_ai_rewarded_primary
+    } else {
+        R.string.dice_ai_rewarded_loading
+    }
+    AiGenerationLimitState.HARD_LIMIT -> R.string.dice_ai_daily_maximum
+}
+
+internal fun aiDiceSecondaryTextRes(limitState: AiGenerationLimitState): Int {
+    return when (limitState) {
+        AiGenerationLimitState.AVAILABLE -> R.string.dice_ai_action
+        AiGenerationLimitState.REWARDED_OFFER -> R.string.dice_ai_rewarded_secondary
+        AiGenerationLimitState.HARD_LIMIT -> R.string.dice_ai_daily_maximum_secondary
+    }
+}
+
+internal fun aiDiceShouldOfferRewardedGeneration(
+    limitState: AiGenerationLimitState,
+    isRewardedFeatureAvailable: Boolean
+): Boolean {
+    return limitState == AiGenerationLimitState.REWARDED_OFFER &&
+        isRewardedFeatureAvailable
+}
+
+internal fun aiDiceActionEnabled(
+    canUseFormActions: Boolean,
+    isAiPaused: Boolean,
+    limitState: AiGenerationLimitState,
+    isRewardedGenerationPending: Boolean
+): Boolean {
+    return canUseFormActions &&
+        !isAiPaused &&
+        !isRewardedGenerationPending &&
+        limitState != AiGenerationLimitState.HARD_LIMIT
 }
 
 internal fun contextualDicePrimaryTextMaxLines(): Int = 2
@@ -3038,7 +3089,10 @@ private fun TodayMenuSection(
     onDescriptionChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
     onAiBaseIngredientsChanged: (String) -> Unit,
+    isRewardedFeatureAvailable: Boolean,
+    isRewardedAdReady: Boolean,
     onGenerate: () -> Unit,
+    onRewardedGenerate: () -> Unit,
     onRollSavedMenu: () -> Unit,
     onSave: () -> Unit
 ) {
@@ -3056,7 +3110,24 @@ private fun TodayMenuSection(
         state.formAudience != null &&
         !state.isAnalyzing &&
         !state.isGeneratingMenu
-    val canUseAiActions = canUseFormActions && state.aiRetryAtMillis == null
+    val shouldOfferRewardedGeneration = aiDiceShouldOfferRewardedGeneration(
+        limitState = state.aiGenerationLimitState,
+        isRewardedFeatureAvailable = isRewardedFeatureAvailable
+    )
+    val displayedLimitState = if (
+        state.aiGenerationLimitState == AiGenerationLimitState.REWARDED_OFFER &&
+        !isRewardedFeatureAvailable
+    ) {
+        AiGenerationLimitState.HARD_LIMIT
+    } else {
+        state.aiGenerationLimitState
+    }
+    val canUseAiActions = aiDiceActionEnabled(
+        canUseFormActions = canUseFormActions,
+        isAiPaused = state.aiRetryAtMillis != null,
+        limitState = displayedLimitState,
+        isRewardedGenerationPending = state.isRewardedGenerationPending
+    )
     val canRollSavedMenu = canUseFormActions && !state.isRolling
     val aiDiceDisabledReason = aiDiceDisabledReasonRes(
         hasMealType = state.formMealType != null,
@@ -3127,18 +3198,29 @@ private fun TodayMenuSection(
                     ContextualDiceButton(
                         title = stringResource(id = R.string.home_ai_dice_title),
                         body = stringResource(id = R.string.home_ai_dice_body),
-                        primaryText = generateAiButtonText(
-                            isGenerating = state.isGeneratingMenu,
-                            isAiPaused = state.aiRetryAtMillis != null,
-                            usesRemaining = state.aiGenerationUsesRemainingToday,
-                            generatingText = stringResource(id = R.string.ai_generating),
-                            restingText = stringResource(id = R.string.ai_resting),
-                            availableText = stringResource(
-                                id = R.string.dice_roll_ai_with_count,
-                                state.aiGenerationUsesRemainingToday
+                        primaryText = when {
+                            state.isGeneratingMenu -> stringResource(id = R.string.ai_generating)
+                            state.aiRetryAtMillis != null &&
+                                displayedLimitState != AiGenerationLimitState.HARD_LIMIT -> {
+                                stringResource(id = R.string.ai_resting)
+                            }
+                            displayedLimitState == AiGenerationLimitState.AVAILABLE -> {
+                                stringResource(
+                                    id = R.string.dice_roll_ai_with_count,
+                                    state.aiGenerationUsesRemainingToday
+                                )
+                            }
+                            else -> stringResource(
+                                id = aiDicePrimaryTextRes(
+                                    limitState = displayedLimitState,
+                                    isRewardedAdReady = isRewardedAdReady &&
+                                        !state.isRewardedGenerationPending
+                                )
                             )
+                        },
+                        secondaryText = stringResource(
+                            id = aiDiceSecondaryTextRes(displayedLimitState)
                         ),
-                        secondaryText = stringResource(id = R.string.dice_ai_action),
                         enabled = canUseAiActions,
                         isBusy = state.isGeneratingMenu,
                         diceFaceIndex = diceFaceIndex,
@@ -3147,7 +3229,11 @@ private fun TodayMenuSection(
                         idleRotation = idleRotation,
                         manualRotation = manualDiceRotation,
                         onDrag = onDiceDrag,
-                        onClick = onGenerate
+                        onClick = if (shouldOfferRewardedGeneration) {
+                            onRewardedGenerate
+                        } else {
+                            onGenerate
+                        }
                     )
                     if (!canUseAiActions && aiDiceDisabledReason != null) {
                         ContextualDiceDisabledReason(text = aiDiceDisabledReason)

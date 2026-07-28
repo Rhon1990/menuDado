@@ -933,6 +933,45 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `oferta recompensada mantiene el dado accionable con una recompensa clara`() {
+        assertEquals(
+            R.string.dice_ai_rewarded_primary,
+            aiDicePrimaryTextRes(
+                limitState = AiGenerationLimitState.REWARDED_OFFER,
+                isRewardedAdReady = true
+            )
+        )
+        assertEquals(
+            R.string.dice_ai_rewarded_secondary,
+            aiDiceSecondaryTextRes(AiGenerationLimitState.REWARDED_OFFER)
+        )
+        assertTrue(
+            aiDiceShouldOfferRewardedGeneration(
+                limitState = AiGenerationLimitState.REWARDED_OFFER,
+                isRewardedFeatureAvailable = true
+            )
+        )
+        assertTrue(
+            aiDiceActionEnabled(
+                canUseFormActions = true,
+                isAiPaused = false,
+                limitState = AiGenerationLimitState.REWARDED_OFFER,
+                isRewardedGenerationPending = false
+            )
+        )
+    }
+
+    @Test
+    fun `limite maximo no ofrece otro anuncio recompensado`() {
+        assertFalse(
+            aiDiceShouldOfferRewardedGeneration(
+                limitState = AiGenerationLimitState.HARD_LIMIT,
+                isRewardedFeatureAvailable = true
+            )
+        )
+    }
+
+    @Test
     fun `boton de dado deshabilitado usa color calido de marca distinto del naranja activo`() {
         assertEquals(MenuDadoColors.ActionTerracotta, contextualDiceEnabledContainerColor())
         assertEquals(MenuDadoColors.SoftSand, contextualDiceDisabledContainerColor())

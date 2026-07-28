@@ -50,7 +50,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.menudado.analytics.AndroidDeviceInfoProvider
 import com.menudado.ads.MenuDadoAdsController
+import com.menudado.ads.MenuDadoAdsConfig
 import com.menudado.ads.MenuDadoAdsRemoteConfig
+import com.menudado.ads.MenuDadoRewardedAd
 import com.menudado.ads.RewardedAiRemoteConfig
 import com.menudado.ai.AiMenuHiveRemoteConfig
 import com.menudado.about.MenuDadoAboutContent
@@ -131,6 +133,7 @@ class MainActivity : ComponentActivity() {
                 var areAdsReady by remember { mutableStateOf(false) }
                 var areAdsEnabled by remember { mutableStateOf(false) }
                 var isRewardedAiEnabled by remember { mutableStateOf(false) }
+                var isRewardedAdReady by remember { mutableStateOf(false) }
                 var areGuestLimitsEnabled by remember { mutableStateOf(true) }
                 var areGuestAiLimitsEnabled by remember { mutableStateOf(true) }
                 var areAdsPrivacyOptionsRequired by remember { mutableStateOf(false) }
@@ -302,6 +305,12 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+                val rewardedAdController = remember {
+                    MenuDadoRewardedAd(
+                        activity = this@MainActivity,
+                        adUnitId = MenuDadoAdsConfig.REWARDED_AI_AD_UNIT_ID
+                    )
+                }
                 val rewardedAiRemoteConfig = remember {
                     RewardedAiRemoteConfig(
                         onRewardedAiEnabledChanged = { isEnabled ->
@@ -390,6 +399,21 @@ class MainActivity : ComponentActivity() {
                         adsController.requestConsentAndInitialize()
                     }
                 }
+                val canOfferRewardedAi = MenuDadoAdsConfig.shouldOfferRewardedAi(
+                    remoteEnabled = isRewardedAiEnabled,
+                    adsReady = areAdsEnabled && areAdsReady
+                )
+                LaunchedEffect(rewardedAdController, canOfferRewardedAi) {
+                    if (canOfferRewardedAi) {
+                        rewardedAdController.preload(
+                            onReadyChanged = { isReady ->
+                                isRewardedAdReady = isReady
+                            }
+                        )
+                    } else {
+                        isRewardedAdReady = false
+                    }
+                }
 
                 if (showSplash) {
                     MenuDadoSplashScreen()
@@ -449,7 +473,15 @@ class MainActivity : ComponentActivity() {
                         },
                         onAdsPrivacyOptionsClick = adsController::showPrivacyOptionsForm,
                         authSession = authSession,
-                        isRewardedAiEnabled = isRewardedAiEnabled,
+                        isRewardedAiEnabled = canOfferRewardedAi,
+                        isRewardedAdReady = isRewardedAdReady,
+                        onRequestRewardedGeneration = {
+                            rewardedAdController.show(
+                                onRewardEarned = viewModel::onRewardedGenerationEarned,
+                                onDismissedWithoutReward = viewModel::onRewardedGenerationDismissed,
+                                onUnavailable = viewModel::onRewardedGenerationUnavailable
+                            )
+                        },
                         areGuestLimitsEnabled = areGuestLimitsEnabled,
                         areGuestAiLimitsEnabled = areGuestAiLimitsEnabled,
                         isAuthLoading = isAuthLoading,
