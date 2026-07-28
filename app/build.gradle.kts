@@ -30,7 +30,7 @@ val productionGoogleWebClientId = providers.optionalConfig(
 val rewardedAiAdUnitId = providers.optionalConfig(
     gradlePropertyName = "menudadoRewardedAiAdUnitId",
     environmentVariableName = "MENUDADO_REWARDED_AI_AD_UNIT_ID"
-)
+).ifBlank { "ca-app-pub-2347852335093406/5192361313" }
 
 android {
     namespace = "com.menudado"
