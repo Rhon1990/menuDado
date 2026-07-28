@@ -13,12 +13,22 @@
 ### Task 1: Canonical identity v2
 
 **Files:**
+- Create: `app/src/test/resources/ai-menu-hive-identity-v2-fixtures.tsv`
 - Modify: `app/src/test/java/com/menudado/domain/AiMenuHiveIdentityTest.kt`
 - Modify: `app/src/main/java/com/menudado/domain/AiMenuHiveIdentity.kt`
 
 - [ ] **Step 1: Write failing equivalence and negative tests**
 
-Add tests asserting these three keys return the same `AiMenuSemanticIdentity`:
+Create one shared UTF-8 TSV fixture:
+
+```text
+SPANISH	salad|lentils+vegetables|mix	salad|lentils+vegetables|mixed
+SPANISH	salad|lentils+vegetable|mixed	salad|lentils+vegetables|mixed
+SPANISH	salad|lentils+vegetables|tossed	salad|lentils+vegetables|mixed
+```
+
+Load it from the Kotlin test classpath and assert each raw key produces the
+expected canonical key. Also assert the three identities are equal:
 
 ```kotlin
 val identities = listOf(
@@ -89,7 +99,7 @@ Run the directed test command from Step 2. Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/src/main/java/com/menudado/domain/AiMenuHiveIdentity.kt app/src/test/java/com/menudado/domain/AiMenuHiveIdentityTest.kt
+git add app/src/main/java/com/menudado/domain/AiMenuHiveIdentity.kt app/src/test/java/com/menudado/domain/AiMenuHiveIdentityTest.kt app/src/test/resources/ai-menu-hive-identity-v2-fixtures.tsv
 git commit -m "fix: canonicalize equivalent AI menu identities"
 ```
 
@@ -284,14 +294,16 @@ git commit -m "fix: constrain hive identity without prompt growth"
 - Create: `qa/ai-menu-hive-identity-v2.mjs`
 - Create: `qa/ai-menu-hive-identity-v2.test.mjs`
 - Create: `qa/migrate-ai-menu-hive-v2.mjs`
+- Read: `app/src/test/resources/ai-menu-hive-identity-v2-fixtures.tsv`
 - Modify: `qa/package.json`
 - Modify: `qa/package-lock.json`
 
 - [ ] **Step 1: Write failing Node identity and migration-plan tests**
 
-Test that the three reported variants produce one canonical key/hash and that a
-group with three documents yields one write, merged `eligibilityKeys`, and two
-deletes. Also test that dry-run planning never mutates the input.
+Load the shared TSV used by Kotlin. Test that every row produces its declared
+canonical key, the three reported variants produce one hash, and a group with
+three documents yields one write, merged `eligibilityKeys`, and two deletes.
+Also test that dry-run planning never mutates the input.
 
 - [ ] **Step 2: Verify RED**
 
