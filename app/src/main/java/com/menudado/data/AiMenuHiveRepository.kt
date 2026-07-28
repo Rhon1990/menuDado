@@ -150,7 +150,10 @@ class AiMenuHiveRepository(
         candidates: List<SharedAiMenu>,
         request: AiMenuHiveSearchRequest
     ): HiveSelection? {
-        val safe = candidates.filter { request.profile.accepts(it.generatedMenu) }
+        val safe = candidates
+            .mapNotNull(SharedAiMenu::canonicalized)
+            .filter { request.profile.accepts(it.generatedMenu) }
+            .distinctBy(SharedAiMenu::semanticHash)
         if (safe.isEmpty()) return null
         val unseen = safe.filterNot { it.semanticHash in request.recentSemanticHashes }
         val startsNewCycle = unseen.isEmpty()
@@ -169,6 +172,15 @@ class AiMenuHiveRepository(
             startsNewCycle = startsNewCycle
         )
     }
+}
+
+private fun SharedAiMenu.canonicalized(): SharedAiMenu? {
+    val identity = AiMenuHiveIdentity.from(language, semanticKey) ?: return null
+    return copy(
+        semanticHash = identity.semanticHash,
+        semanticKey = identity.canonicalKey,
+        generatedMenu = generatedMenu.copy(deduplicationKey = identity.canonicalKey)
+    )
 }
 
 private data class HiveSelection(

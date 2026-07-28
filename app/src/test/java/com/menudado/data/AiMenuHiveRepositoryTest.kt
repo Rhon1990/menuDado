@@ -144,6 +144,41 @@ class AiMenuHiveRepositoryTest {
     }
 
     @Test
+    fun `legacy equivalent documents count as one canonical candidate`() = runTest {
+        val first = legacySharedMenu(
+            key = "salad|lentils+vegetable|mixed",
+            storedHash = "1".repeat(64)
+        )
+        val second = legacySharedMenu(
+            key = "salad|lentils+vegetables|mix",
+            storedHash = "2".repeat(64)
+        )
+        val dataSource = RecordingAiMenuHiveDataSource(
+            server = Result.success(listOf(first, second))
+        )
+        var selectableCount = 0
+        val repository = AiMenuHiveRepository(
+            dataSource,
+            AiMenuHiveFeatureToggle(true)
+        ) { size ->
+            selectableCount = size
+            0
+        }
+
+        val result = requireNotNull(repository.findCompatibleMenu(request()).getOrThrow())
+        val expected = requireNotNull(
+            AiMenuHiveIdentity.from(
+                AppLanguage.SPANISH,
+                "salad|lentils+vegetables|mixed"
+            )
+        )
+
+        assertEquals(1, selectableCount)
+        assertEquals(expected.semanticHash, result.semanticHash)
+        assertEquals(expected.canonicalKey, result.generatedMenu.deduplicationKey)
+    }
+
+    @Test
     fun `disabled hive performs no read or contribution`() = runTest {
         val dataSource = RecordingAiMenuHiveDataSource()
         val repository = AiMenuHiveRepository(dataSource, AiMenuHiveFeatureToggle(false)) { 0 }
@@ -209,6 +244,15 @@ class AiMenuHiveRepositoryTest {
                     DietaryProfile(ageRange = "18+ años")
                 )
             )
+        )
+    }
+
+    private fun legacySharedMenu(key: String, storedHash: String): SharedAiMenu {
+        val canonical = sharedMenu(key)
+        return canonical.copy(
+            semanticHash = storedHash,
+            semanticKey = key,
+            generatedMenu = canonical.generatedMenu.copy(deduplicationKey = key)
         )
     }
 }
