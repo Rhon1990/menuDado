@@ -50,7 +50,10 @@ fun DietaryProfile.compatibilityWith(
         }
         if (
             concreteAvoidanceTerms().any { avoided ->
-                candidateText.containsProhibitedFoodTerm(avoided)
+                candidateText.containsProhibitedFoodTerm(
+                    term = avoided,
+                    allowCompatibleContexts = false
+                )
             }
         ) {
             add(DietaryProfileViolation.EXPLICIT_AVOIDANCE)
@@ -103,13 +106,19 @@ private fun String.conflictsWith(profile: DietaryProfile): Boolean {
         return true
     }
     return profile.concreteAvoidanceTerms()
-        .any(normalized::containsProhibitedFoodTerm)
+        .any { avoided ->
+            normalized.containsProhibitedFoodTerm(
+                term = avoided,
+                allowCompatibleContexts = false
+            )
+        }
 }
 
 private fun DietaryProfile.concreteAvoidanceTerms(): List<String> {
     return otherAvoidances
         .split(',', ';', '\n')
         .map(String::normalizedForFoodMatch)
+        .map(String::withoutClinicalConditionPrefix)
         .map(String::withoutAvoidancePrefix)
         .filter(String::isNotBlank)
         .filterNot(String::isClinicalCondition)
@@ -122,8 +131,20 @@ private fun String.withoutAvoidancePrefix(): String {
     }.trim()
 }
 
+private fun String.withoutClinicalConditionPrefix(): String {
+    CLINICAL_CONDITION_TERMS.forEach { condition ->
+        INLINE_AVOIDANCE_PREFIXES.forEach { prefix ->
+            val combinedPrefix = "$condition $prefix"
+            if (startsWith(combinedPrefix)) {
+                return removePrefix(combinedPrefix).trim()
+            }
+        }
+    }
+    return this
+}
+
 private fun String.isClinicalCondition(): Boolean {
-    return CLINICAL_CONDITION_TERMS.any(::containsFoodTerm)
+    return this in CLINICAL_CONDITION_TERMS
 }
 
 private fun String.normalizedForFoodMatch(): String =
@@ -138,11 +159,19 @@ private fun String.containsAnyFoodTerm(terms: Set<String>): Boolean =
 private fun String.containsAnyProhibitedFoodTerm(terms: Set<String>): Boolean =
     terms.any(::containsProhibitedFoodTerm)
 
-private fun String.containsProhibitedFoodTerm(term: String): Boolean {
+private fun String.containsProhibitedFoodTerm(
+    term: String,
+    allowCompatibleContexts: Boolean = true
+): Boolean {
     val normalizedTerm = term.normalizedForFoodMatch()
     if (normalizedTerm.isBlank()) return false
     val termPattern = normalizedTerm.foodTermPattern()
-    val textWithoutCompatibleContexts = COMPATIBLE_FOOD_CONTEXTS.fold(this) { text, context ->
+    val compatibleContexts = if (allowCompatibleContexts) {
+        COMPATIBLE_FOOD_CONTEXTS_BY_TERM[normalizedTerm].orEmpty()
+    } else {
+        emptySet()
+    }
+    val textWithoutCompatibleContexts = compatibleContexts.fold(this) { text, context ->
         text.replace(context, " ")
     }
     val textWithoutExplicitExclusion = EXCLUSION_TEMPLATES.fold(textWithoutCompatibleContexts) { text, template ->
@@ -168,6 +197,8 @@ private fun DietaryAllergen.excludedTerms(): Set<String> = when (this) {
         "gluten", "trigo", "wheat", "ble", "cebada", "barley", "orge",
         "centeno", "rye", "seigle", "semola", "semolina", "semoule",
         "cuscus", "couscous", "seitan", "avena", "oats", "avoine",
+        "espelta", "spelt", "epeautre", "bulgur", "boulgour",
+        "malta", "malt",
         "harina", "flour", "farine",
         "pan", "bread", "pain", "pasta", "pates"
     )
@@ -198,6 +229,12 @@ private val AVOIDANCE_PREFIXES = listOf(
     "eviter "
 )
 
+private val INLINE_AVOIDANCE_PREFIXES = listOf(
+    "sin ",
+    "without ",
+    "sans "
+)
+
 private val EXCLUSION_TEMPLATES = listOf(
     """\bsin\s+%s\b""",
     """\bno\s+%s\b""",
@@ -206,35 +243,56 @@ private val EXCLUSION_TEMPLATES = listOf(
     """\b%s[\s-]+free\b"""
 )
 
-private val COMPATIBLE_FOOD_CONTEXTS = setOf(
-    "pasta sin gluten",
-    "pasta gluten-free",
-    "gluten-free pasta",
-    "pates sans gluten",
-    "avena sin gluten",
-    "gluten-free oats",
-    "avoine sans gluten",
-    "pan sin gluten",
-    "gluten-free bread",
-    "pain sans gluten",
-    "harina de garbanzo",
-    "chickpea flour",
-    "farine de pois chiche",
-    "harina de arroz",
-    "rice flour",
-    "farine de riz",
-    "harina de maiz",
-    "corn flour",
-    "farine de mais",
-    "crema vegetal",
-    "plant cream",
-    "creme vegetale",
-    "queso vegano",
-    "vegan cheese",
-    "fromage vegetal",
-    "leche vegetal",
-    "plant milk",
-    "lait vegetal"
+private val COMPATIBLE_FOOD_CONTEXTS_BY_TERM = mapOf(
+    "pasta" to setOf("pasta sin gluten", "pasta gluten-free", "gluten-free pasta"),
+    "pates" to setOf("pates sans gluten"),
+    "avena" to setOf("avena sin gluten"),
+    "oats" to setOf("gluten-free oats"),
+    "avoine" to setOf("avoine sans gluten"),
+    "pan" to setOf("pan sin gluten"),
+    "bread" to setOf("gluten-free bread"),
+    "pain" to setOf("pain sans gluten"),
+    "harina" to setOf("harina de garbanzo", "harina de arroz", "harina de maiz"),
+    "flour" to setOf("chickpea flour", "rice flour", "corn flour"),
+    "farine" to setOf("farine de pois chiche", "farine de riz", "farine de mais"),
+    "crema" to setOf("crema vegetal", "crema de coco"),
+    "cream" to setOf("plant cream", "coconut cream"),
+    "creme" to setOf("creme vegetale", "creme de coco"),
+    "queso" to setOf("queso vegano"),
+    "cheese" to setOf("vegan cheese"),
+    "fromage" to setOf("fromage vegetal"),
+    "leche" to setOf(
+        "leche vegetal", "leche de coco", "leche de almendra",
+        "leche de avena", "leche de soja"
+    ),
+    "milk" to setOf(
+        "plant milk", "coconut milk", "almond milk", "oat milk", "soy milk"
+    ),
+    "lait" to setOf(
+        "lait vegetal", "lait de coco", "lait d'amande",
+        "lait d'avoine", "lait de soja"
+    ),
+    "mantequilla" to setOf(
+        "mantequilla de cacahuete", "mantequilla de almendra",
+        "mantequilla de avellana", "mantequilla de coco", "mantequilla de cacao"
+    ),
+    "butter" to setOf(
+        "peanut butter", "almond butter", "hazelnut butter",
+        "coconut butter", "cocoa butter"
+    ),
+    "beurre" to setOf(
+        "beurre de cacahuete", "beurre d'amande", "beurre de noisette",
+        "beurre de coco", "beurre de cacao"
+    ),
+    "manteca" to setOf("manteca de cacao"),
+    "yogur" to setOf("yogur de soja", "yogur de coco", "yogur vegetal"),
+    "yogurt" to setOf("soy yogurt", "coconut yogurt", "plant yogurt"),
+    "yaourt" to setOf("yaourt de soja", "yaourt de coco", "yaourt vegetal"),
+    "mayonesa" to setOf("mayonesa vegana", "mayonesa sin huevo"),
+    "mayonnaise" to setOf(
+        "vegan mayonnaise", "egg-free mayonnaise",
+        "mayonnaise vegetale", "mayonnaise sans oeuf"
+    )
 )
 
 private val CLINICAL_CONDITION_TERMS = setOf(
@@ -257,7 +315,8 @@ private val DAIRY_TERMS = setOf(
     "leche", "milk", "lait", "queso", "cheese", "fromage",
     "yogur", "yogurt", "yaourt", "mantequilla", "butter", "beurre",
     "nata", "crema", "cream", "creme", "caseina", "casein", "caseine",
-    "suero de leche", "proteina de suero", "whey", "whey protein", "lactoserum"
+    "suero de leche", "proteina de suero", "whey", "whey protein", "lactoserum",
+    "mozzarella", "parmesano", "parmesan", "kefir"
 )
 
 private val EGG_TERMS = setOf(
@@ -285,7 +344,8 @@ private val FISH_TERMS = setOf(
     "pescado", "fish", "poisson", "atun", "tuna", "thon",
     "salmon", "saumon", "merluza", "hake", "merlu", "bacalao", "cod", "morue",
     "sardina", "sardinas", "sardine", "sardines", "anchoa", "anchoas",
-    "anchovy", "anchovies", "anchois"
+    "anchovy", "anchovies", "anchois", "trucha", "trout", "truite",
+    "dorada", "sea bream", "daurade"
 )
 
 private val SHELLFISH_TERMS = setOf(
@@ -320,6 +380,7 @@ private val BABY_UNSAFE_PHRASES = setOf(
     "salsa de soja", "soy sauce", "sauce soja", "tamari",
     "cubito de caldo", "bouillon cube", "cube de bouillon",
     "alcohol", "vino sin cocinar", "uncooked wine", "vin non cuit",
+    "cerveza", "beer", "biere",
     "frutos secos enteros", "whole nuts", "noix entieres",
     "palomitas", "popcorn",
     "uvas enteras", "whole grapes", "raisins entiers",
@@ -335,6 +396,7 @@ private val BABY_UNSAFE_PHRASES = setOf(
 
 private val CHILD_UNSAFE_PHRASES = setOf(
     "alcohol", "vino sin cocinar", "uncooked wine", "vin non cuit",
+    "cerveza", "beer", "biere",
     "frutos secos enteros", "whole nuts", "noix entieres",
     "uvas enteras", "whole grapes", "raisins entiers",
     "palomitas", "popcorn",
@@ -343,6 +405,7 @@ private val CHILD_UNSAFE_PHRASES = setOf(
 
 private val PREGNANCY_UNSAFE_PHRASES = setOf(
     "alcohol", "vino sin cocinar", "uncooked wine", "vin non cuit",
+    "cerveza", "beer", "biere",
     "leche no pasteurizada", "unpasteurized milk", "lait non pasteurise",
     "queso no pasteurizado", "unpasteurized cheese", "fromage non pasteurise",
     "huevo crudo", "raw egg", "oeuf cru",

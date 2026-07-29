@@ -1300,9 +1300,10 @@ class MenuDadoViewModel(
                 }
                 if (generatedResult.isSuccess) {
                     val generated = generatedResult.getOrThrow()
-                    if (!profile.accepts(generated, audience)) {
+                    val currentProfile = dietaryProfileStore.getProfile(audience)
+                    if (!currentProfile.accepts(generated, audience)) {
                         searchHiveFallback(
-                            request = request,
+                            request = request.copy(profile = currentProfile),
                             triggerFailureType = AI_FAILURE_PROFILE_MISMATCH,
                             failureNotice = null,
                             fallbackMissMessage = currentLanguage().profileMismatchMessage()
@@ -1395,18 +1396,30 @@ class MenuDadoViewModel(
                 lastShownHash = rotation.lastShownHash
             )
         )
-        val fallback = hiveResult.getOrNull()
+        val rawFallback = hiveResult.getOrNull()
+        val currentProfile = dietaryProfileStore.getProfile(request.audience)
+        val fallback = rawFallback?.takeIf { candidate ->
+            currentProfile.accepts(
+                menu = candidate.generatedMenu,
+                audience = request.audience
+            )
+        }
+        val rejectedByCurrentProfile = rawFallback != null && fallback == null
         if (fallback == null) {
             val reason = preparedFailureNotice?.generationReason
                 ?: AiGenerationFailureReason.DAILY_LIMIT
-            val contextualMessage = fallbackMissMessage
-                ?: contextualAiGenerationFailureMessage(
-                    language = currentLanguage(),
-                    reason = reason,
-                    mealType = request.mealType,
-                    audience = request.audience,
-                    profile = request.profile
-                )
+            val contextualMessage = if (rejectedByCurrentProfile) {
+                currentLanguage().profileMismatchMessage()
+            } else {
+                fallbackMissMessage
+                    ?: contextualAiGenerationFailureMessage(
+                        language = currentLanguage(),
+                        reason = reason,
+                        mealType = request.mealType,
+                        audience = request.audience,
+                        profile = request.profile
+                    )
+            }
             if (preparedFailureNotice != null) {
                 showPreparedAiFailureNotice(
                     preparedFailureNotice.copy(message = contextualMessage)

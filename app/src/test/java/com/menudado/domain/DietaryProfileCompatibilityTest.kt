@@ -148,6 +148,46 @@ class DietaryProfileCompatibilityTest {
     }
 
     @Test
+    fun `compatible allergen contexts never override explicit food avoidances`() {
+        assertFalse(
+            DietaryProfile(otherAvoidances = "garbanzo").accepts(
+                generated("Harina de garbanzo")
+            )
+        )
+        assertFalse(
+            DietaryProfile(otherAvoidances = "avena").accepts(
+                generated("Avena sin gluten")
+            )
+        )
+    }
+
+    @Test
+    fun `plant substitutions are accepted only for the allergen they replace`() {
+        val plantMenu = generated(
+            "Leche de coco, mantequilla de cacahuete, yogur de soja y mayonesa vegana"
+        )
+        val dairyProfile = DietaryProfile(
+            hasAllergies = true,
+            allergens = setOf(DietaryAllergen.DAIRY, DietaryAllergen.EGG)
+        )
+
+        assertTrue(DietaryProfile(isVegan = true).accepts(plantMenu))
+        assertTrue(dairyProfile.accepts(plantMenu))
+        assertFalse(
+            DietaryProfile(
+                hasAllergies = true,
+                allergens = setOf(DietaryAllergen.PEANUT)
+            ).accepts(plantMenu)
+        )
+        assertFalse(
+            DietaryProfile(
+                hasAllergies = true,
+                allergens = setOf(DietaryAllergen.SOY)
+            ).accepts(plantMenu)
+        )
+    }
+
+    @Test
     fun `clinical condition names are not treated as food ingredients`() {
         val profile = DietaryProfile(otherAvoidances = "diabético, hipertenso")
 
@@ -157,6 +197,47 @@ class DietaryProfileCompatibilityTest {
                 MenuAudience.ADULT
             )
         )
+    }
+
+    @Test
+    fun `food avoidance following a clinical condition remains strict`() {
+        val profile = DietaryProfile(otherAvoidances = "diabetes sin azúcar")
+
+        assertFalse(profile.accepts(generated("Yogur con azúcar")))
+    }
+
+    @Test
+    fun `common named allergen sources and alcoholic drinks are rejected`() {
+        val cases = listOf(
+            DietaryProfile(
+                hasAllergies = true,
+                allergens = setOf(DietaryAllergen.GLUTEN)
+            ) to listOf("Pan de espelta", "Ensalada de bulgur", "Salsa de malta"),
+            DietaryProfile(
+                hasAllergies = true,
+                allergens = setOf(DietaryAllergen.DAIRY)
+            ) to listOf("Mozzarella", "Parmesano", "Kéfir"),
+            DietaryProfile(
+                hasAllergies = true,
+                allergens = setOf(DietaryAllergen.FISH)
+            ) to listOf("Trucha", "Dorada", "Sea bream", "Truite")
+        )
+
+        cases.forEach { (profile, descriptions) ->
+            descriptions.forEach { description ->
+                assertFalse(description, profile.accepts(generated(description)))
+            }
+        }
+        listOf("Cerveza", "Beer", "Bière").forEach { description ->
+            assertFalse(
+                description,
+                DietaryProfile(isPregnant = true).accepts(generated(description))
+            )
+            assertFalse(
+                description,
+                DietaryProfile().accepts(generated(description), MenuAudience.CHILD)
+            )
+        }
     }
 
     @Test

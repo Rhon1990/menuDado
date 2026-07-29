@@ -866,6 +866,55 @@ class MenuDadoViewModelTest {
         }
 
     @Test
+    fun `profile change during live generation blocks stale incompatible result`() =
+        runTest(dispatcher) {
+            analyzer.generateDelayMillis = 1_000L
+            analyzer.generatedMenu = sampleGeneratedMenu(
+                name = "Pasta cuatro quesos",
+                description = "Pasta con queso y nata."
+            )
+            hive.searchResult = Result.success(null)
+
+            viewModel.generateMenuIdea()
+            runCurrent()
+            dietaryProfileStore.storedProfile = DietaryProfile(
+                ageRange = MenuAudience.ADULT.defaultAgeRange,
+                isVegan = true
+            )
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.showGeneratedMenuDetail)
+            assertEquals(1, hive.searches.size)
+            assertTrue(hive.searches.single().profile.isVegan)
+        }
+
+    @Test
+    fun `profile change during hive search blocks stale candidate and rotation`() =
+        runTest(dispatcher) {
+            analyzer.generateFailure = IllegalStateException("internal")
+            hive.searchDelayMillis = 1_000L
+            hive.searchResult = Result.success(
+                sampleHiveCandidate().copy(
+                    generatedMenu = sampleGeneratedMenu(
+                        name = "Pasta cuatro quesos",
+                        description = "Pasta con queso y nata."
+                    )
+                )
+            )
+
+            viewModel.generateMenuIdea()
+            runCurrent()
+            dietaryProfileStore.storedProfile = DietaryProfile(
+                ageRange = MenuAudience.ADULT.defaultAgeRange,
+                isVegan = true
+            )
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.showGeneratedMenuDetail)
+            assertTrue(hiveRotationStore.records.isEmpty())
+        }
+
+    @Test
     fun `saving untouched live AI idea contributes after local save`() = runTest(dispatcher) {
         analyzer.generatedMenu = sampleGeneratedMenu(
             name = "Pasta con tomate",
