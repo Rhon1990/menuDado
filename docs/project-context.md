@@ -344,6 +344,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Versión objetivo actual: `1.3.0` (`versionCode` 14), orientada a Android 16 (`compileSdk=36`, `targetSdk=36`).
 - Validación actual de `1.3.0`:
   - `./gradlew :app:testDebugUnitTest :app:assembleDebug`: correcto.
+  - `./gradlew :app:lintDebug`: correcto; informe generado sin errores bloqueantes.
   - `app/build/outputs/apk/debug/output-metadata.json`: `applicationId=com.menudado.debug`, `versionName=1.3.0` y `versionCode=14`.
   - `./gradlew :app:installDebug`: instalado correctamente en un `SM-S921B` con Android 16.
   - Prueba manual en dispositivo: `Acerca de la app` muestra el nuevo fallback localizado, permite desplazarse hasta el final y presenta `Versión 1.3.0 (14)`.
