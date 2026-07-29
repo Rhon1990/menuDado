@@ -915,6 +915,25 @@ class MenuDadoViewModelTest {
         }
 
     @Test
+    fun `audience change during hive search blocks stale candidate and rotation`() =
+        runTest(dispatcher) {
+            analyzer.generateFailure = IllegalStateException("internal")
+            hive.searchDelayMillis = 1_000L
+            hive.searchResult = Result.success(sampleHiveCandidate())
+
+            viewModel.generateMenuIdea()
+            runCurrent()
+            viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+            viewModel.setDietaryProfileAudienceEnabled(true)
+            viewModel.setFormAudience(MenuAudience.CHILD)
+            advanceUntilIdle()
+
+            assertEquals(MenuAudience.CHILD, viewModel.uiState.value.formAudience)
+            assertFalse(viewModel.uiState.value.showGeneratedMenuDetail)
+            assertTrue(hiveRotationStore.records.isEmpty())
+        }
+
+    @Test
     fun `saving untouched live AI idea contributes after local save`() = runTest(dispatcher) {
         analyzer.generatedMenu = sampleGeneratedMenu(
             name = "Pasta con tomate",

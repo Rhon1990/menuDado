@@ -200,7 +200,8 @@ private fun DietaryAllergen.excludedTerms(): Set<String> = when (this) {
         "espelta", "spelt", "epeautre", "bulgur", "boulgour",
         "malta", "malt",
         "harina", "flour", "farine",
-        "pan", "bread", "pain", "pasta", "pates"
+        "pan", "bread", "pain", "pasta", "pates",
+        "cerveza", "beer", "biere"
     )
     DietaryAllergen.DAIRY -> DAIRY_TERMS
     DietaryAllergen.EGG -> EGG_TERMS
@@ -252,6 +253,9 @@ private val COMPATIBLE_FOOD_CONTEXTS_BY_TERM = mapOf(
     "pan" to setOf("pan sin gluten"),
     "bread" to setOf("gluten-free bread"),
     "pain" to setOf("pain sans gluten"),
+    "cerveza" to setOf("cerveza sin gluten"),
+    "beer" to setOf("gluten-free beer"),
+    "biere" to setOf("biere sans gluten"),
     "harina" to setOf("harina de garbanzo", "harina de arroz", "harina de maiz"),
     "flour" to setOf("chickpea flour", "rice flour", "corn flour"),
     "farine" to setOf("farine de pois chiche", "farine de riz", "farine de mais"),
@@ -374,8 +378,8 @@ private val VEGAN_EXCLUDED_TERMS =
 
 private val BABY_UNSAFE_PHRASES = setOf(
     "miel", "honey",
-    "sal anadida", "added salt", "sel ajoute",
-    "azucar anadida", "added sugar", "sucre ajoute",
+    "sal", "salt", "sel", "sal anadida", "added salt", "sel ajoute",
+    "azucar", "sugar", "sucre", "azucar anadida", "added sugar", "sucre ajoute",
     "edulcorante", "sweetener", "edulcorant",
     "salsa de soja", "soy sauce", "sauce soja", "tamari",
     "cubito de caldo", "bouillon cube", "cube de bouillon",

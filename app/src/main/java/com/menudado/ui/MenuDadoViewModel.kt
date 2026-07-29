@@ -1433,31 +1433,48 @@ class MenuDadoViewModel(
                 }
             }
         }
+        var fallbackDisplayed = false
         fallback?.let { candidate ->
             _uiState.update {
-                it.copy(
-                    name = candidate.generatedMenu.name,
-                    description = candidate.generatedMenu.description,
-                    notes = candidate.generatedMenu.notes,
-                    calories = candidate.generatedMenu.calories,
-                    generatedHealthAnalysis = candidate.generatedMenu.healthAnalysis,
-                    generatedShoppingProducts = candidate.generatedMenu.shoppingProducts,
-                    addGeneratedMenuToMarketList = true,
-                    generatedCuisineInspiration = candidate.cuisineInspiration,
-                    generatedDeduplicationKey = candidate.generatedMenu.deduplicationKey,
-                    generatedOrigin = GeneratedMenuOrigin.HIVE_FALLBACK,
-                    generatedSemanticHash = candidate.semanticHash,
-                    message = null,
-                    isAiRetryNoticeVisible = false,
-                    showGeneratedMenuDetail = true
-                )
+                if (
+                    request.audience !in it.enabledAudiences ||
+                    it.formAudience != request.audience
+                ) {
+                    it
+                } else {
+                    it.copy(
+                        name = candidate.generatedMenu.name,
+                        description = candidate.generatedMenu.description,
+                        notes = candidate.generatedMenu.notes,
+                        calories = candidate.generatedMenu.calories,
+                        generatedHealthAnalysis = candidate.generatedMenu.healthAnalysis,
+                        generatedShoppingProducts = candidate.generatedMenu.shoppingProducts,
+                        addGeneratedMenuToMarketList = true,
+                        generatedCuisineInspiration = candidate.cuisineInspiration,
+                        generatedDeduplicationKey = candidate.generatedMenu.deduplicationKey,
+                        generatedOrigin = GeneratedMenuOrigin.HIVE_FALLBACK,
+                        generatedSemanticHash = candidate.semanticHash,
+                        message = null,
+                        isAiRetryNoticeVisible = false,
+                        showGeneratedMenuDetail = true
+                    )
+                }
             }
-            runCatching {
-                hiveRotationStore.recordShown(
-                    scope = rotationScope,
-                    semanticHash = candidate.semanticHash,
-                    startsNewCycle = candidate.startsNewRotationCycle
-                )
+            fallbackDisplayed = _uiState.value.let { state ->
+                state.formAudience == request.audience &&
+                    request.audience in state.enabledAudiences &&
+                    state.generatedOrigin == GeneratedMenuOrigin.HIVE_FALLBACK &&
+                    state.generatedSemanticHash == candidate.semanticHash &&
+                    state.showGeneratedMenuDetail
+            }
+            if (fallbackDisplayed) {
+                runCatching {
+                    hiveRotationStore.recordShown(
+                        scope = rotationScope,
+                        semanticHash = candidate.semanticHash,
+                        startsNewCycle = candidate.startsNewRotationCycle
+                    )
+                }
             }
         }
         runCatching {
@@ -1465,8 +1482,8 @@ class MenuDadoViewModel(
                 mealType = request.mealType,
                 result = when {
                     hiveResult.isFailure -> HIVE_RESULT_ERROR
-                    fallback?.source == AiMenuHiveLookupSource.CACHE -> HIVE_RESULT_CACHE_HIT
-                    fallback != null -> HIVE_RESULT_HIT
+                    fallbackDisplayed && fallback?.source == AiMenuHiveLookupSource.CACHE -> HIVE_RESULT_CACHE_HIT
+                    fallbackDisplayed -> HIVE_RESULT_HIT
                     else -> HIVE_RESULT_MISS
                 },
                 triggerFailureType = triggerFailureType,

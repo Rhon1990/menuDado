@@ -58,10 +58,18 @@ class DietaryProfileCompatibilityTest {
         listOf(
             generated("Yogur con miel"),
             generated("Arroz con una pizca de sal añadida"),
+            generated("Puré con una pizca de sal"),
+            generated("Compota con azúcar"),
             generated("Uvas enteras con frutos secos enteros")
         ).forEach { menu ->
             assertFalse(profile.accepts(menu, MenuAudience.BABY))
         }
+        assertTrue(
+            profile.accepts(
+                generated("Puré sin sal y sin azúcar"),
+                MenuAudience.BABY
+            )
+        )
     }
 
     @Test
@@ -238,6 +246,22 @@ class DietaryProfileCompatibilityTest {
                 DietaryProfile().accepts(generated(description), MenuAudience.CHILD)
             )
         }
+    }
+
+    @Test
+    fun `gluten profile rejects beer except when explicitly gluten free`() {
+        val profile = DietaryProfile(
+            hasAllergies = true,
+            allergens = setOf(DietaryAllergen.GLUTEN)
+        )
+
+        listOf("Cerveza", "Beer", "Bière").forEach { description ->
+            assertFalse(description, profile.accepts(generated(description)))
+        }
+        listOf("Cerveza sin gluten", "Gluten-free beer", "Bière sans gluten")
+            .forEach { description ->
+                assertTrue(description, profile.accepts(generated(description)))
+            }
     }
 
     @Test
