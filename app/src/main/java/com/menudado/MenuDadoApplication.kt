@@ -34,6 +34,7 @@ import com.menudado.data.MIGRATION_9_TO_10
 import com.menudado.data.MIGRATION_10_TO_11
 import com.menudado.data.MenuRepository
 import com.menudado.data.DietaryProfileStore
+import com.menudado.data.FormAudienceSelectionStore
 import com.menudado.data.GuestUsageStore
 import com.menudado.data.OnboardingStore
 import com.menudado.data.RemoteSyncingAiDailyUsageStore
@@ -45,6 +46,7 @@ import com.menudado.data.SharedPreferencesAiQuotaRetryStore
 import com.menudado.data.SharedPreferencesAiRequestThrottleStore
 import com.menudado.data.SharedPreferencesCuisineRotationStateStore
 import com.menudado.data.SharedPreferencesDietaryProfileStore
+import com.menudado.data.SharedPreferencesFormAudienceSelectionStore
 import com.menudado.data.SharedPreferencesGuestUsageStore
 import com.menudado.data.SharedPreferencesHiveRotationStore
 import com.menudado.data.SharedPreferencesOnboardingStore
@@ -207,6 +209,10 @@ class MenuDadoApplication : Application() {
 
     private val localDietaryProfileStore: DietaryProfileStore by lazy {
         SharedPreferencesDietaryProfileStore(applicationContext)
+    }
+
+    val formAudienceSelectionStore: FormAudienceSelectionStore by lazy {
+        SharedPreferencesFormAudienceSelectionStore(applicationContext)
     }
 
     private val localOnboardingStore: OnboardingStore by lazy {

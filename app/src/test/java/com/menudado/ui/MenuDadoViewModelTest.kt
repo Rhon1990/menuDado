@@ -4,6 +4,7 @@ import com.menudado.analytics.MenuDadoAnalytics
 import com.menudado.analytics.DeviceInfo
 import com.menudado.ai.HealthAnalyzer
 import com.menudado.data.DietaryProfileStore
+import com.menudado.data.FormAudienceSelectionStore
 import com.menudado.data.AiDailyUsageState
 import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
@@ -84,6 +85,7 @@ class MenuDadoViewModelTest {
     private lateinit var guestUsageStore: FakeGuestUsageStore
     private lateinit var rewardedAiCreditStore: FakeRewardedAiCreditStore
     private lateinit var dietaryProfileStore: FakeDietaryProfileStore
+    private lateinit var formAudienceSelectionStore: FakeFormAudienceSelectionStore
     private lateinit var onboardingStore: FakeOnboardingStore
     private lateinit var cuisineRotationStateStore: FakeCuisineRotationStateStore
     private lateinit var cuisineRotation: CuisineRotation
@@ -107,6 +109,7 @@ class MenuDadoViewModelTest {
         guestUsageStore = FakeGuestUsageStore()
         rewardedAiCreditStore = FakeRewardedAiCreditStore()
         dietaryProfileStore = FakeDietaryProfileStore()
+        formAudienceSelectionStore = FakeFormAudienceSelectionStore()
         onboardingStore = FakeOnboardingStore(completed = true)
         cuisineRotationStateStore = FakeCuisineRotationStateStore()
         cuisineRotation = CuisineRotation(cuisineRotationStateStore) { 2 }
@@ -126,6 +129,7 @@ class MenuDadoViewModelTest {
             guestUsageStore = guestUsageStore,
             rewardedAiCreditStore = rewardedAiCreditStore,
             dietaryProfileStore = dietaryProfileStore,
+            formAudienceSelectionStore = formAudienceSelectionStore,
             onboardingStore = onboardingStore,
             cuisineRotation = cuisineRotation,
             aiMenuHive = hive,
@@ -2329,6 +2333,66 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `new view model restores last selected form audience when several are active`() =
+        runTest(dispatcher) {
+            dietaryProfileStore.saveProfile(
+                DietaryProfile(
+                    isEnabled = true,
+                    ageRange = MenuAudience.CHILD.defaultAgeRange
+                ),
+                MenuAudience.CHILD
+            )
+            val selectionStore = FakeFormAudienceSelectionStore()
+            val firstViewModel = MenuDadoViewModel(
+                repository = MenuRepository(dao, analyzer),
+                dietaryProfileStore = dietaryProfileStore,
+                formAudienceSelectionStore = selectionStore
+            )
+
+            firstViewModel.setFormAudience(MenuAudience.CHILD)
+
+            val reopenedViewModel = MenuDadoViewModel(
+                repository = MenuRepository(dao, analyzer),
+                dietaryProfileStore = dietaryProfileStore,
+                formAudienceSelectionStore = selectionStore
+            )
+
+            assertEquals(MenuAudience.CHILD, selectionStore.storedAudience)
+            assertEquals(MenuAudience.CHILD, reopenedViewModel.uiState.value.formAudience)
+        }
+
+    @Test
+    fun `new view model keeps selection empty with several active audiences and no history`() =
+        runTest(dispatcher) {
+            dietaryProfileStore.saveProfile(
+                DietaryProfile(
+                    isEnabled = true,
+                    ageRange = MenuAudience.CHILD.defaultAgeRange
+                ),
+                MenuAudience.CHILD
+            )
+
+            val reopenedViewModel = MenuDadoViewModel(
+                repository = MenuRepository(dao, analyzer),
+                dietaryProfileStore = dietaryProfileStore,
+                formAudienceSelectionStore = FakeFormAudienceSelectionStore()
+            )
+
+            assertNull(reopenedViewModel.uiState.value.formAudience)
+        }
+
+    @Test
+    fun `single active audience overrides an inactive saved selection`() = runTest(dispatcher) {
+        val reopenedViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            dietaryProfileStore = dietaryProfileStore,
+            formAudienceSelectionStore = FakeFormAudienceSelectionStore(MenuAudience.CHILD)
+        )
+
+        assertEquals(MenuAudience.ADULT, reopenedViewModel.uiState.value.formAudience)
+    }
+
+    @Test
     fun `remote profile refresh selects the only active audience`() = runTest(dispatcher) {
         viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
         viewModel.setDietaryProfileAudienceEnabled(true)
@@ -3944,6 +4008,16 @@ private class FakeDietaryProfileStore : DietaryProfileStore {
             isEnabled = audience == MenuAudience.ADULT,
             ageRange = audience.defaultAgeRange
         )
+    }
+}
+
+private class FakeFormAudienceSelectionStore(
+    var storedAudience: MenuAudience? = null
+) : FormAudienceSelectionStore {
+    override fun getSelectedAudience(): MenuAudience? = storedAudience
+
+    override fun saveSelectedAudience(audience: MenuAudience) {
+        storedAudience = audience
     }
 }
 

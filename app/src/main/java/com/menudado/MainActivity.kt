@@ -109,6 +109,7 @@ class MainActivity : ComponentActivity() {
                     guestUsageStore = app.guestUsageStore,
                     rewardedAiCreditStore = app.rewardedAiCreditStore,
                     dietaryProfileStore = app.dietaryProfileStore,
+                    formAudienceSelectionStore = app.formAudienceSelectionStore,
                     onboardingStore = app.onboardingStore,
                     cuisineRotation = app.cuisineRotation,
                     aiMenuHive = app.aiMenuHiveGateway,

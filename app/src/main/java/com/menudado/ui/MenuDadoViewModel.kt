@@ -9,7 +9,9 @@ import com.google.firebase.ai.type.ServiceDisabledException
 import com.menudado.analytics.MenuDadoAnalytics
 import com.menudado.analytics.NoOpMenuDadoAnalytics
 import com.menudado.data.DietaryProfileStore
+import com.menudado.data.FormAudienceSelectionStore
 import com.menudado.data.NoOpDietaryProfileStore
+import com.menudado.data.NoOpFormAudienceSelectionStore
 import com.menudado.data.AiDailyUsageState
 import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
@@ -193,6 +195,8 @@ class MenuDadoViewModel(
     private val guestUsageStore: GuestUsageStore = NoOpGuestUsageStore,
     private val rewardedAiCreditStore: RewardedAiCreditStore = NoOpRewardedAiCreditStore,
     private val dietaryProfileStore: DietaryProfileStore = NoOpDietaryProfileStore,
+    private val formAudienceSelectionStore: FormAudienceSelectionStore =
+        NoOpFormAudienceSelectionStore,
     private val onboardingStore: OnboardingStore = NoOpOnboardingStore,
     private val cuisineRotation: CuisineRotation = CuisineRotation(InMemoryCuisineRotationStateStore()),
     private val aiMenuHive: AiMenuHiveGateway = NoOpAiMenuHiveGateway,
@@ -202,7 +206,8 @@ class MenuDadoViewModel(
     private val _uiState = MutableStateFlow(
         MenuDadoUiState(
             diceFilter = suggestedMealType,
-            formMealType = suggestedMealType
+            formMealType = suggestedMealType,
+            formAudience = formAudienceSelectionStore.getSelectedAudience()
         )
     )
     val uiState: StateFlow<MenuDadoUiState> = _uiState.asStateFlow()
@@ -389,6 +394,7 @@ class MenuDadoViewModel(
             ).withoutMenuFormDraft()
         }
         if (audience in state.enabledAudiences) {
+            formAudienceSelectionStore.saveSelectedAudience(audience)
             analytics.trackAudienceFilterSelected(ANALYTICS_SOURCE_FORM, audience, state.menus.size)
         }
     }
