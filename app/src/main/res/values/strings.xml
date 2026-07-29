@@ -116,7 +116,7 @@
     <string name="app_update_downloaded_body">La actualización ya se descargó. Instálala para reiniciar MenuDado con la nueva versión.</string>
     <string name="app_update_downloaded_reminder_body">La nueva versión está lista. Instálala cuando quieras reiniciar MenuDado.</string>
     <string name="app_update_install_action">Instalar</string>
-    <string name="about_reason">MenuDado se hizo para ayudar en esos momentos en los que no sabes qué comer. La app te permite guardar tus menús, elegir una opción con el dado y apoyarte con IA para encontrar ideas prácticas sin complicarte.</string>
+    <string name="about_reason">MenuDado nació para resolver una pregunta cotidiana: ¿qué preparo hoy? Genera ideas con IA adaptadas a tu perfil, guarda tus menús, deja que el dado te ayude a elegir y reúne los productos en tu lista de mercado. Puedes empezar sin registrarte y crear una cuenta gratis para conservar tus datos.</string>
     <string name="about_health_disclaimer_title">Aviso de salud</string>
     <string name="about_health_disclaimer_body">MenuDado ofrece ideas de comida con finalidad informativa. No es un dispositivo médico y no diagnostica, trata, cura ni previene ninguna condición médica. Consulta con un profesional sanitario para asesoramiento, diagnóstico o tratamiento médico.</string>
     <string name="about_privacy_policy">Política de privacidad</string>

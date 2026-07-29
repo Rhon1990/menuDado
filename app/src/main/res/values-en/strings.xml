@@ -116,7 +116,7 @@
     <string name="app_update_downloaded_body">The update has been downloaded. Install it to restart MenuDado with the new version.</string>
     <string name="app_update_downloaded_reminder_body">The new version is ready. Install it when you are ready to restart MenuDado.</string>
     <string name="app_update_install_action">Install</string>
-    <string name="about_reason">MenuDado was made to help in those moments when you do not know what to eat. The app lets you save menus, choose an option with the dice and use AI to find practical ideas without overcomplicating things.</string>
+    <string name="about_reason">MenuDado was created to answer an everyday question: what should I make today? It generates AI ideas tailored to your profile, saves your menus, lets the dice help you choose, and gathers the items in your shopping list. You can start without registering and create a free account to keep your data.</string>
     <string name="about_health_disclaimer_title">Health notice</string>
     <string name="about_health_disclaimer_body">MenuDado provides meal ideas for informational purposes. It is not a medical device and does not diagnose, treat, cure, or prevent any medical condition. Consult a healthcare professional for medical advice, diagnosis, or treatment.</string>
     <string name="about_privacy_policy">Privacy policy</string>
