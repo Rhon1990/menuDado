@@ -59,27 +59,28 @@ sin cruzar edades, idiomas ni momentos de comida.
 
 ## Modelo de datos
 
-`sharedAiMenus/{semanticHash}` conservará la identidad semántica actual y
-añadirá:
+Las contribuciones nuevas usarán una identidad remota v3:
 
 ```text
-scopeKeys: [sha256(version|language|mealType|audience)]
+scopeKey = sha256(v1|language|mealType|audience)
+sharedAiMenus/{scopedSemanticHash}
+scopedSemanticHash = sha256(v3|scopeKey|canonicalSemanticKey)
 ```
 
-Se usa una lista porque una misma receta semántica podría validarse y guardarse
-legítimamente para más de un tipo de comida o público en momentos distintos.
-Una transacción incorporará como máximo una nueva `scopeKey` mediante
-`arrayUnion`.
+Cada documento tendrá una única `scopeKey` inmutable. Incluir el ámbito en el ID
+garantiza que una receta adulta y otra para bebé nunca compartan el mismo
+contenido almacenado, aunque Gemini les asigne la misma clave culinaria. Dos
+perfiles alimentarios del mismo ámbito sí convergen en el mismo documento.
 
 `eligibilityKeys` se conservará durante la transición para que las versiones
 publicadas y los documentos existentes sigan funcionando. No se almacenarán
 valores legibles del perfil, UID, ingredientes libres ni identificadores del
 dispositivo.
 
-Los documentos existentes sin `scopeKeys` seguirán siendo válidos. No es
+Los documentos v2 existentes sin `scopeKey` seguirán siendo válidos. No es
 posible reconstruir su ámbito desde la `eligibilityKey`, porque es una huella
 irreversible; se utilizará una consulta heredada como respaldo hasta que esos
-documentos reciban una nueva contribución compatible.
+contenidos vuelvan a contribuir como documentos v3 independientes.
 
 ## Flujo de contribución
 
@@ -96,10 +97,11 @@ una receta detectada como incompatible no se compartirá.
 Al contribuir:
 
 1. se valida de nuevo la receta con el perfil y público vigentes;
-2. se calcula la identidad semántica v2;
+2. se canonicaliza la identidad culinaria con el algoritmo v2;
 3. se calcula la `scopeKey` sin restricciones alimentarias;
-4. se crea el documento o se añade el ámbito al documento existente;
-5. el guardado privado no se bloquea ni se revierte si la colmena falla.
+4. se calcula el ID v3 con la clave canónica y el ámbito;
+5. se crea o actualiza únicamente el documento de ese ámbito;
+6. el guardado privado no se bloquea ni se revierte si la colmena falla.
 
 Una receta recuperada como respaldo no vuelve a contribuir.
 
@@ -125,9 +127,9 @@ ilimitadas. No se harán llamadas adicionales a Gemini.
 ### Separación de públicos
 
 La `scopeKey` hace imposible que una consulta de `Bebé` recupere una receta
-registrada únicamente para `Adulto`. Una receta solo añade otro público a
-`scopeKeys` cuando una nueva generación para ese público supera su validación
-específica.
+registrada únicamente para `Adulto`. Si el mismo concepto se genera y valida
+para ambos públicos, se guarda en dos documentos v3 distintos y cada uno
+conserva el texto producido específicamente para su público.
 
 La validación local sigue siendo obligatoria aunque el ámbito coincida. La
 clave limita el conjunto remoto; no sustituye la barrera de seguridad.
@@ -155,15 +157,16 @@ fallos de la colmena sin presentar como fallido un menú que sí se conservó.
 
 Las reglas de Firestore:
 
-- aceptarán `scopeKeys` únicamente como lista de hashes SHA-256;
-- exigirán exactamente una `scopeKey` al crear documentos nuevos;
-- permitirán añadir como máximo una nueva `scopeKey` por actualización;
-- impedirán eliminar ámbitos existentes o modificar la receta compartida;
+- aceptarán `scopeKey` únicamente como un hash SHA-256;
+- exigirán `identityVersion == 3` y una `scopeKey` al crear documentos nuevos;
+- mantendrán la `scopeKey` inmutable durante las actualizaciones;
+- permitirán ampliar solo `eligibilityKeys` dentro del mismo documento;
+- impedirán modificar la receta compartida;
 - seguirán aceptando lecturas autenticadas de documentos heredados;
 - mantendrán la prohibición de borrado desde clientes.
 
-El mapper podrá leer documentos sin `scopeKeys`, pero toda creación nueva
-escribirá el campo. No se cambiará la colección ni la identidad del documento.
+El mapper podrá leer documentos v2 sin `scopeKey`, pero toda creación nueva
+escribirá el campo y usará identidad v3. No se cambiará la colección.
 
 ## Archivos previstos
 
@@ -197,7 +200,8 @@ el guardado privado ni la rotación local.
 
 ### Contribución y observabilidad
 
-- Una propuesta IA intacta escribe `scopeKeys` y conserva `eligibilityKeys`.
+- Una propuesta IA intacta escribe una `scopeKey`, identidad v3 y conserva
+  `eligibilityKeys`.
 - Una receta incompatible no se escribe.
 - Una identidad inválida no se escribe.
 - Colmena desactivada y error remoto producen resultados distintos.
@@ -206,9 +210,9 @@ el guardado privado ni la rotación local.
 
 ### Firestore
 
-- Las reglas aceptan una creación válida con una sola `scopeKey`.
-- Rechazan ámbitos sin hash, múltiples ámbitos iniciales o campos extra.
-- Permiten añadir un ámbito y rechazan eliminar o reemplazar los existentes.
+- Las reglas aceptan una creación v3 válida con una `scopeKey`.
+- Rechazan ámbitos sin hash, identidad antigua nueva o campos extra.
+- Rechazan cambiar o eliminar el ámbito de un documento existente.
 - Los documentos heredados continúan siendo legibles.
 
 ### Verificación final
@@ -227,10 +231,10 @@ el guardado privado ni la rotación local.
 - **Más lecturas por fallback:** límite remoto de 36 y uso exclusivo tras un
   fallo real de IA.
 - **Candidato incompatible:** validación local conservadora antes de mostrar.
-- **Mezcla de edades:** ámbito remoto estricto por público y segunda validación.
+- **Mezcla de edades:** identidad v3 distinta por ámbito, documento separado por
+  público y segunda validación local.
 - **Datos heredados sin ámbito:** consulta exacta de compatibilidad como
   respaldo temporal.
 - **Fallo remoto invisible:** resultado tipado y Analytics terminal.
 - **Abuso de escritura:** autenticación, App Check, reglas de forma e
   inmutabilidad del contenido existente.
-
