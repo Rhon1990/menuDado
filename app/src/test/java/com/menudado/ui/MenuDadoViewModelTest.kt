@@ -813,8 +813,8 @@ class MenuDadoViewModelTest {
             viewModel.generateMenuIdea()
 
             assertEquals(
-                "Hoy no podemos preparar más ideas para Cena · Peques (2-12 años). " +
-                    "Vuelve a intentarlo mañana.",
+                "Has alcanzado el límite diario de ideas para Cena · Peques (2-12 años). " +
+                    "Podrás volver a intentarlo mañana.",
                 viewModel.uiState.value.message
             )
             assertFalse(viewModel.uiState.value.canRequestRewardedGeneration)
@@ -2049,8 +2049,8 @@ class MenuDadoViewModelTest {
         assertEquals(0, analyzer.generateCalls)
         assertEquals(0, viewModel.uiState.value.aiUsesRemainingToday)
         assertEquals(
-            "Hoy no podemos preparar más ideas para Desayuno · Persona adulta (18+ años). " +
-                "Vuelve a intentarlo mañana.",
+            "Has alcanzado el límite diario de ideas para Desayuno · Persona adulta (18+ años). " +
+                "Podrás volver a intentarlo mañana.",
             viewModel.uiState.value.message
         )
         assertEquals(listOf("ai_daily_limit_reached:generate_menu"), analytics.events)
@@ -2685,8 +2685,8 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "Hoy no podemos preparar más ideas para Desayuno · Persona adulta (18+ años). " +
-                "Vuelve a intentarlo mañana.",
+            "Has alcanzado el límite diario de ideas para Desayuno · Persona adulta (18+ años). " +
+                "Podrás volver a intentarlo mañana.",
             viewModel.uiState.value.message
         )
         assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)

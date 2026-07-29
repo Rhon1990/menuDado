@@ -96,7 +96,7 @@ estas plantillas semánticas:
 
 | Causa | Mensaje en español |
 | --- | --- |
-| Límite técnico diario | `Hoy no podemos preparar más ideas para <contexto>. Vuelve a intentarlo mañana.` |
+| Límite técnico diario | `Has alcanzado el límite diario de ideas para <contexto>. Podrás volver a intentarlo mañana.` |
 | Cuota o alta demanda | `La IA está con mucha demanda y no pudo preparar una idea para <contexto><perfil>. Inténtalo más tarde.` |
 | Timeout | `La IA tardó demasiado y no pudo preparar una idea para <contexto><perfil>. Revisa tu conexión e inténtalo de nuevo.` |
 | Conectividad o fallo genérico | `No pudimos preparar una idea para <contexto><perfil>. Revisa tu conexión e inténtalo de nuevo.` |

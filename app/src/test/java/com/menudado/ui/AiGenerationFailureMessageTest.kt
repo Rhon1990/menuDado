@@ -21,8 +21,8 @@ class AiGenerationFailureMessageTest {
         )
 
         assertEquals(
-            "Hoy no podemos preparar más ideas para Almuerzo · Bebé (6-24 meses). " +
-                "Vuelve a intentarlo mañana.",
+            "Has alcanzado el límite diario de ideas para Almuerzo · Bebé (6-24 meses). " +
+                "Podrás volver a intentarlo mañana.",
             message
         )
     }
@@ -94,6 +94,27 @@ class AiGenerationFailureMessageTest {
                 "$reason omitted $expectedAction",
                 message.contains(expectedAction)
             )
+        }
+    }
+
+    @Test
+    fun `daily limit is explicit in every supported language`() {
+        val expectedLimitText = mapOf(
+            AppLanguage.SPANISH to "límite diario",
+            AppLanguage.ENGLISH to "daily idea limit",
+            AppLanguage.FRENCH to "limite quotidienne"
+        )
+
+        expectedLimitText.forEach { (language, expectedText) ->
+            val message = contextualAiGenerationFailureMessage(
+                language = language,
+                reason = AiGenerationFailureReason.DAILY_LIMIT,
+                mealType = MealType.LUNCH,
+                audience = MenuAudience.BABY,
+                profile = DietaryProfile(ageRange = "")
+            )
+
+            assertTrue(message.contains(expectedText, ignoreCase = true))
         }
     }
 

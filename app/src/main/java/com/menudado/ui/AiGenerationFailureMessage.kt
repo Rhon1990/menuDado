@@ -48,7 +48,8 @@ private fun AiGenerationFailureReason.spanishMessage(
     profileSuffix: String
 ): String = when (this) {
     AiGenerationFailureReason.DAILY_LIMIT ->
-        "Hoy no podemos preparar más ideas para $context. Vuelve a intentarlo mañana."
+        "Has alcanzado el límite diario de ideas para $context. " +
+            "Podrás volver a intentarlo mañana."
     AiGenerationFailureReason.HIGH_DEMAND ->
         "La IA está con mucha demanda y no pudo preparar una idea para " +
             "$context$profileSuffix. Inténtalo más tarde."
@@ -68,7 +69,7 @@ private fun AiGenerationFailureReason.englishMessage(
     profileSuffix: String
 ): String = when (this) {
     AiGenerationFailureReason.DAILY_LIMIT ->
-        "We can't prepare more ideas today for $context. Try again tomorrow."
+        "You've reached the daily idea limit for $context. You can try again tomorrow."
     AiGenerationFailureReason.HIGH_DEMAND ->
         "AI is in high demand and couldn't prepare an idea for " +
             "$context$profileSuffix. Try again later."
@@ -88,8 +89,8 @@ private fun AiGenerationFailureReason.frenchMessage(
     profileSuffix: String
 ): String = when (this) {
     AiGenerationFailureReason.DAILY_LIMIT ->
-        "Nous ne pouvons pas préparer plus d'idées aujourd'hui pour $context. " +
-            "Réessayez demain."
+        "Vous avez atteint la limite quotidienne d'idées pour $context. " +
+            "Vous pourrez réessayer demain."
     AiGenerationFailureReason.HIGH_DEMAND ->
         "L'IA est très demandée et n'a pas pu préparer d'idée pour " +
             "$context$profileSuffix. Réessayez plus tard."
