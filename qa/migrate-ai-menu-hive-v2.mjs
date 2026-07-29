@@ -102,6 +102,7 @@ function printPlan(options, documentCount, plan) {
   console.log(`Canonical writes: ${plan.writes.length}`);
   console.log(`Duplicate deletes: ${plan.deletes.length}`);
   console.log(`Skipped documents: ${plan.skipped.length}`);
+  console.log(`Similarity review groups: ${plan.reviewGroups.length}`);
   for (const write of plan.writes) {
     console.log(
       `- ${write.id}: ${write.sourceIds.length} source document(s), ` +
@@ -110,6 +111,12 @@ function printPlan(options, documentCount, plan) {
   }
   for (const skipped of plan.skipped) {
     console.log(`- SKIPPED ${skipped.id}: ${skipped.reason}`);
+  }
+  for (const group of plan.reviewGroups) {
+    console.log(
+      `- REVIEW ONLY ${group.ids.join(", ")} ` +
+      `(similarity ${group.similarity.toFixed(2)}; no automatic delete)`
+    );
   }
 }
 

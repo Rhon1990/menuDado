@@ -1,6 +1,7 @@
 package com.menudado.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -9,7 +10,9 @@ import org.junit.Test
 class AiMenuHiveIdentityTest {
     @Test
     fun `reported lentil salad variants share canonical identity`() {
-        val identities = identityFixtures().map { fixture ->
+        val identities = identityFixtures()
+            .filter { it.group == "lentil-salad" }
+            .map { fixture ->
             val identity = requireNotNull(
                 AiMenuHiveIdentity.from(fixture.language, fixture.rawKey)
             )
@@ -18,6 +21,22 @@ class AiMenuHiveIdentityTest {
         }
 
         assertEquals(1, identities.distinct().size)
+    }
+
+    @Test
+    fun `reported toast variants share canonical identity`() {
+        val identities = identityFixtures()
+            .filter { it.group == "toast-avocado-egg" }
+            .map { fixture ->
+                val identity = requireNotNull(
+                    AiMenuHiveIdentity.from(fixture.language, fixture.rawKey)
+                )
+                assertEquals(fixture.canonicalKey, identity.canonicalKey)
+                identity
+            }
+
+        assertEquals(1, identities.distinct().size)
+        assertEquals("toast|avocado|egg", identities.first().canonicalKey)
     }
 
     @Test
@@ -37,6 +56,38 @@ class AiMenuHiveIdentityTest {
 
         assertNotEquals(salad, stew)
         assertNotEquals(salad, chickpeas)
+    }
+
+    @Test
+    fun `same concepts remain equivalent when model changes their position`() {
+        assertTrue(
+            AiMenuHiveIdentity.areSimilar(
+                "toast|avocado+egg|assembled",
+                "toast|avocado|egg+assembled"
+            )
+        )
+    }
+
+    @Test
+    fun `minor garnish is similar but ingredient or technique changes are not`() {
+        assertTrue(
+            AiMenuHiveIdentity.areSimilar(
+                "toast|avocado+egg|assembled",
+                "tostada|aguacate+huevo+cilantro|montada"
+            )
+        )
+        assertFalse(
+            AiMenuHiveIdentity.areSimilar(
+                "salad|chicken+tomato|mixed",
+                "salad|chicken+avocado|mixed"
+            )
+        )
+        assertFalse(
+            AiMenuHiveIdentity.areSimilar(
+                "potato|potato|fried",
+                "potato|potato|baked"
+            )
+        )
     }
 
     @Test
@@ -123,8 +174,9 @@ class AiMenuHiveIdentityTest {
         )
         return resource.bufferedReader().useLines { lines ->
             lines.filter(String::isNotBlank).map { line ->
-                val (language, rawKey, canonicalKey) = line.split('\t')
+                val (group, language, rawKey, canonicalKey) = line.split('\t')
                 IdentityFixture(
+                    group = group,
                     language = AppLanguage.valueOf(language),
                     rawKey = rawKey,
                     canonicalKey = canonicalKey
@@ -135,6 +187,7 @@ class AiMenuHiveIdentityTest {
 }
 
 private data class IdentityFixture(
+    val group: String,
     val language: AppLanguage,
     val rawKey: String,
     val canonicalKey: String

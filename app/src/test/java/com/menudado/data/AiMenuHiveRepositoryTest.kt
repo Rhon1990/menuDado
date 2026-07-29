@@ -179,6 +179,84 @@ class AiMenuHiveRepositoryTest {
     }
 
     @Test
+    fun `reported multilingual toast documents count as one candidate`() = runTest {
+        val first = legacySharedMenu(
+            key = "toast|avocado|egg",
+            storedHash = "3".repeat(64)
+        )
+        val second = legacySharedMenu(
+            key = "tostada|aguacate|huevo",
+            storedHash = "4".repeat(64)
+        )
+        var selectableCount = 0
+        val repository = AiMenuHiveRepository(
+            dataSource = RecordingAiMenuHiveDataSource(
+                server = Result.success(listOf(first, second))
+            ),
+            featureToggle = AiMenuHiveFeatureToggle(true)
+        ) { size ->
+            selectableCount = size
+            0
+        }
+
+        repository.findCompatibleMenu(request()).getOrThrow()
+
+        assertEquals(1, selectableCount)
+    }
+
+    @Test
+    fun `minor garnish variants count as one candidate`() = runTest {
+        val first = legacySharedMenu(
+            key = "toast|avocado+egg|assembled",
+            storedHash = "5".repeat(64)
+        )
+        val second = legacySharedMenu(
+            key = "tostada|aguacate+huevo+cilantro|montada",
+            storedHash = "6".repeat(64)
+        )
+        var selectableCount = 0
+        val repository = AiMenuHiveRepository(
+            dataSource = RecordingAiMenuHiveDataSource(
+                server = Result.success(listOf(first, second))
+            ),
+            featureToggle = AiMenuHiveFeatureToggle(true)
+        ) { size ->
+            selectableCount = size
+            0
+        }
+
+        repository.findCompatibleMenu(request()).getOrThrow()
+
+        assertEquals(1, selectableCount)
+    }
+
+    @Test
+    fun `different preparation variants remain separate candidates`() = runTest {
+        val fried = legacySharedMenu(
+            key = "potato|potato|fried",
+            storedHash = "7".repeat(64)
+        )
+        val baked = legacySharedMenu(
+            key = "potato|potato|baked",
+            storedHash = "8".repeat(64)
+        )
+        var selectableCount = 0
+        val repository = AiMenuHiveRepository(
+            dataSource = RecordingAiMenuHiveDataSource(
+                server = Result.success(listOf(fried, baked))
+            ),
+            featureToggle = AiMenuHiveFeatureToggle(true)
+        ) { size ->
+            selectableCount = size
+            0
+        }
+
+        repository.findCompatibleMenu(request()).getOrThrow()
+
+        assertEquals(2, selectableCount)
+    }
+
+    @Test
     fun `disabled hive performs no read or contribution`() = runTest {
         val dataSource = RecordingAiMenuHiveDataSource()
         val repository = AiMenuHiveRepository(dataSource, AiMenuHiveFeatureToggle(false)) { 0 }

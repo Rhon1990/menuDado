@@ -153,7 +153,7 @@ class AiMenuHiveRepository(
         val safe = candidates
             .mapNotNull(SharedAiMenu::canonicalized)
             .filter { request.profile.accepts(it.generatedMenu) }
-            .distinctBy(SharedAiMenu::semanticHash)
+            .collapseSimilarCandidates()
         if (safe.isEmpty()) return null
         val unseen = safe.filterNot { it.semanticHash in request.recentSemanticHashes }
         val startsNewCycle = unseen.isEmpty()
@@ -172,6 +172,20 @@ class AiMenuHiveRepository(
             startsNewCycle = startsNewCycle
         )
     }
+}
+
+private fun List<SharedAiMenu>.collapseSimilarCandidates(): List<SharedAiMenu> = buildList {
+    this@collapseSimilarCandidates
+        .sortedBy(SharedAiMenu::semanticHash)
+        .forEach { candidate ->
+            val alreadyRepresented = any { existing ->
+                AiMenuHiveIdentity.areSimilar(
+                    existing.semanticKey,
+                    candidate.semanticKey
+                )
+            }
+            if (!alreadyRepresented) add(candidate)
+        }
 }
 
 private fun SharedAiMenu.canonicalized(): SharedAiMenu? {

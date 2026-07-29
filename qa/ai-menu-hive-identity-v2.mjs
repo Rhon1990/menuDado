@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
+const SIMILARITY_THRESHOLD = 0.80;
 const SUPPORTED_LANGUAGES = new Set(["SPANISH", "ENGLISH", "FRENCH"]);
 const COMPONENT_ALIASES = new Map([
   ["spaghetti", "pasta"],
@@ -9,6 +10,46 @@ const COMPONENT_ALIASES = new Map([
   ["macaroni", "pasta"],
   ["macarron", "pasta"],
   ["macarrones", "pasta"],
+  ["toast", "toast"],
+  ["toasts", "toast"],
+  ["tostada", "toast"],
+  ["tostadas", "toast"],
+  ["tartine", "toast"],
+  ["tartines", "toast"],
+  ["salad", "salad"],
+  ["salads", "salad"],
+  ["ensalada", "salad"],
+  ["ensaladas", "salad"],
+  ["salade", "salad"],
+  ["salades", "salad"],
+  ["soup", "soup"],
+  ["soups", "soup"],
+  ["sopa", "soup"],
+  ["sopas", "soup"],
+  ["soupe", "soup"],
+  ["soupes", "soup"],
+  ["stew", "stew"],
+  ["stews", "stew"],
+  ["guiso", "stew"],
+  ["guisos", "stew"],
+  ["estofado", "stew"],
+  ["estofados", "stew"],
+  ["ragout", "stew"],
+  ["ragouts", "stew"],
+  ["bowl", "bowl"],
+  ["bowls", "bowl"],
+  ["bol", "bowl"],
+  ["boles", "bowl"],
+  ["bols", "bowl"],
+  ["sandwich", "sandwich"],
+  ["sandwiches", "sandwich"],
+  ["bocadillo", "sandwich"],
+  ["bocadillos", "sandwich"],
+  ["omelette", "omelette"],
+  ["omelettes", "omelette"],
+  ["omelet", "omelette"],
+  ["omelets", "omelette"],
+  ["tortilla francesa", "omelette"],
   ["tomate", "tomato"],
   ["tomates", "tomato"],
   ["lenteja", "lentils"],
@@ -17,6 +58,32 @@ const COMPONENT_ALIASES = new Map([
   ["vegetable", "vegetables"],
   ["verdura", "vegetables"],
   ["verduras", "vegetables"],
+  ["avocados", "avocado"],
+  ["aguacate", "avocado"],
+  ["aguacates", "avocado"],
+  ["avocat", "avocado"],
+  ["avocats", "avocado"],
+  ["eggs", "egg"],
+  ["huevo", "egg"],
+  ["huevos", "egg"],
+  ["oeuf", "egg"],
+  ["oeufs", "egg"],
+  ["pollo", "chicken"],
+  ["pollos", "chicken"],
+  ["poulet", "chicken"],
+  ["poulets", "chicken"],
+  ["arroz", "rice"],
+  ["riz", "rice"],
+  ["chickpea", "chickpeas"],
+  ["garbanzo", "chickpeas"],
+  ["garbanzos", "chickpeas"],
+  ["pois chiche", "chickpeas"],
+  ["pois chiches", "chickpeas"],
+  ["potatoes", "potato"],
+  ["patata", "potato"],
+  ["patatas", "potato"],
+  ["pomme de terre", "potato"],
+  ["pommes de terre", "potato"],
   ["salsa", "sauce"],
   ["salsa de tomate", "sauce"]
 ]);
@@ -27,19 +94,55 @@ const PREPARATION_ALIASES = new Map([
   ["tossed", "mixed"],
   ["mezcla", "mixed"],
   ["mezclado", "mixed"],
-  ["mezclada", "mixed"]
+  ["mezclada", "mixed"],
+  ["melange", "mixed"],
+  ["melangee", "mixed"],
+  ["assembled", "assembled"],
+  ["mounted", "assembled"],
+  ["montado", "assembled"],
+  ["montada", "assembled"],
+  ["monte", "assembled"],
+  ["montee", "assembled"],
+  ["fried", "fried"],
+  ["frito", "fried"],
+  ["frita", "fried"],
+  ["frit", "fried"],
+  ["frite", "fried"],
+  ["baked", "baked"],
+  ["horneado", "baked"],
+  ["horneada", "baked"],
+  ["au four", "baked"],
+  ["grilled", "grilled"],
+  ["a la plancha", "grilled"],
+  ["plancha", "grilled"],
+  ["parrilla", "grilled"],
+  ["grille", "grilled"],
+  ["grillee", "grilled"],
+  ["boiled", "boiled"],
+  ["cocido", "boiled"],
+  ["cocida", "boiled"],
+  ["hervido", "boiled"],
+  ["hervida", "boiled"],
+  ["bouilli", "boiled"],
+  ["bouillie", "boiled"],
+  ["stewed", "stewed"],
+  ["guisado", "stewed"],
+  ["guisada", "stewed"],
+  ["estofado", "stewed"],
+  ["estofada", "stewed"],
+  ["mijote", "stewed"],
+  ["mijotee", "stewed"],
+  ["roasted", "roasted"],
+  ["asado", "roasted"],
+  ["asada", "roasted"],
+  ["roti", "roasted"],
+  ["rotie", "roasted"]
 ]);
 
 export function canonicalIdentity(language, rawKey) {
   if (!SUPPORTED_LANGUAGES.has(language)) return null;
-  const rawParts = String(rawKey ?? "").split("|");
-  if (rawParts.length !== 3) return null;
-  const parts = [
-    canonicalComponent(rawParts[0]),
-    canonicalIngredients(rawParts[1]),
-    canonicalPreparation(rawParts[2])
-  ];
-  if (parts.some((part) => part.length === 0)) return null;
+  const parts = canonicalParts(rawKey);
+  if (!parts) return null;
   const canonicalKey = parts.join("|");
   return {
     canonicalKey,
@@ -47,6 +150,29 @@ export function canonicalIdentity(language, rawKey) {
       .update(`${language}|${canonicalKey}`, "utf8")
       .digest("hex")
   };
+}
+
+export function conceptSignature(rawKey) {
+  const parts = canonicalParts(rawKey);
+  if (!parts) return null;
+  return {
+    family: parts[0],
+    concepts: new Set(parts.flatMap((part) => part.split("+")).filter(Boolean))
+  };
+}
+
+export function identitySimilarity(firstKey, secondKey) {
+  const first = conceptSignature(firstKey);
+  const second = conceptSignature(secondKey);
+  if (!first || !second) return 0;
+  if (setsEqual(first.concepts, second.concepts)) return 1;
+  if (first.family !== second.family) return 0;
+  const union = new Set([...first.concepts, ...second.concepts]);
+  if (union.size === 0) return 0;
+  const intersectionSize = [...first.concepts]
+    .filter((concept) => second.concepts.has(concept))
+    .length;
+  return intersectionSize / union.size;
 }
 
 export function buildMigrationPlan(documents) {
@@ -107,25 +233,38 @@ export function buildMigrationPlan(documents) {
     );
   }
 
+  const sortedWrites = writes.sort((left, right) => left.id.localeCompare(right.id));
   return {
-    writes: writes.sort((left, right) => left.id.localeCompare(right.id)),
+    writes: sortedWrites,
     deletes: [...new Set(deletes)].sort(),
-    skipped: skipped.sort((left, right) => left.id.localeCompare(right.id))
+    skipped: skipped.sort((left, right) => left.id.localeCompare(right.id)),
+    reviewGroups: similarityReviewGroups(sortedWrites)
   };
+}
+
+function canonicalParts(rawKey) {
+  const rawParts = String(rawKey ?? "").split("|");
+  if (rawParts.length !== 3) return null;
+  const parts = [
+    canonicalSegment(rawParts[0], canonicalComponent),
+    canonicalSegment(rawParts[1], canonicalComponent),
+    canonicalSegment(rawParts[2], canonicalPreparation)
+  ];
+  return parts.some((part) => part.length === 0) ? null : parts;
+}
+
+function canonicalSegment(value, canonicalizer) {
+  return [...new Set(
+    String(value ?? "")
+      .split(/[+,]/)
+      .map(canonicalizer)
+      .filter(Boolean)
+  )].sort().join("+");
 }
 
 function canonicalComponent(value) {
   const normalized = normalize(value);
   return COMPONENT_ALIASES.get(normalized) ?? normalized;
-}
-
-function canonicalIngredients(value) {
-  return [...new Set(
-    String(value ?? "")
-      .split(/[+,]/)
-      .map(canonicalComponent)
-      .filter(Boolean)
-  )].sort().join("+");
 }
 
 function canonicalPreparation(value) {
@@ -135,12 +274,44 @@ function canonicalPreparation(value) {
 
 function normalize(value) {
   return String(value ?? "")
+    .toLowerCase()
+    .replaceAll("œ", "oe")
+    .replaceAll("æ", "ae")
     .normalize("NFD")
     .replace(/\p{M}+/gu, "")
-    .toLowerCase()
     .replace(/[^a-z0-9 ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function similarityReviewGroups(writes) {
+  const groups = [];
+  for (let firstIndex = 0; firstIndex < writes.length; firstIndex += 1) {
+    for (
+      let secondIndex = firstIndex + 1;
+      secondIndex < writes.length;
+      secondIndex += 1
+    ) {
+      const first = writes[firstIndex];
+      const second = writes[secondIndex];
+      const similarity = identitySimilarity(
+        first.data.semanticKey,
+        second.data.semanticKey
+      );
+      if (similarity >= SIMILARITY_THRESHOLD) {
+        groups.push({
+          ids: [first.id, second.id].sort(),
+          similarity
+        });
+      }
+    }
+  }
+  return groups;
+}
+
+function setsEqual(first, second) {
+  return first.size === second.size &&
+    [...first].every((value) => second.has(value));
 }
 
 function invalidDocumentReason(document) {
