@@ -1059,7 +1059,8 @@ class MenuDadoViewModel(
                 }
             }
             AiGenerationAccess.REWARDED_OFFER -> showRewardedGenerationOffer()
-            AiGenerationAccess.HARD_LIMIT -> showAiHardLimitNotice(AI_SOURCE_GENERATE_MENU)
+            AiGenerationAccess.HARD_LIMIT ->
+                showAiHardLimitNotice(AI_SOURCE_GENERATE_MENU, request)
         }
     }
 
@@ -1089,7 +1090,7 @@ class MenuDadoViewModel(
         val dateKey = currentPacificDateKey()
         val ledger = rewardedAiCreditStore.getLedger(activeAiUsageScope, dateKey)
         if (ledger.earnedCount >= MAX_REWARDED_AI_CREDITS_PER_DAY) {
-            showAiHardLimitNotice(AI_SOURCE_GENERATE_MENU)
+            showAiHardLimitNotice(AI_SOURCE_GENERATE_MENU, request)
             return
         }
         rewardedAiCreditStore.saveLedger(
@@ -1341,12 +1342,23 @@ class MenuDadoViewModel(
         )
         val fallback = hiveResult.getOrNull()
         if (fallback == null) {
+            val reason = preparedFailureNotice?.generationReason
+                ?: AiGenerationFailureReason.DAILY_LIMIT
+            val contextualMessage = contextualAiGenerationFailureMessage(
+                language = currentLanguage(),
+                reason = reason,
+                mealType = request.mealType,
+                audience = request.audience,
+                profile = request.profile
+            )
             if (preparedFailureNotice != null) {
-                showPreparedAiFailureNotice(preparedFailureNotice)
+                showPreparedAiFailureNotice(
+                    preparedFailureNotice.copy(message = contextualMessage)
+                )
             } else {
                 _uiState.update {
                     it.copy(
-                        message = currentLanguage().aiLocalDailyLimitMessage(),
+                        message = contextualMessage,
                         isAiRetryNoticeVisible = false
                     )
                 }
@@ -1498,12 +1510,24 @@ class MenuDadoViewModel(
         return false
     }
 
-    private fun showAiHardLimitNotice(source: String) {
+    private fun showAiHardLimitNotice(
+        source: String,
+        request: ValidatedGenerationRequest? = null
+    ) {
         val retryAtMillis = nextPacificMidnightMillis(clockMillisProvider())
+        val message = request?.let {
+            contextualAiGenerationFailureMessage(
+                language = currentLanguage(),
+                reason = AiGenerationFailureReason.DAILY_LIMIT,
+                mealType = it.mealType,
+                audience = it.audience,
+                profile = it.profile
+            )
+        } ?: currentLanguage().aiLocalDailyLimitMessage()
         pendingRewardedGenerationRequest = null
         _uiState.update {
             it.copy(
-                message = currentLanguage().aiLocalDailyLimitMessage(),
+                message = message,
                 aiRetryAtMillis = retryAtMillis,
                 isAiRequestThrottlePause = false,
                 isAiRetryNoticeVisible = true,
@@ -2287,7 +2311,8 @@ class MenuDadoViewModel(
 
 private data class AiFailureNotice(
     val message: String,
-    val retryAtMillis: Long? = null
+    val retryAtMillis: Long? = null,
+    val generationReason: AiGenerationFailureReason
 )
 
 private fun Throwable.toAiFailureNotice(nowMillis: Long, language: AppLanguage): AiFailureNotice {
@@ -2297,29 +2322,37 @@ private fun Throwable.toAiFailureNotice(nowMillis: Long, language: AppLanguage):
             val quotaLimitType = classifyAiQuotaLimitType(text)
             AiFailureNotice(
                 message = quotaLimitType.message(language),
-                retryAtMillis = text.retryAtMillis(nowMillis) ?: nextPacificMidnightMillis(nowMillis)
+                retryAtMillis = text.retryAtMillis(nowMillis) ?: nextPacificMidnightMillis(nowMillis),
+                generationReason = AiGenerationFailureReason.HIGH_DEMAND
             )
         }
         this is ServiceDisabledException ||
             this is APINotConfiguredException ||
             "service_disabled" in text ||
             "api_key_service_blocked" in text -> AiFailureNotice(
-                language.aiConfigurationMessage()
+                message = language.aiConfigurationMessage(),
+                generationReason = AiGenerationFailureReason.SERVICE_UNAVAILABLE
             )
         this is InvalidAPIKeyException ||
             "api key not valid" in text -> AiFailureNotice(
-                language.aiInvalidApiKeyMessage()
+                message = language.aiInvalidApiKeyMessage(),
+                generationReason = AiGenerationFailureReason.SERVICE_UNAVAILABLE
             )
         this is RequestTimeoutException ||
             this is TimeoutCancellationException ||
             "timeout" in text ||
             "timed out" in text -> AiFailureNotice(
-                language.aiTimeoutMessage()
+                message = language.aiTimeoutMessage(),
+                generationReason = AiGenerationFailureReason.TIMEOUT
             )
         text.isAiProviderInternalFailure() -> AiFailureNotice(
-            language.aiTemporaryServiceMessage()
+            message = language.aiTemporaryServiceMessage(),
+            generationReason = AiGenerationFailureReason.SERVICE_UNAVAILABLE
         )
-        else -> AiFailureNotice(language.aiGenericFailureMessage())
+        else -> AiFailureNotice(
+            message = language.aiGenericFailureMessage(),
+            generationReason = AiGenerationFailureReason.CONNECTION
+        )
     }
 }
 

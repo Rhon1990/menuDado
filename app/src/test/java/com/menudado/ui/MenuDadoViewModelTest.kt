@@ -630,7 +630,8 @@ class MenuDadoViewModelTest {
         assertFalse(state.isGeneratingMenu)
         assertFalse(state.showGeneratedMenuDetail)
         assertEquals(
-            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
+            "La IA está con mucha demanda y no pudo preparar una idea para " +
+                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
             state.message
         )
         assertTrue(state.isAiRetryNoticeVisible)
@@ -771,18 +772,53 @@ class MenuDadoViewModelTest {
     }
 
     @Test
-    fun `hive miss preserves original localized failure`() = runTest(dispatcher) {
+    fun `provider failure and hive miss show requested baby context`() = runTest(dispatcher) {
         analyzer.generateFailure = IllegalStateException("internal")
         hive.searchResult = Result.success(null)
+        viewModel.setDietaryProfileAudience(MenuAudience.BABY)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+        viewModel.updateDietaryProfileAgeRange("8-10 meses")
+        viewModel.setFormMealType(MealType.LUNCH)
+        viewModel.setFormAudience(MenuAudience.BABY)
 
         viewModel.generateMenuIdea()
         advanceUntilIdle()
 
         assertEquals(
-            "El servicio tuvo un problema temporal. Inténtalo nuevamente más tarde.",
+            "No pudimos preparar una idea para Almuerzo · Bebé (8-10 meses) " +
+                "en este momento. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
     }
+
+    @Test
+    fun `provider cap hard limit shows context without offering an ad`() =
+        runTest(dispatcher) {
+            scopedAiUsageStore.seed(
+                LOCAL_ACCOUNT_AI_USAGE_SCOPE,
+                "2026-06-10",
+                usedCount = 10
+            )
+            scopedAiUsageStore.seed(
+                PROVIDER_AI_USAGE_SCOPE,
+                "2026-06-10",
+                usedCount = AI_PROVIDER_DAILY_HARD_LIMIT
+            )
+            viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+            viewModel.setDietaryProfileAudienceEnabled(true)
+            viewModel.setFormMealType(MealType.DINNER)
+            viewModel.setFormAudience(MenuAudience.CHILD)
+            viewModel.updateGuestAccess(false, true, true)
+
+            viewModel.generateMenuIdea()
+
+            assertEquals(
+                "Hoy no podemos preparar más ideas para Cena · Peques (2-12 años). " +
+                    "Vuelve a intentarlo mañana.",
+                viewModel.uiState.value.message
+            )
+            assertFalse(viewModel.uiState.value.canRequestRewardedGeneration)
+        }
 
     @Test
     fun `local validation never queries hive`() = runTest(dispatcher) {
@@ -1967,7 +2003,11 @@ class MenuDadoViewModelTest {
         runCurrent()
 
         assertFalse(viewModel.uiState.value.isGeneratingMenu)
-        assertEquals("La IA tardó demasiado en responder. Revisa la conexión e inténtalo de nuevo.", viewModel.uiState.value.message)
+        assertEquals(
+            "La IA tardó demasiado y no pudo preparar una idea para " +
+                "Desayuno · Persona adulta (18+ años). Revisa tu conexión e inténtalo de nuevo.",
+            viewModel.uiState.value.message
+        )
         assertEquals(1, analyzer.generateCalls)
     }
 
@@ -2006,7 +2046,11 @@ class MenuDadoViewModelTest {
 
         assertEquals(0, analyzer.generateCalls)
         assertEquals(0, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals("Has usado la IA gratuita de MenuDado por hoy. Tus menús siguen disponibles y podrás intentarlo más tarde.", viewModel.uiState.value.message)
+        assertEquals(
+            "Hoy no podemos preparar más ideas para Desayuno · Persona adulta (18+ años). " +
+                "Vuelve a intentarlo mañana.",
+            viewModel.uiState.value.message
+        )
         assertEquals(listOf("ai_daily_limit_reached:generate_menu"), analytics.events)
     }
 
@@ -2568,7 +2612,8 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
+            "La IA está con mucha demanda y no pudo preparar una idea para " +
+                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -2592,7 +2637,8 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
+            "La IA está con mucha demanda y no pudo preparar una idea para " +
+                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
             viewModel.uiState.value.message
         )
     }
@@ -2614,7 +2660,8 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
+            "La IA está con mucha demanda y no pudo preparar una idea para " +
+                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
             viewModel.uiState.value.message
         )
     }
@@ -2636,7 +2683,8 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
+            "La IA está con mucha demanda y no pudo preparar una idea para " +
+                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
             viewModel.uiState.value.message
         )
     }
@@ -2656,7 +2704,8 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "El servicio tuvo un problema temporal. Inténtalo nuevamente más tarde.",
+            "No pudimos preparar una idea para Desayuno · Persona adulta (18+ años) " +
+                "en este momento. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertNull(viewModel.uiState.value.aiRetryAtMillis)
