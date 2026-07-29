@@ -138,6 +138,17 @@ const PREPARATION_ALIASES = new Map([
   ["roti", "roasted"],
   ["rotie", "roasted"]
 ]);
+const CONCEPT_ALIASES = new Map([
+  ...COMPONENT_ALIASES,
+  ...PREPARATION_ALIASES,
+  ["stewed", "stew"],
+  ["guisado", "stew"],
+  ["guisada", "stew"],
+  ["estofado", "stew"],
+  ["estofada", "stew"],
+  ["mijote", "stew"],
+  ["mijotee", "stew"]
+]);
 
 export function canonicalIdentity(language, rawKey) {
   if (!SUPPORTED_LANGUAGES.has(language)) return null;
@@ -153,11 +164,19 @@ export function canonicalIdentity(language, rawKey) {
 }
 
 export function conceptSignature(rawKey) {
-  const parts = canonicalParts(rawKey);
-  if (!parts) return null;
+  const rawParts = String(rawKey ?? "").split("|");
+  if (rawParts.length !== 3) return null;
+  const family = canonicalSegment(rawParts[0], canonicalComponent);
+  const concepts = new Set(
+    rawParts
+      .flatMap((part) => part.split(/[+,]/))
+      .map(canonicalConcept)
+      .filter(Boolean)
+  );
+  if (!family || concepts.size === 0) return null;
   return {
-    family: parts[0],
-    concepts: new Set(parts.flatMap((part) => part.split("+")).filter(Boolean))
+    family,
+    concepts
   };
 }
 
@@ -242,6 +261,20 @@ export function buildMigrationPlan(documents) {
   };
 }
 
+export function refreshMigrationWrite(plannedWrite, currentDocuments) {
+  const refreshedPlan = buildMigrationPlan(currentDocuments);
+  const refreshedWrite = refreshedPlan.writes
+    .find(({ id }) => id === plannedWrite.id);
+  if (
+    refreshedPlan.skipped.length > 0 ||
+    refreshedPlan.writes.length !== 1 ||
+    !refreshedWrite
+  ) {
+    throw new Error(`Migration group changed while applying ${plannedWrite.id}`);
+  }
+  return refreshedWrite;
+}
+
 function canonicalParts(rawKey) {
   const rawParts = String(rawKey ?? "").split("|");
   if (rawParts.length !== 3) return null;
@@ -270,6 +303,11 @@ function canonicalComponent(value) {
 function canonicalPreparation(value) {
   const normalized = normalize(value);
   return PREPARATION_ALIASES.get(normalized) ?? canonicalComponent(normalized);
+}
+
+function canonicalConcept(value) {
+  const normalized = normalize(value);
+  return CONCEPT_ALIASES.get(normalized) ?? normalized;
 }
 
 function normalize(value) {

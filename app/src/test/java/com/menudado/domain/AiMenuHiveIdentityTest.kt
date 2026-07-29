@@ -66,6 +66,12 @@ class AiMenuHiveIdentityTest {
                 "toast|avocado|egg+assembled"
             )
         )
+        assertTrue(
+            AiMenuHiveIdentity.areSimilar(
+                "toast|avocado+egg|assembled",
+                "tostada|aguacate+montada|huevo"
+            )
+        )
     }
 
     @Test

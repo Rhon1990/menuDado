@@ -151,6 +151,7 @@ class AiMenuHiveRepository(
         request: AiMenuHiveSearchRequest
     ): HiveSelection? {
         val safe = candidates
+            .sortedBy(SharedAiMenu::semanticHash)
             .mapNotNull(SharedAiMenu::canonicalized)
             .filter { request.profile.accepts(it.generatedMenu) }
             .collapseSimilarCandidates()
@@ -175,17 +176,15 @@ class AiMenuHiveRepository(
 }
 
 private fun List<SharedAiMenu>.collapseSimilarCandidates(): List<SharedAiMenu> = buildList {
-    this@collapseSimilarCandidates
-        .sortedBy(SharedAiMenu::semanticHash)
-        .forEach { candidate ->
-            val alreadyRepresented = any { existing ->
-                AiMenuHiveIdentity.areSimilar(
-                    existing.semanticKey,
-                    candidate.semanticKey
-                )
-            }
-            if (!alreadyRepresented) add(candidate)
+    this@collapseSimilarCandidates.forEach { candidate ->
+        val alreadyRepresented = any { existing ->
+            AiMenuHiveIdentity.areSimilar(
+                existing.semanticKey,
+                candidate.semanticKey
+            )
         }
+        if (!alreadyRepresented) add(candidate)
+    }
 }
 
 private fun SharedAiMenu.canonicalized(): SharedAiMenu? {

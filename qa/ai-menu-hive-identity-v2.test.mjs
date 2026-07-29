@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import {
   buildMigrationPlan,
   canonicalIdentity,
-  identitySimilarity
+  identitySimilarity,
+  refreshMigrationWrite
 } from "./ai-menu-hive-identity-v2.mjs";
 import { parseMigrationArguments } from "./migrate-ai-menu-hive-v2.mjs";
 
@@ -124,6 +125,13 @@ test("concept similarity tolerates positions and one minor garnish", () => {
   assert.equal(
     identitySimilarity(
       "toast|avocado+egg|assembled",
+      "tostada|aguacate+montada|huevo"
+    ),
+    1
+  );
+  assert.equal(
+    identitySimilarity(
+      "toast|avocado+egg|assembled",
       "tostada|aguacate+huevo+cilantro|montada"
     ),
     0.8
@@ -166,6 +174,42 @@ test("near-only migration matches are review-only", () => {
       similarity: 0.8
     }
   ]);
+});
+
+test("migration refresh preserves concurrent eligibility updates", () => {
+  const canonicalId =
+    "c4aeb4543dee6ba5d9e7ae72fcc5b322a1009879292e5033d3863fa21ff0e32d";
+  const legacyId =
+    "547f2c44bdefc54d2181b50fc1cb3ef5ad4c062b44753dc4c6a740052568ab99";
+  const initialDocuments = [
+    legacyDocument(canonicalId, "toast|avocado|egg", 2),
+    legacyDocument(legacyId, "tostada|aguacate|huevo", 1)
+  ];
+  const plannedWrite = buildMigrationPlan(initialDocuments).writes[0];
+  const currentDocuments = [
+    {
+      ...initialDocuments[0],
+      data: {
+        ...initialDocuments[0].data,
+        eligibilityKeys: ["2".repeat(64), "4".repeat(64)]
+      }
+    },
+    {
+      ...initialDocuments[1],
+      data: {
+        ...initialDocuments[1].data,
+        eligibilityKeys: ["1".repeat(64), "3".repeat(64)]
+      }
+    }
+  ];
+
+  const refreshed = refreshMigrationWrite(plannedWrite, currentDocuments);
+
+  assert.equal(refreshed.id, canonicalId);
+  assert.deepEqual(
+    refreshed.data.eligibilityKeys,
+    ["1".repeat(64), "2".repeat(64), "3".repeat(64), "4".repeat(64)]
+  );
 });
 
 test("invalid identity is skipped instead of being deleted", () => {

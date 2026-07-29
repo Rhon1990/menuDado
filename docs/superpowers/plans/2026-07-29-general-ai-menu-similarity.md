@@ -291,6 +291,11 @@ order and return:
 
 `reviewGroups` must never add IDs to `deletes`.
 
+Apply each exact group in a Firestore transaction that reads the canonical
+target and every source before writing or deleting. Rebuild that group from the
+transaction snapshots so concurrent `eligibilityKeys` are included and cause a
+transaction retry rather than being lost.
+
 - [ ] **Step 4: Print review-only groups**
 
 Update the CLI summary with:

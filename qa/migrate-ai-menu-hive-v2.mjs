@@ -2,7 +2,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { buildMigrationPlan } from "./ai-menu-hive-identity-v2.mjs";
+import {
+  buildMigrationPlan,
+  refreshMigrationWrite
+} from "./ai-menu-hive-identity-v2.mjs";
 
 const COLLECTION = "sharedAiMenus";
 
@@ -70,20 +73,15 @@ async function main() {
     );
     console.log(`Backup written before changes: ${backupPath}`);
 
-    for (const write of plan.writes) {
-      const reference = firestore.collection(COLLECTION).doc(write.id);
-      await reference.set({
-        ...write.data,
-        identityVersion: 2,
-        updatedAt: FieldValue.serverTimestamp()
-      });
+    for (const plannedWrite of plan.writes) {
+      const appliedWrite = await applyMigrationWrite(
+        firestore,
+        FieldValue,
+        plannedWrite
+      );
+      const reference = firestore.collection(COLLECTION).doc(appliedWrite.id);
       const verified = await reference.get();
-      validateAppliedDocument(write, verified);
-
-      const duplicateIds = write.sourceIds.filter((id) => id !== write.id);
-      for (const duplicateId of duplicateIds) {
-        await firestore.collection(COLLECTION).doc(duplicateId).delete();
-      }
+      validateAppliedDocument(appliedWrite, verified);
     }
 
     console.log(
@@ -93,6 +91,44 @@ async function main() {
   } finally {
     await firestore.terminate();
   }
+}
+
+async function applyMigrationWrite(firestore, FieldValue, plannedWrite) {
+  const documentIds = [...new Set([
+    ...plannedWrite.sourceIds,
+    plannedWrite.id
+  ])];
+  const references = documentIds.map((id) =>
+    firestore.collection(COLLECTION).doc(id)
+  );
+
+  return firestore.runTransaction(async (transaction) => {
+    const snapshots = await transaction.getAll(...references);
+    const currentDocuments = snapshots
+      .filter((snapshot) => snapshot.exists)
+      .map((snapshot) => ({
+        id: snapshot.id,
+        data: snapshot.data()
+      }));
+    const refreshedWrite = refreshMigrationWrite(
+      plannedWrite,
+      currentDocuments
+    );
+    const target = firestore.collection(COLLECTION).doc(refreshedWrite.id);
+    transaction.set(target, {
+      ...refreshedWrite.data,
+      identityVersion: 2,
+      updatedAt: FieldValue.serverTimestamp()
+    });
+    for (const duplicateId of refreshedWrite.sourceIds) {
+      if (duplicateId !== refreshedWrite.id) {
+        transaction.delete(
+          firestore.collection(COLLECTION).doc(duplicateId)
+        );
+      }
+    }
+    return refreshedWrite;
+  });
 }
 
 function printPlan(options, documentCount, plan) {

@@ -129,6 +129,8 @@ Node y compartirá fixtures con Kotlin. La migración:
 - seguirá siendo `dry-run` por defecto;
 - realizará backup antes de aplicar;
 - consolidará identidades conceptuales exactas de forma automática;
+- al aplicar, releerá y bloqueará cada grupo en una transacción para incorporar
+  actualizaciones concurrentes de `eligibilityKeys` antes de borrar copias;
 - informará los grupos detectados solo por umbral como revisión manual, sin
   borrarlos automáticamente;
 - verificará el documento canónico antes de eliminar duplicados exactos.

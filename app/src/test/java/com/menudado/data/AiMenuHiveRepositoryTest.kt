@@ -205,6 +205,35 @@ class AiMenuHiveRepositoryTest {
     }
 
     @Test
+    fun `equivalent documents keep the same representative regardless of fetch order`() = runTest {
+        val english = legacySharedMenu(
+            key = "toast|avocado|egg",
+            storedHash = "c4aeb4543dee6ba5d9e7ae72fcc5b322a1009879292e5033d3863fa21ff0e32d",
+            name = "English representative"
+        )
+        val spanish = legacySharedMenu(
+            key = "tostada|aguacate|huevo",
+            storedHash = "547f2c44bdefc54d2181b50fc1cb3ef5ad4c062b44753dc4c6a740052568ab99",
+            name = "Spanish representative"
+        )
+
+        suspend fun selectedName(candidates: List<SharedAiMenu>): String {
+            val repository = AiMenuHiveRepository(
+                dataSource = RecordingAiMenuHiveDataSource(
+                    server = Result.success(candidates)
+                ),
+                featureToggle = AiMenuHiveFeatureToggle(true)
+            ) { 0 }
+            return requireNotNull(
+                repository.findCompatibleMenu(request()).getOrThrow()
+            ).generatedMenu.name
+        }
+
+        assertEquals("Spanish representative", selectedName(listOf(english, spanish)))
+        assertEquals("Spanish representative", selectedName(listOf(spanish, english)))
+    }
+
+    @Test
     fun `minor garnish variants count as one candidate`() = runTest {
         val first = legacySharedMenu(
             key = "toast|avocado+egg|assembled",
@@ -325,12 +354,19 @@ class AiMenuHiveRepositoryTest {
         )
     }
 
-    private fun legacySharedMenu(key: String, storedHash: String): SharedAiMenu {
+    private fun legacySharedMenu(
+        key: String,
+        storedHash: String,
+        name: String = "Idea recuperada"
+    ): SharedAiMenu {
         val canonical = sharedMenu(key)
         return canonical.copy(
             semanticHash = storedHash,
             semanticKey = key,
-            generatedMenu = canonical.generatedMenu.copy(deduplicationKey = key)
+            generatedMenu = canonical.generatedMenu.copy(
+                name = name,
+                deduplicationKey = key
+            )
         )
     }
 }

@@ -152,6 +152,15 @@ object AiMenuHiveIdentity {
         "roti" to "roasted",
         "rotie" to "roasted"
     )
+    private val conceptAliases = componentAliases + preparationAliases + mapOf(
+        "stewed" to "stew",
+        "guisado" to "stew",
+        "guisada" to "stew",
+        "estofado" to "stew",
+        "estofada" to "stew",
+        "mijote" to "stew",
+        "mijotee" to "stew"
+    )
 
     fun from(language: AppLanguage, rawKey: String?): AiMenuSemanticIdentity? {
         val parts = canonicalParts(rawKey) ?: return null
@@ -188,13 +197,21 @@ object AiMenuHiveIdentity {
     }
 
     fun conceptSignature(rawKey: String?): AiMenuConceptSignature? {
-        val parts = canonicalParts(rawKey) ?: return null
+        val rawParts = rawKey.orEmpty().split('|')
+        if (rawParts.size != 3) return null
+        val family = canonicalSegment(rawParts.first(), ::canonicalComponent)
+            .takeIf(String::isNotBlank)
+            ?: return null
+        val concepts = rawParts
+            .flatMap { part -> part.split('+', ',') }
+            .map(::canonicalConcept)
+            .filter(String::isNotBlank)
+            .toSet()
+            .takeIf(Set<String>::isNotEmpty)
+            ?: return null
         return AiMenuConceptSignature(
-            family = parts.first(),
-            concepts = parts
-                .flatMap { part -> part.split('+') }
-                .filter(String::isNotBlank)
-                .toSet()
+            family = family,
+            concepts = concepts
         )
     }
 
@@ -240,6 +257,11 @@ object AiMenuHiveIdentity {
     private fun canonicalPreparation(value: String): String {
         val normalized = value.normalized()
         return preparationAliases[normalized] ?: canonicalComponent(normalized)
+    }
+
+    private fun canonicalConcept(value: String): String {
+        val normalized = value.normalized()
+        return conceptAliases[normalized] ?: normalized
     }
 
     private fun String.normalized(): String = Normalizer.normalize(
