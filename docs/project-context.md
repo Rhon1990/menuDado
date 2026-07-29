@@ -340,8 +340,15 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 ## Auditoría QA prepublicación (actualizada 2026-07-29)
 
-- Estado de `1.3.0`: candidato en preparación; la evidencia automatizada específica de esta versión debe registrarse después de ejecutar la suite y generar el nuevo artefacto. El visto bueno final de tienda queda condicionado a prueba manual en dispositivo real con Firebase producción y a generar el artefacto firmado final de Play.
+- Estado de `1.3.0`: suite debug y APK debug verificados; el visto bueno final de tienda queda condicionado a prueba manual completa con Firebase producción y a generar el artefacto firmado final de Play.
 - Versión objetivo actual: `1.3.0` (`versionCode` 14), orientada a Android 16 (`compileSdk=36`, `targetSdk=36`).
+- Validación actual de `1.3.0`:
+  - `./gradlew :app:testDebugUnitTest :app:assembleDebug`: correcto.
+  - `app/build/outputs/apk/debug/output-metadata.json`: `applicationId=com.menudado.debug`, `versionName=1.3.0` y `versionCode=14`.
+  - `./gradlew :app:installDebug`: instalado correctamente en un `SM-S921B` con Android 16.
+  - Prueba manual en dispositivo: `Acerca de la app` muestra el nuevo fallback localizado, permite desplazarse hasta el final y presenta `Versión 1.3.0 (14)`.
+  - La sesión del dispositivo estaba autenticada; el modal de ventajas exclusivo del modo invitado queda pendiente de revisión visual manual, aunque su lista, orden, recursos y traducciones se validaron mediante prueba unitaria y compilación.
+  - Firebase CLI no tenía una sesión autenticada, por lo que no se publicó configuración remota. La clave versionada `about_description_v2` mostró correctamente el fallback nuevo y evitó que el valor heredado de `about_description` lo reemplazara.
 - Evidencia histórica de `1.2.1` (`versionCode` 13):
   - `./gradlew :app:clean :app:testDebugUnitTest :app:lintRelease :app:bundleRelease`: correcto; ejecuta 305 tests, lint release y genera el AAB release.
   - Inspección del manifest dentro del AAB: `compileSdk=36`, `targetSdk=36`, `minSdk=23`, `versionName=1.2.1` y `versionCode=13`.
