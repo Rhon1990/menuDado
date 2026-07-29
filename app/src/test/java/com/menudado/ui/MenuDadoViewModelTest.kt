@@ -818,6 +818,8 @@ class MenuDadoViewModelTest {
                 viewModel.uiState.value.message
             )
             assertFalse(viewModel.uiState.value.canRequestRewardedGeneration)
+            assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
+            assertTrue(viewModel.uiState.value.aiRetryAtMillis != null)
         }
 
     @Test
@@ -2683,10 +2685,12 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está con mucha demanda y no pudo preparar una idea para " +
-                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
+            "Hoy no podemos preparar más ideas para Desayuno · Persona adulta (18+ años). " +
+                "Vuelve a intentarlo mañana.",
             viewModel.uiState.value.message
         )
+        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
+        assertTrue(viewModel.uiState.value.aiRetryAtMillis != null)
     }
 
     @Test

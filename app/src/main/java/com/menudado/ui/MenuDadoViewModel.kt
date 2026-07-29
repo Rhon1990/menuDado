@@ -1530,7 +1530,7 @@ class MenuDadoViewModel(
                 message = message,
                 aiRetryAtMillis = retryAtMillis,
                 isAiRequestThrottlePause = false,
-                isAiRetryNoticeVisible = true,
+                isAiRetryNoticeVisible = false,
                 aiUsesRemainingToday = 0,
                 aiGenerationUsesRemainingToday = 0,
                 aiAnalysisUsesRemainingToday = 0,
@@ -2259,7 +2259,9 @@ class MenuDadoViewModel(
                 } else {
                     current.isAiRequestThrottlePause
                 },
-                isAiRetryNoticeVisible = retryAtMillis != null
+                isAiRetryNoticeVisible =
+                    retryAtMillis != null &&
+                        notice.generationReason != AiGenerationFailureReason.DAILY_LIMIT
             )
         }
         scheduleAiRetryRefresh(refreshAtMillis)
@@ -2323,7 +2325,11 @@ private fun Throwable.toAiFailureNotice(nowMillis: Long, language: AppLanguage):
             AiFailureNotice(
                 message = quotaLimitType.message(language),
                 retryAtMillis = text.retryAtMillis(nowMillis) ?: nextPacificMidnightMillis(nowMillis),
-                generationReason = AiGenerationFailureReason.HIGH_DEMAND
+                generationReason = if (quotaLimitType == AiQuotaLimitType.REQUESTS_PER_DAY) {
+                    AiGenerationFailureReason.DAILY_LIMIT
+                } else {
+                    AiGenerationFailureReason.HIGH_DEMAND
+                }
             )
         }
         this is ServiceDisabledException ||
