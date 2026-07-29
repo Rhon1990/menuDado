@@ -126,15 +126,13 @@
     <string name="about_contact_value" translatable="false">rhonal.delgado@gmail.com</string>
     <string name="about_version">Versión %1$s</string>
     <string name="my_zone_guest_title">¡Hola!</string>
-    <string name="my_zone_guest_body">Vemos que aún no te has registrado. Crea tu cuenta ahora y benefíciate de múltiples ventajas.</string>
-    <string name="my_zone_benefits_title">Ventajas de tener una cuenta</string>
+    <string name="my_zone_guest_body">Crea tu cuenta gratis para proteger lo que guardas y disfrutar de más usos de IA.</string>
+    <string name="my_zone_benefits_title">Tu cuenta te da más</string>
     <string name="my_zone_guest_prompt">Regístrate o inicia sesión para guardar tus menús</string>
-    <string name="my_zone_benefit_reinstall">Recupera tus menús al reinstalar la app.</string>
-    <string name="my_zone_benefit_profile">Sincroniza tu perfil alimentario y favoritos.</string>
-    <string name="my_zone_benefit_personalization">Personaliza MenuDado según persona adulta, peques o bebé.</string>
-    <string name="my_zone_benefit_favorites">Mantén tus favoritos y menús analizados siempre asociados a tu cuenta.</string>
-    <string name="my_zone_benefit_devices">Accede a tus menús al iniciar sesión en otro móvil.</string>
-    <string name="my_zone_benefit_ai_context">Conserva el contexto de tu perfil para recibir mejores ideas con IA.</string>
+    <string name="my_zone_benefit_ai_uses">Duplica tus usos gratuitos de IA: 10 al día en lugar de 5.</string>
+    <string name="my_zone_benefit_reinstall">Recupera tus menús y favoritos si reinstalas la app.</string>
+    <string name="my_zone_benefit_profile">Conserva tu perfil alimentario y preferencias en tu cuenta.</string>
+    <string name="my_zone_benefit_saved_content">Mantén guardados tus menús analizados y los productos de su lista de mercado.</string>
     <string name="my_zone_signed_in_title">¡Hola, %1$s!</string>
     <string name="my_zone_signed_in_body">Tu cuenta está activa y tus menús se guardan de forma segura.</string>
     <string name="my_zone_my_data">Mis datos</string>

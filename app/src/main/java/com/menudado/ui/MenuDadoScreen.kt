@@ -2139,12 +2139,10 @@ private fun MyZoneBenefitsDialog(onDismiss: () -> Unit) {
 
 @StringRes
 internal fun myZoneAccountBenefitRes(): List<Int> = listOf(
+    R.string.my_zone_benefit_ai_uses,
     R.string.my_zone_benefit_reinstall,
     R.string.my_zone_benefit_profile,
-    R.string.my_zone_benefit_personalization,
-    R.string.my_zone_benefit_favorites,
-    R.string.my_zone_benefit_devices,
-    R.string.my_zone_benefit_ai_context
+    R.string.my_zone_benefit_saved_content
 )
 
 @Composable
