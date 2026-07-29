@@ -141,11 +141,12 @@ private fun String.containsAnyProhibitedFoodTerm(terms: Set<String>): Boolean =
 private fun String.containsProhibitedFoodTerm(term: String): Boolean {
     val normalizedTerm = term.normalizedForFoodMatch()
     if (normalizedTerm.isBlank()) return false
+    val termPattern = normalizedTerm.foodTermPattern()
     val textWithoutCompatibleContexts = COMPATIBLE_FOOD_CONTEXTS.fold(this) { text, context ->
         text.replace(context, " ")
     }
     val textWithoutExplicitExclusion = EXCLUSION_TEMPLATES.fold(textWithoutCompatibleContexts) { text, template ->
-        text.replace(template.format(Regex.escape(normalizedTerm)).toRegex(), " ")
+        text.replace(template.format(termPattern).toRegex(), " ")
     }
     return textWithoutExplicitExclusion.containsFoodTerm(normalizedTerm)
 }
@@ -153,8 +154,13 @@ private fun String.containsProhibitedFoodTerm(term: String): Boolean {
 private fun String.containsFoodTerm(term: String): Boolean {
     if (term.isBlank()) return false
     val normalizedTerm = term.normalizedForFoodMatch()
-    return Regex("""(^|[^a-z0-9])${Regex.escape(normalizedTerm)}([^a-z0-9]|$)""")
+    return Regex("""(^|[^a-z0-9])${normalizedTerm.foodTermPattern()}([^a-z0-9]|$)""")
         .containsMatchIn(this)
+}
+
+private fun String.foodTermPattern(): String {
+    val pluralSuffix = if (endsWith("s")) "" else "(?:s|es)?"
+    return Regex.escape(this) + pluralSuffix
 }
 
 private fun DietaryAllergen.excludedTerms(): Set<String> = when (this) {

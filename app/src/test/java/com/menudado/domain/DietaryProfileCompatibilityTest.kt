@@ -18,6 +18,21 @@ class DietaryProfileCompatibilityTest {
     }
 
     @Test
+    fun `vegan and dairy profiles reject common plural food terms`() {
+        val menu = generated("Macarrones cuatro quesos con gelatinas de postre")
+        val explicitlyExcludedMenu = generated("Macarrones sin quesos")
+
+        assertFalse(DietaryProfile(isVegan = true).accepts(menu))
+        assertFalse(
+            DietaryProfile(
+                hasAllergies = true,
+                allergens = setOf(DietaryAllergen.DAIRY)
+            ).accepts(menu)
+        )
+        assertTrue(DietaryProfile(isVegan = true).accepts(explicitlyExcludedMenu))
+    }
+
+    @Test
     fun `allergy and free avoidance are checked across recipe and products`() {
         val menu = GeneratedMenu(
             name = "Bowl suave",
