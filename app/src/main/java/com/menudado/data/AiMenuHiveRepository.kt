@@ -121,6 +121,14 @@ class AiMenuHiveRepository(
 
     override suspend fun contribute(contribution: AiMenuHiveContribution): Result<Unit> {
         if (!featureToggle.isEnabled) return Result.success(Unit)
+        if (
+            !contribution.profile.accepts(
+                menu = contribution.generatedMenu,
+                audience = contribution.audience
+            )
+        ) {
+            return Result.success(Unit)
+        }
         val identity = AiMenuHiveIdentity.from(
             contribution.language,
             contribution.generatedMenu.deduplicationKey

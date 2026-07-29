@@ -318,6 +318,23 @@ class AiMenuHiveRepositoryTest {
         assertTrue(dataSource.upserts.isEmpty())
     }
 
+    @Test
+    fun `unsafe contribution is ignored before reaching shared storage`() = runTest {
+        val dataSource = RecordingAiMenuHiveDataSource()
+        val repository = AiMenuHiveRepository(dataSource, AiMenuHiveFeatureToggle(true)) { 0 }
+        val unsafe = contribution().copy(
+            profile = DietaryProfile(isVegan = true),
+            generatedMenu = contribution().generatedMenu.copy(
+                name = "Pasta con queso",
+                description = "Pasta, queso y nata."
+            )
+        )
+
+        repository.contribute(unsafe).getOrThrow()
+
+        assertTrue(dataSource.upserts.isEmpty())
+    }
+
     private fun request(
         audience: MenuAudience = MenuAudience.ADULT,
         profile: DietaryProfile = DietaryProfile(ageRange = "18+ años"),
