@@ -186,11 +186,11 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - Si una operación remota falla, la app mantiene estado pendiente local para reintentar la sincronización de menús, perfil alimentario, uso diario de IA y onboarding en un siguiente arranque.
    - El análisis con IA requiere internet y muestra un error claro si no hay conexión.
 
-7. Onboarding de primera apertura.
-   - La primera vez que el usuario entra a la app, MenuDado muestra un onboarding breve en modal sin reemplazar la pantalla principal.
-   - El onboarding concentra la activación en una única propuesta: resolver qué comer en menos de un minuto generando una idea con IA o dejando que el dado elija entre los menús guardados.
-   - La acción principal del onboarding lleva a crear el primer menú; la secundaria permite explorar sin registro y sin bloquear el uso básico.
-   - Al empezar u omitir, el onboarding se marca como completado en almacenamiento local y no vuelve a mostrarse en siguientes aperturas hasta que exista una nueva versión de contenido relevante. La versión vigente del contenido de onboarding es 5.
+7. Onboarding de activación.
+   - MenuDado muestra un onboarding breve en modal a las instalaciones nuevas y una sola vez a quienes completaron una versión de contenido anterior, sin reemplazar la pantalla principal.
+   - El onboarding concentra la activación en una única propuesta: recibir una idea saludable con IA, elegir entre los menús guardados y preparar la lista de mercado.
+   - La acción principal `Ayúdame a elegir` cierra el onboarding y deja Inicio en el modo IA ya seleccionado, pero no lanza una petición ni consume cuota hasta que el usuario completa los selectores y toca el dado. La secundaria `Explorar la app` permite continuar sin bloquear el uso básico.
+   - Al empezar u omitir, el onboarding se marca como completado localmente y se sincroniza mediante el documento Firestore existente. La versión vigente es 6 y no vuelve a mostrarse hasta que exista otra versión de contenido relevante.
 
 8. Perfil alimentario.
    - La app ofrece acceso a `Perfil` desde la barra inferior flotante.
@@ -251,7 +251,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Analítica:
   - Firebase Analytics anónimo para métricas automáticas de dispositivos/usuarios, modelo de móvil, ubicación agregada de Firebase y eventos de producto sin contenido personal del menú.
   - Implementación central: contrato `MenuDadoAnalytics`, implementación real `FirebaseMenuDadoAnalytics` y `NoOpMenuDadoAnalytics` para contextos sin Firebase.
-  - Evento genérico de interacción `cta_tapped` con parámetros cerrados `screen` y `cta` para marcar botones y llamadas a la acción visibles sin enviar contenido del usuario, incluyendo navegación, onboarding, acciones de menú y CTAs de cuenta en `Mi zona` y autenticación.
+  - Evento genérico de interacción `cta_tapped` con parámetros cerrados `screen` y `cta` para marcar botones y llamadas a la acción visibles sin enviar contenido del usuario, incluyendo navegación, onboarding, acciones de menú y CTAs de cuenta en `Mi zona` y autenticación. El onboarding conserva los IDs históricos `create_first_menu` y `explore_without_onboarding` aunque cambie el texto visible.
   - MenuDado añade al evento de apertura fabricante/modelo, versión Android, país de la configuración regional y zona horaria; no solicita GPS ni permisos de ubicación.
   - Eventos propios de activación e inventario: `first_menu_created`, `menu_inventory_changed`.
   - Eventos propios de formulario: `menu_form_started`, `menu_save_blocked`, `meal_type_selected`.
@@ -260,7 +260,9 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - Eventos propios del dado: `dice_filter_selected`, `dice_rolled`, `dice_empty_result` y `dice_empty_recovery`; este último usa `action` cerrado (`shown`, `generate_ai`, `broaden_meal_type`, `change_filters`).
   - Eventos propios de consulta de contenido: `menu_card_opened`, `about_app_opened`.
   - Eventos propios de perfil alimentario: `dietary_profile_opened`, `dietary_profile_audience_selected`, `dietary_profile_updated`, sin enviar alérgenos, embarazo, condiciones ni texto libre.
-  - Eventos propios de onboarding: `onboarding_shown`, `onboarding_completed` con parámetro `action` limitado a `start` o `skip`.
+  - Eventos propios de onboarding: `onboarding_shown` y `onboarding_completed` incluyen `onboarding_version=6` y `exposure_type` limitado a `new_install` o `upgrade`; el segundo añade `action` limitado a `start` o `skip`.
+  - Las dimensiones personalizadas prospectivas del embudo son `screen`, `cta`, `action`, `onboarding_version` y `exposure_type`. `first_menu_created` es el evento clave de activación; completar el onboarding por sí solo no se considera conversión.
+  - Los favoritos y la lista de mercado conservan sus valores cerrados existentes en `cta_tapped`; no se duplican como eventos adicionales.
   - Eventos propios de actualización de app: `app_update_prompt` con parámetro `action` limitado a `shown`, `update`, `later` o `install`; no envía versión instalada, versión de tienda ni identificadores de usuario.
   - Eventos propios de IA: inicio/fin de generación y análisis, estado saludable (`health_status`), tipo de fallo (`failure_type`), límite diario local (`ai_daily_limit_reached`) y estado cerrado de la oferta bonificada (`ai_rewarded_offer`: `shown`, `unavailable`, `dismissed`, `earned` o `generation_started`), sin receta, perfil ni identificadores publicitarios.
   - Eventos propios de cuenta y zona de usuario: `my_zone_opened`, `auth_flow_started`, `auth_action` y `guest_limit_reached`, usando solo valores cerrados como modo de cuenta, acción, método, tipo de límite y contadores; no envían correo ni datos personales.
@@ -326,8 +328,8 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Manejar en el análisis IA: éxito, sin internet, respuesta mal formada y errores del proveedor.
 - Mantener la interfaz usable en pantallas Android pequeñas.
 - Validar que el marcado de analytics no envíe nombres, ingredientes, notas, recetas, correo de contacto, nombre del creador, IDs, URI de imagen ni datos sensibles del perfil alimentario; solo estados, tipos de comida, públicos objetivo, filtros, acciones cerradas y contadores agregables.
-- Validar que el onboarding emita `onboarding_shown` solo cuando corresponde y `onboarding_completed` diferenciando `start`/`skip`.
-- Validar que el contenido actual del onboarding use versión 5 para volver a mostrarse una vez tras la actualización de textos de IA gratuita limitada y dado contextual.
+- Validar que el onboarding emita `onboarding_shown` solo cuando corresponde y `onboarding_completed` diferenciando `start`/`skip`, ambos con versión `6` y exposición `new_install`/`upgrade`.
+- Validar que el contenido actual del onboarding use versión 6, vuelva a mostrarse una sola vez tras una versión anterior y mantenga Inicio en modo IA sin lanzar automáticamente una petición.
 - Validar que abrir `Acerca de la app` emita `about_app_opened` sin parámetros personales.
 - Validar que posponer una actualización permita seguir usando MenuDado, conserve el recordatorio en Inicio durante la sesión y que el estado descargado ofrezca instalar sin bloquear navegación ni contenido.
 - Validar que las reglas Firestore impiden leer o escribir datos de otro `uid`.
