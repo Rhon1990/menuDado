@@ -296,6 +296,16 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
+    override fun trackAiMenuHiveFallbackStarted(
+        mealType: MealType,
+        triggerFailureType: String
+    ) {
+        logEvent(EVENT_AI_MENU_HIVE_FALLBACK_STARTED) {
+            putString(PARAM_MEAL_TYPE, mealType.analyticsName())
+            putString(PARAM_FAILURE_TYPE, triggerFailureType.sanitized())
+        }
+    }
+
     override fun trackAiMenuHiveFallback(
         mealType: MealType,
         result: String,
@@ -424,6 +434,7 @@ class FirebaseMenuDadoAnalytics(
         const val EVENT_BACKEND_SYNC_FINISHED = "backend_sync_finished"
         const val EVENT_AI_MENU_GENERATION_STARTED = "ai_menu_gen_started"
         const val EVENT_AI_MENU_GENERATION_FINISHED = "ai_menu_gen_finished"
+        const val EVENT_AI_MENU_HIVE_FALLBACK_STARTED = "ai_menu_hive_fallback_started"
         const val EVENT_AI_MENU_HIVE_FALLBACK = "ai_menu_hive_fallback"
         const val EVENT_AI_ANALYSIS_STARTED = "ai_analysis_started"
         const val EVENT_AI_ANALYSIS_FINISHED = "ai_analysis_finished"

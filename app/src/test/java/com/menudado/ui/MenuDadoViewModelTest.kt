@@ -260,6 +260,12 @@ class MenuDadoViewModelTest {
 
         assertEquals(0, analyzer.generateCalls)
         assertEquals(1, hive.searches.size)
+        assertEquals(
+            1,
+            analytics.events.count {
+                it == "ai_menu_hive_fallback_started:BREAKFAST:quota_daily"
+            }
+        )
         assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
         assertEquals(
             1,
@@ -634,8 +640,9 @@ class MenuDadoViewModelTest {
         assertFalse(state.isGeneratingMenu)
         assertFalse(state.showGeneratedMenuDetail)
         assertEquals(
-            "La IA está con mucha demanda y no pudo preparar una idea para " +
-                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
+            "Queremos proponerte algo que encaje de verdad contigo, pero ahora mismo " +
+                "la IA necesita un pequeño respiro para Desayuno · Persona adulta " +
+                "(18+ años).",
             state.message
         )
         assertTrue(state.isAiRetryNoticeVisible)
@@ -1010,8 +1017,33 @@ class MenuDadoViewModelTest {
                 it == "ai_menu_hive_fallback:BREAKFAST:hit:temporary:0"
             }
         )
+        assertEquals(
+            1,
+            analytics.events.count {
+                it == "ai_menu_hive_fallback_started:BREAKFAST:temporary"
+            }
+        )
         assertTrue(analytics.events.none { "Nombre privado" in it })
     }
+
+    @Test
+    fun `hive entry analytics failure never blocks a compatible fallback`() =
+        runTest(dispatcher) {
+            analyzer.generateFailure = IllegalStateException("internal")
+            hive.searchResult = Result.success(sampleHiveCandidate())
+            analytics.throwOnAiMenuHiveFallbackStarted = true
+
+            viewModel.generateMenuIdea()
+            advanceUntilIdle()
+
+            assertEquals(1, analytics.aiMenuHiveFallbackStartedAttempts)
+            assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+            assertEquals(
+                GeneratedMenuOrigin.HIVE_FALLBACK,
+                viewModel.uiState.value.generatedOrigin
+            )
+            assertEquals(1, hive.searches.size)
+        }
 
     private fun localMillisAtHour(hourOfDay: Int): Long {
         return Calendar.getInstance().apply {
@@ -2797,8 +2829,9 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está con mucha demanda y no pudo preparar una idea para " +
-                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
+            "Queremos proponerte algo que encaje de verdad contigo, pero ahora mismo " +
+                "la IA necesita un pequeño respiro para Desayuno · Persona adulta " +
+                "(18+ años).",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -2822,8 +2855,9 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está con mucha demanda y no pudo preparar una idea para " +
-                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
+            "Queremos proponerte algo que encaje de verdad contigo, pero ahora mismo " +
+                "la IA necesita un pequeño respiro para Desayuno · Persona adulta " +
+                "(18+ años).",
             viewModel.uiState.value.message
         )
     }
@@ -2845,8 +2879,9 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA está con mucha demanda y no pudo preparar una idea para " +
-                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
+            "Queremos proponerte algo que encaje de verdad contigo, pero ahora mismo " +
+                "la IA necesita un pequeño respiro para Desayuno · Persona adulta " +
+                "(18+ años).",
             viewModel.uiState.value.message
         )
     }
@@ -3346,6 +3381,7 @@ class MenuDadoViewModelTest {
         assertEquals(
             listOf(
                 "ai_menu_generation_started:BREAKFAST:0",
+                "ai_menu_hive_fallback_started:BREAKFAST:generic",
                 "ai_menu_hive_fallback:BREAKFAST:miss:generic:0",
                 "ai_menu_generation_finished:BREAKFAST:false:unknown:generic"
             ),
@@ -4284,6 +4320,8 @@ private class FakeRewardedAiCreditStore : RewardedAiCreditStore {
 private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
     val events = mutableListOf<String>()
     var throwOnAiMenuGenerationFinished = false
+    var throwOnAiMenuHiveFallbackStarted = false
+    var aiMenuHiveFallbackStartedAttempts = 0
 
     override fun trackAppOpened(deviceInfo: DeviceInfo?) {
         events += "app_opened"
@@ -4463,6 +4501,17 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
         durationMillis: Long
     ) {
         events += "ai_menu_hive_fallback:${mealType.name}:$result:$triggerFailureType:$durationMillis"
+    }
+
+    override fun trackAiMenuHiveFallbackStarted(
+        mealType: MealType,
+        triggerFailureType: String
+    ) {
+        aiMenuHiveFallbackStartedAttempts += 1
+        if (throwOnAiMenuHiveFallbackStarted) {
+            throw IllegalStateException("tracking failed")
+        }
+        events += "ai_menu_hive_fallback_started:${mealType.name}:$triggerFailureType"
     }
 
     override fun trackAiAnalysisStarted(scope: String, mealType: MealType?, menuCount: Int) {

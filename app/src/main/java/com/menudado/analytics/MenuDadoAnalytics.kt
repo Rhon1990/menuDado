@@ -113,6 +113,11 @@ interface MenuDadoAnalytics {
         failureType: String?
     )
 
+    fun trackAiMenuHiveFallbackStarted(
+        mealType: MealType,
+        triggerFailureType: String
+    )
+
     fun trackAiMenuHiveFallback(
         mealType: MealType,
         result: String,
@@ -235,6 +240,11 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
         success: Boolean,
         healthStatus: HealthStatus?,
         failureType: String?
+    ) = Unit
+
+    override fun trackAiMenuHiveFallbackStarted(
+        mealType: MealType,
+        triggerFailureType: String
     ) = Unit
 
     override fun trackAiMenuHiveFallback(

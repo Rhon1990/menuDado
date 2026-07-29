@@ -1381,6 +1381,12 @@ class MenuDadoViewModel(
         val preparedFailureNotice = failureNotice?.prepareAiFailureNotice()
         preparedFailureNotice?.recordAiFailurePause()
         _uiState.update { it.copy(aiGenerationPhase = AiGenerationPhase.SEARCHING_HIVE) }
+        runCatching {
+            analytics.trackAiMenuHiveFallbackStarted(
+                mealType = request.mealType,
+                triggerFailureType = triggerFailureType
+            )
+        }
         val hiveStartedAtMillis = clockMillisProvider()
         val rotationScope = activeAiUsageScope
         val rotation = runCatching { hiveRotationStore.snapshot(rotationScope) }
