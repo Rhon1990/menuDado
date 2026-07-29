@@ -93,8 +93,9 @@
     <string name="dietary_pregnant">Enceinte</string>
     <string name="dietary_vegan">Végane</string>
     <string name="dietary_allergies">Allergies</string>
-    <string name="dietary_other_label">Aliments à éviter ou conditions de santé</string>
-    <string name="dietary_other_placeholder">Ex. diabète, hypertension, sans épices</string>
+    <string name="dietary_other_label">Aliments à éviter ou indications</string>
+    <string name="dietary_other_placeholder">Ex. sans épices, sans champignons</string>
+    <string name="dietary_other_supporting_text">Les conditions de santé orientent l’IA mais ne remplacent pas l’avis d’un professionnel de santé. Pour une exclusion stricte, indiquez des aliments précis.</string>
     <string name="allergen_gluten">Gluten</string>
     <string name="allergen_dairy">Lactose / produits laitiers</string>
     <string name="allergen_egg">Œuf</string>

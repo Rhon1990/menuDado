@@ -93,8 +93,9 @@
     <string name="dietary_pregnant">Embarazada</string>
     <string name="dietary_vegan">Vegano</string>
     <string name="dietary_allergies">Alergias</string>
-    <string name="dietary_other_label">Alimentos a evitar o condiciones de salud</string>
-    <string name="dietary_other_placeholder">Ej: diabético, hipertenso, sin picante</string>
+    <string name="dietary_other_label">Alimentos a evitar o indicaciones</string>
+    <string name="dietary_other_placeholder">Ej: sin picante, sin champiñones</string>
+    <string name="dietary_other_supporting_text">Las condiciones de salud orientan a la IA, pero no sustituyen la revisión de un profesional sanitario. Para una exclusión estricta, escribe alimentos concretos.</string>
     <string name="allergen_gluten">Gluten</string>
     <string name="allergen_dairy">Lactosa / lácteos</string>
     <string name="allergen_egg">Huevo</string>

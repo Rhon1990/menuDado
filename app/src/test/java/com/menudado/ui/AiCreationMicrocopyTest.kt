@@ -20,7 +20,11 @@ class AiCreationMicrocopyTest {
                 "home_ai_dice_title" to "Encontremos algo rico",
                 "form_base_ingredients" to "¿Qué tienes en casa? (Opcional)",
                 "form_base_ingredients_placeholder" to "Ej. tomate, arroz o pollo",
-                "dice_roll_ai_with_count" to "Ayúdame a elegir (%1\$d)"
+                "dice_roll_ai_with_count" to "Ayúdame a elegir (%1\$d)",
+                "dietary_other_label" to "Alimentos a evitar o indicaciones",
+                "dietary_other_placeholder" to "Ej: sin picante, sin champiñones",
+                "dietary_other_supporting_text" to
+                    "Las condiciones de salud orientan a la IA, pero no sustituyen la revisión de un profesional sanitario. Para una exclusión estricta, escribe alimentos concretos."
             ),
             "values-en" to mapOf(
                 "home_today_title" to "Not sure what to make today?",
@@ -28,7 +32,11 @@ class AiCreationMicrocopyTest {
                 "home_ai_dice_title" to "Let's find something tasty",
                 "form_base_ingredients" to "What do you have at home? (Optional)",
                 "form_base_ingredients_placeholder" to "E.g. tomato, rice or chicken",
-                "dice_roll_ai_with_count" to "Help me choose (%1\$d)"
+                "dice_roll_ai_with_count" to "Help me choose (%1\$d)",
+                "dietary_other_label" to "Foods to avoid or guidance",
+                "dietary_other_placeholder" to "E.g. no spicy food, no mushrooms",
+                "dietary_other_supporting_text" to
+                    "Health conditions guide the AI but do not replace review by a health professional. For strict exclusion, enter specific foods."
             ),
             "values-fr" to mapOf(
                 "home_today_title" to "Vous ne savez pas quoi préparer aujourd’hui ?",
@@ -36,7 +44,11 @@ class AiCreationMicrocopyTest {
                 "home_ai_dice_title" to "Trouvons quelque chose de bon",
                 "form_base_ingredients" to "Qu’avez-vous à la maison ? (Facultatif)",
                 "form_base_ingredients_placeholder" to "Ex. tomate, riz ou poulet",
-                "dice_roll_ai_with_count" to "Aidez-moi à choisir (%1\$d)"
+                "dice_roll_ai_with_count" to "Aidez-moi à choisir (%1\$d)",
+                "dietary_other_label" to "Aliments à éviter ou indications",
+                "dietary_other_placeholder" to "Ex. sans épices, sans champignons",
+                "dietary_other_supporting_text" to
+                    "Les conditions de santé orientent l’IA mais ne remplacent pas l’avis d’un professionnel de santé. Pour une exclusion stricte, indiquez des aliments précis."
             )
         )
 

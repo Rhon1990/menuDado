@@ -203,8 +203,9 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - En el perfil de persona adulta se puede indicar si la persona está embarazada. Esta opción solo aparece para `Persona adulta` y se envía como restricción de seguridad alimentaria a la generación con IA.
    - Permite indicar si el usuario es vegano.
    - Permite indicar si tiene alergias y seleccionar alérgenos comunes: gluten, lactosa/lácteos, huevo, frutos secos, cacahuete, soja, pescado, marisco y sésamo.
-   - Permite escribir alimentos a evitar o condiciones de salud relevantes, por ejemplo `diabético`, `hipertenso` o `sin picante`.
-   - La generación de ideas con IA debe respetar el perfil del público objetivo seleccionado, incluyendo rango de edad, restricciones y condiciones de salud escritas por el usuario, sin cambiar la creación manual de menús.
+   - Permite escribir alimentos concretos a evitar o indicaciones, por ejemplo `sin picante` o `sin champiñones`. Las condiciones de salud escritas libremente orientan a la IA, pero no se presentan como certificación médica y la propia pantalla recuerda que requieren revisión profesional.
+   - La generación de ideas con IA debe respetar el perfil del público objetivo seleccionado, incluyendo rango de edad, restricciones y alimentos concretos a evitar; las condiciones de salud escritas por el usuario se usan como orientación, sin cambiar la creación manual de menús.
+   - Toda idea generada se valida localmente con un único contrato de público y perfil antes de mostrarse. La misma barrera se aplica a candidatos de `sharedAiMenus` y se ejecuta otra vez al guardar para cubrir cambios de perfil con el detalle abierto. Los incumplimientos detectables de edad, embarazo, veganismo, alérgenos o alimentos concretos fallan de forma conservadora, no añaden otra llamada a Gemini y nunca se guardan ni contribuyen a la colmena.
 
 9. Acerca de la app.
    - `Acerca de la app` se abre desde `Mi zona`.

@@ -2467,6 +2467,11 @@ private fun DietaryProfileSection(
                 enabled = profile.isEnabled,
                 minLines = 2
             )
+            Text(
+                text = stringResource(id = R.string.dietary_other_supporting_text),
+                style = MaterialTheme.typography.bodySmall,
+                color = MenuDadoColors.MutedInk
+            )
         }
     }
 }

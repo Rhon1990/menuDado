@@ -93,8 +93,9 @@
     <string name="dietary_pregnant">Pregnant</string>
     <string name="dietary_vegan">Vegan</string>
     <string name="dietary_allergies">Allergies</string>
-    <string name="dietary_other_label">Foods to avoid or health conditions</string>
-    <string name="dietary_other_placeholder">E.g. diabetic, high blood pressure, no spicy food</string>
+    <string name="dietary_other_label">Foods to avoid or guidance</string>
+    <string name="dietary_other_placeholder">E.g. no spicy food, no mushrooms</string>
+    <string name="dietary_other_supporting_text">Health conditions guide the AI but do not replace review by a health professional. For strict exclusion, enter specific foods.</string>
     <string name="allergen_gluten">Gluten</string>
     <string name="allergen_dairy">Lactose / dairy</string>
     <string name="allergen_egg">Egg</string>
