@@ -840,6 +840,32 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `unsafe live result is hidden and searches hive without another AI call`() =
+        runTest(dispatcher) {
+            dietaryProfileStore.storedProfile = DietaryProfile(
+                ageRange = MenuAudience.ADULT.defaultAgeRange,
+                isVegan = true
+            )
+            analyzer.generatedMenu = sampleGeneratedMenu(
+                name = "Pasta cuatro quesos",
+                description = "Pasta con queso y nata."
+            )
+            hive.searchResult = Result.success(null)
+
+            viewModel.generateMenuIdea()
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.showGeneratedMenuDetail)
+            assertEquals(1, analyzer.generateCalls)
+            assertEquals(1, hive.searches.size)
+            assertEquals(
+                "La idea no cumplía tu perfil alimentario y no la mostramos. " +
+                    "No encontramos una alternativa segura ahora; inténtalo más tarde.",
+                viewModel.uiState.value.message
+            )
+        }
+
+    @Test
     fun `saving untouched live AI idea contributes after local save`() = runTest(dispatcher) {
         analyzer.generatedMenu = sampleGeneratedMenu(
             name = "Pasta con tomate",
@@ -858,6 +884,24 @@ class MenuDadoViewModelTest {
             hive.contributions.single().generatedMenu.deduplicationKey
         )
     }
+
+    @Test
+    fun `profile change before generated save blocks persistence and hive contribution`() =
+        runTest(dispatcher) {
+            analyzer.generatedMenu = sampleGeneratedMenu(
+                name = "Pasta con queso",
+                description = "Pasta, tomate y queso."
+            )
+            viewModel.generateMenuIdea()
+            advanceUntilIdle()
+            viewModel.setDietaryProfileVegan(true)
+
+            viewModel.saveGeneratedMenuIdea()
+            advanceUntilIdle()
+
+            assertTrue(dao.saved.isEmpty())
+            assertTrue(hive.contributions.isEmpty())
+        }
 
     @Test
     fun `editing generated recipe clears identity and never contributes`() = runTest(dispatcher) {
@@ -3894,10 +3938,11 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
 
 private fun sampleGeneratedMenu(
     name: String = "Idea recuperada",
-    deduplicationKey: String = "pasta|tomato|sauce"
+    deduplicationKey: String = "pasta|tomato|sauce",
+    description: String = "Pasta integral con salsa de tomate."
 ) = GeneratedMenu(
     name = name,
-    description = "Pasta integral con salsa de tomate.",
+    description = description,
     notes = "Lista en 10 minutos.",
     calories = 430,
     healthAnalysis = HealthAnalysis(

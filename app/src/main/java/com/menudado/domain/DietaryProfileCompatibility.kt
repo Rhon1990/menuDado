@@ -246,7 +246,7 @@ private val DAIRY_TERMS = setOf(
     "lactosa", "lactose", "lacteo", "lacteos", "dairy", "laitier",
     "leche", "milk", "lait", "queso", "cheese", "fromage",
     "yogur", "yogurt", "yaourt", "mantequilla", "butter", "beurre",
-    "nata", "cream", "creme", "caseina", "casein", "caseine",
+    "nata", "crema", "cream", "creme", "caseina", "casein", "caseine",
     "suero de leche", "whey", "lactoserum"
 )
 

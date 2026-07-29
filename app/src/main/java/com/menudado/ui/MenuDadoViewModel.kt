@@ -71,6 +71,7 @@ import com.menudado.domain.AiQuotaLimitType
 import com.menudado.domain.AiMenuHiveIdentity
 import com.menudado.domain.classifyAiQuotaLimitType
 import com.menudado.domain.findIngredientConflicts
+import com.menudado.domain.accepts
 import com.menudado.domain.isAiQuotaExceeded
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
@@ -596,7 +597,10 @@ class MenuDadoViewModel(
     }
 
     fun saveGeneratedMenuIdea() {
-        saveMenu(ignoreGuestMenuSaveLimit = true)
+        saveMenu(
+            ignoreGuestMenuSaveLimit = true,
+            validateGeneratedProfile = true
+        )
     }
 
     fun setAddGeneratedMenuToMarketList(isEnabled: Boolean) {
@@ -838,10 +842,16 @@ class MenuDadoViewModel(
     }
 
     fun saveMenu() {
-        saveMenu(ignoreGuestMenuSaveLimit = false)
+        saveMenu(
+            ignoreGuestMenuSaveLimit = false,
+            validateGeneratedProfile = false
+        )
     }
 
-    private fun saveMenu(ignoreGuestMenuSaveLimit: Boolean) {
+    private fun saveMenu(
+        ignoreGuestMenuSaveLimit: Boolean,
+        validateGeneratedProfile: Boolean
+    ) {
         val state = _uiState.value
         val name = state.name.trim()
         val description = state.description.trim()
@@ -877,6 +887,30 @@ class MenuDadoViewModel(
             _uiState.update {
                 it.copy(
                     message = currentLanguage().missingRequiredFieldsMessage(),
+                    isAiRetryNoticeVisible = false
+                )
+            }
+            return
+        }
+
+        if (
+            validateGeneratedProfile &&
+            !dietaryProfileStore.getProfile(audience).accepts(
+                menu = GeneratedMenu(
+                    name = name,
+                    description = description,
+                    notes = state.notes.trim(),
+                    calories = state.calories ?: 0,
+                    healthAnalysis = state.generatedHealthAnalysis,
+                    shoppingProducts = state.generatedShoppingProducts,
+                    deduplicationKey = state.generatedDeduplicationKey
+                ),
+                audience = audience
+            )
+        ) {
+            _uiState.update {
+                it.copy(
+                    message = currentLanguage().profileMismatchMessage(),
                     isAiRetryNoticeVisible = false
                 )
             }
@@ -1266,6 +1300,15 @@ class MenuDadoViewModel(
                 }
                 if (generatedResult.isSuccess) {
                     val generated = generatedResult.getOrThrow()
+                    if (!profile.accepts(generated, audience)) {
+                        searchHiveFallback(
+                            request = request,
+                            triggerFailureType = AI_FAILURE_PROFILE_MISMATCH,
+                            failureNotice = null,
+                            fallbackMissMessage = currentLanguage().profileMismatchMessage()
+                        )
+                        return@launch
+                    }
                     aiQuotaRetryStore.clearRetryState()
                     cuisineRotation.advance(mealType, audience)
                     rememberGeneratedIdea(mealType, audience, generated.name, generated.description)
@@ -1331,7 +1374,8 @@ class MenuDadoViewModel(
     private suspend fun searchHiveFallback(
         request: ValidatedGenerationRequest,
         triggerFailureType: String,
-        failureNotice: AiFailureNotice?
+        failureNotice: AiFailureNotice?,
+        fallbackMissMessage: String? = null
     ) {
         val preparedFailureNotice = failureNotice?.prepareAiFailureNotice()
         preparedFailureNotice?.recordAiFailurePause()
@@ -1355,13 +1399,14 @@ class MenuDadoViewModel(
         if (fallback == null) {
             val reason = preparedFailureNotice?.generationReason
                 ?: AiGenerationFailureReason.DAILY_LIMIT
-            val contextualMessage = contextualAiGenerationFailureMessage(
-                language = currentLanguage(),
-                reason = reason,
-                mealType = request.mealType,
-                audience = request.audience,
-                profile = request.profile
-            )
+            val contextualMessage = fallbackMissMessage
+                ?: contextualAiGenerationFailureMessage(
+                    language = currentLanguage(),
+                    reason = reason,
+                    mealType = request.mealType,
+                    audience = request.audience,
+                    profile = request.profile
+                )
             if (preparedFailureNotice != null) {
                 showPreparedAiFailureNotice(
                     preparedFailureNotice.copy(message = contextualMessage)
@@ -2616,6 +2661,23 @@ private fun AppLanguage.aiGenericFailureMessage(): String {
     }
 }
 
+private fun AppLanguage.profileMismatchMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> {
+            "The idea did not match your dietary profile, so we did not show it. " +
+                "We could not find a safe alternative right now; please try again later."
+        }
+        AppLanguage.FRENCH -> {
+            "L'idée ne respectait pas votre profil alimentaire, nous ne l'avons donc pas affichée. " +
+                "Aucune alternative sûre n'est disponible pour le moment; réessayez plus tard."
+        }
+        AppLanguage.SPANISH -> {
+            "La idea no cumplía tu perfil alimentario y no la mostramos. " +
+                "No encontramos una alternativa segura ahora; inténtalo más tarde."
+        }
+    }
+}
+
 private fun List<String>.toIngredientConflictMessage(language: AppLanguage): String {
     val ingredients = joinToString(", ")
     return when (language) {
@@ -2647,6 +2709,7 @@ private const val AI_BATCH_ANALYSIS_LIMIT = 5
 private const val AI_SOURCE_GENERATE_MENU = "generate_menu"
 private const val AI_SOURCE_ANALYZE_SINGLE = "analyze_single"
 private const val AI_SOURCE_ANALYZE_BATCH = "analyze_batch"
+private const val AI_FAILURE_PROFILE_MISMATCH = "profile_mismatch"
 private const val AI_REWARDED_STATUS_SHOWN = "shown"
 private const val AI_REWARDED_STATUS_UNAVAILABLE = "unavailable"
 private const val AI_REWARDED_STATUS_DISMISSED = "dismissed"

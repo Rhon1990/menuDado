@@ -68,6 +68,27 @@ class AiMenuHiveRepositoryTest {
     }
 
     @Test
+    fun `baby search rejects honey candidate even with matching eligibility`() = runTest {
+        val unsafe = sharedMenu(
+            key = "yogurt|fruit|mixed",
+            description = "Yogur natural con miel."
+        )
+        val dataSource = RecordingAiMenuHiveDataSource(
+            server = Result.success(listOf(unsafe))
+        )
+        val repository = AiMenuHiveRepository(dataSource, AiMenuHiveFeatureToggle(true)) { 0 }
+
+        val result = repository.findCompatibleMenu(
+            request(
+                audience = MenuAudience.BABY,
+                profile = DietaryProfile(ageRange = MenuAudience.BABY.defaultAgeRange)
+            )
+        ).getOrThrow()
+
+        assertNull(result)
+    }
+
+    @Test
     fun `all safe menus already seen reuses one instead of returning unsafe failure`() = runTest {
         val repeated = sharedMenu("rice|vegetables|bowl")
         val dataSource = RecordingAiMenuHiveDataSource(server = Result.success(listOf(repeated)))
@@ -298,13 +319,14 @@ class AiMenuHiveRepositoryTest {
     }
 
     private fun request(
+        audience: MenuAudience = MenuAudience.ADULT,
         profile: DietaryProfile = DietaryProfile(ageRange = "18+ años"),
         recentSemanticHashes: Set<String> = emptySet(),
         lastShownHash: String? = null
     ) = AiMenuHiveSearchRequest(
         language = AppLanguage.SPANISH,
         mealType = MealType.LUNCH,
-        audience = MenuAudience.ADULT,
+        audience = audience,
         profile = profile,
         baseIngredients = "",
         recentSemanticHashes = recentSemanticHashes,

@@ -153,7 +153,12 @@ class AiMenuHiveRepository(
         val safe = candidates
             .sortedBy(SharedAiMenu::semanticHash)
             .mapNotNull(SharedAiMenu::canonicalized)
-            .filter { request.profile.accepts(it.generatedMenu) }
+            .filter { candidate ->
+                request.profile.accepts(
+                    menu = candidate.generatedMenu,
+                    audience = request.audience
+                )
+            }
             .collapseSimilarCandidates()
         if (safe.isEmpty()) return null
         val unseen = safe.filterNot { it.semanticHash in request.recentSemanticHashes }
