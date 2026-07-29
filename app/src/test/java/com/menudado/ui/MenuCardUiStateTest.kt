@@ -962,34 +962,19 @@ class MenuCardUiStateTest {
                 canUseFormActions = true,
                 isAiPaused = false,
                 limitState = AiGenerationLimitState.REWARDED_OFFER,
-                isRewardedGenerationPending = false,
-                isHardLimitActionable = false
+                isRewardedGenerationPending = false
             )
         )
     }
 
     @Test
-    fun `limite real mantiene el dado accionable para explicar el contexto`() {
-        assertTrue(
-            aiDiceActionEnabled(
-                canUseFormActions = true,
-                isAiPaused = false,
-                limitState = AiGenerationLimitState.HARD_LIMIT,
-                isRewardedGenerationPending = false,
-                isHardLimitActionable = true
-            )
-        )
-    }
-
-    @Test
-    fun `oferta no disponible sigue deshabilitada cuando se presenta como limite`() {
+    fun `limite diario deshabilita el dado porque el estado ya explica el motivo`() {
         assertFalse(
             aiDiceActionEnabled(
                 canUseFormActions = true,
                 isAiPaused = false,
                 limitState = AiGenerationLimitState.HARD_LIMIT,
-                isRewardedGenerationPending = false,
-                isHardLimitActionable = false
+                isRewardedGenerationPending = false
             )
         )
     }
