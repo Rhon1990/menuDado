@@ -204,13 +204,22 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
-    override fun trackOnboardingShown() {
-        logEvent(EVENT_ONBOARDING_SHOWN)
+    override fun trackOnboardingShown(contentVersion: Int, exposureType: String) {
+        logEvent(EVENT_ONBOARDING_SHOWN) {
+            putString(PARAM_ONBOARDING_VERSION, contentVersion.toString())
+            putString(PARAM_EXPOSURE_TYPE, exposureType.sanitized())
+        }
     }
 
-    override fun trackOnboardingCompleted(action: String) {
+    override fun trackOnboardingCompleted(
+        action: String,
+        contentVersion: Int,
+        exposureType: String
+    ) {
         logEvent(EVENT_ONBOARDING_COMPLETED) {
             putString(PARAM_ACTION, action.sanitized())
+            putString(PARAM_ONBOARDING_VERSION, contentVersion.toString())
+            putString(PARAM_EXPOSURE_TYPE, exposureType.sanitized())
         }
     }
 
@@ -464,6 +473,8 @@ class FirebaseMenuDadoAnalytics(
         const val PARAM_PENDING_MENU_COUNT = "pending_menu_count"
         const val PARAM_DURATION_MS = "duration_ms"
         const val PARAM_CREDITS_REMAINING = "credits_remaining"
+        const val PARAM_ONBOARDING_VERSION = "onboarding_version"
+        const val PARAM_EXPOSURE_TYPE = "exposure_type"
 
         const val VALUE_ALL = "all"
         const val VALUE_NONE = "none"

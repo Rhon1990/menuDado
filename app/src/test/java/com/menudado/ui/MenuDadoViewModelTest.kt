@@ -1380,11 +1380,11 @@ class MenuDadoViewModelTest {
         )
 
         assertEquals(true, firstRunViewModel.uiState.value.showOnboarding)
-        assertEquals(listOf("onboarding_shown"), analytics.events)
+        assertEquals(listOf("onboarding_shown:6:new_install"), analytics.events)
     }
 
     @Test
-    fun `does not show onboarding after it was completed previously and does not track shown`() = runTest(dispatcher) {
+    fun `completed onboarding version six is not shown or tracked`() = runTest(dispatcher) {
         analytics.events.clear()
 
         val completedViewModel = MenuDadoViewModel(
@@ -1394,7 +1394,7 @@ class MenuDadoViewModelTest {
             aiDailyUsageStore = aiDailyUsageStore,
             scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
-            onboardingStore = FakeOnboardingStore(completed = true)
+            onboardingStore = FakeOnboardingStore(completed = true, completedVersion = 6)
         )
 
         assertEquals(false, completedViewModel.uiState.value.showOnboarding)
@@ -1404,7 +1404,7 @@ class MenuDadoViewModelTest {
     @Test
     fun `shows onboarding again when stored completion is from older content version`() = runTest(dispatcher) {
         analytics.events.clear()
-        val previousContentStore = FakeOnboardingStore(completed = true, completedVersion = 3)
+        val previousContentStore = FakeOnboardingStore(completed = true, completedVersion = 5)
         val updatedViewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
@@ -1416,12 +1416,19 @@ class MenuDadoViewModelTest {
         )
 
         assertEquals(true, updatedViewModel.uiState.value.showOnboarding)
-        assertEquals(listOf("onboarding_shown"), analytics.events)
+        assertEquals(listOf("onboarding_shown:6:upgrade"), analytics.events)
 
         updatedViewModel.completeOnboarding()
 
         assertEquals(false, updatedViewModel.uiState.value.showOnboarding)
-        assertEquals(5, previousContentStore.completedVersion)
+        assertEquals(6, previousContentStore.completedVersion)
+        assertEquals(
+            listOf(
+                "onboarding_shown:6:upgrade",
+                "onboarding_completed:start:6:upgrade"
+            ),
+            analytics.events
+        )
     }
 
     @Test
@@ -1443,7 +1450,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(false, viewModel.uiState.value.showOnboarding)
         assertEquals(true, onboardingStore.completed)
-        assertEquals(listOf("onboarding_completed:start"), analytics.events)
+        assertEquals(listOf("onboarding_completed:start:6:new_install"), analytics.events)
     }
 
     @Test
@@ -1465,7 +1472,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(false, viewModel.uiState.value.showOnboarding)
         assertEquals(true, onboardingStore.completed)
-        assertEquals(listOf("onboarding_completed:skip"), analytics.events)
+        assertEquals(listOf("onboarding_completed:skip:6:new_install"), analytics.events)
     }
 
     @Test
@@ -4023,7 +4030,7 @@ private class FakeFormAudienceSelectionStore(
 
 private class FakeOnboardingStore(
     var completed: Boolean = false,
-    var completedVersion: Int = if (completed) 5 else 0
+    var completedVersion: Int = if (completed) 6 else 0
 ) : OnboardingStore {
     override fun isOnboardingCompleted(requiredVersion: Int): Boolean =
         completed && completedVersion >= requiredVersion
@@ -4276,12 +4283,16 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
         events += "menu_card_opened:${mealType.name}:$hasAiAnalysis:$menuCount"
     }
 
-    override fun trackOnboardingShown() {
-        events += "onboarding_shown"
+    override fun trackOnboardingShown(contentVersion: Int, exposureType: String) {
+        events += "onboarding_shown:$contentVersion:$exposureType"
     }
 
-    override fun trackOnboardingCompleted(action: String) {
-        events += "onboarding_completed:$action"
+    override fun trackOnboardingCompleted(
+        action: String,
+        contentVersion: Int,
+        exposureType: String
+    ) {
+        events += "onboarding_completed:$action:$contentVersion:$exposureType"
     }
 
     override fun trackAppUpdatePrompt(action: String) {

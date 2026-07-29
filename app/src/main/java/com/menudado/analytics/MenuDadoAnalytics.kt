@@ -80,9 +80,13 @@ interface MenuDadoAnalytics {
 
     fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int)
 
-    fun trackOnboardingShown()
+    fun trackOnboardingShown(contentVersion: Int, exposureType: String)
 
-    fun trackOnboardingCompleted(action: String)
+    fun trackOnboardingCompleted(
+        action: String,
+        contentVersion: Int,
+        exposureType: String
+    )
 
     fun trackAppUpdatePrompt(action: String)
 
@@ -200,9 +204,13 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
 
     override fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int) = Unit
 
-    override fun trackOnboardingShown() = Unit
+    override fun trackOnboardingShown(contentVersion: Int, exposureType: String) = Unit
 
-    override fun trackOnboardingCompleted(action: String) = Unit
+    override fun trackOnboardingCompleted(
+        action: String,
+        contentVersion: Int,
+        exposureType: String
+    ) = Unit
 
     override fun trackAppUpdatePrompt(action: String) = Unit
 

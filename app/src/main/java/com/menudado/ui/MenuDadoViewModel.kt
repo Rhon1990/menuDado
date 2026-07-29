@@ -222,6 +222,7 @@ class MenuDadoViewModel(
     private var areGuestAiLimitsEnabled = true
     private var activeAiUsageScope = initialAiUsageScope
     private var pendingRewardedGenerationRequest: ValidatedGenerationRequest? = null
+    private var onboardingExposureType = ONBOARDING_EXPOSURE_NEW_INSTALL
 
     init {
         migrateLegacyAiUsageIfNeeded()
@@ -364,7 +365,11 @@ class MenuDadoViewModel(
 
     private fun completeOnboarding(action: String) {
         onboardingStore.markOnboardingCompleted(CURRENT_ONBOARDING_VERSION)
-        analytics.trackOnboardingCompleted(action)
+        analytics.trackOnboardingCompleted(
+            action = action,
+            contentVersion = CURRENT_ONBOARDING_VERSION,
+            exposureType = onboardingExposureType
+        )
         _uiState.update { it.copy(showOnboarding = false) }
     }
 
@@ -1605,10 +1610,21 @@ class MenuDadoViewModel(
     }
 
     private fun refreshOnboarding() {
+        val hadPreviousOnboarding = onboardingStore.isOnboardingCompleted(
+            LEGACY_ONBOARDING_BASELINE_VERSION
+        )
         val shouldShowOnboarding = !onboardingStore.isOnboardingCompleted(CURRENT_ONBOARDING_VERSION)
+        onboardingExposureType = if (hadPreviousOnboarding) {
+            ONBOARDING_EXPOSURE_UPGRADE
+        } else {
+            ONBOARDING_EXPOSURE_NEW_INSTALL
+        }
         _uiState.update { it.copy(showOnboarding = shouldShowOnboarding) }
         if (shouldShowOnboarding) {
-            analytics.trackOnboardingShown()
+            analytics.trackOnboardingShown(
+                contentVersion = CURRENT_ONBOARDING_VERSION,
+                exposureType = onboardingExposureType
+            )
         }
     }
 
@@ -2648,7 +2664,10 @@ private const val FORM_FIELD_DESCRIPTION = "description"
 private const val FORM_FIELD_NOTES = "notes"
 private const val ONBOARDING_ACTION_START = "start"
 private const val ONBOARDING_ACTION_SKIP = "skip"
-private const val CURRENT_ONBOARDING_VERSION = 5
+private const val LEGACY_ONBOARDING_BASELINE_VERSION = 1
+private const val CURRENT_ONBOARDING_VERSION = 6
+private const val ONBOARDING_EXPOSURE_NEW_INSTALL = "new_install"
+private const val ONBOARDING_EXPOSURE_UPGRADE = "upgrade"
 private const val ANALYTICS_SOURCE_DICE = "dice"
 private const val DICE_EMPTY_RECOVERY_SHOWN = "shown"
 private const val DICE_EMPTY_RECOVERY_GENERATE_AI = "generate_ai"
