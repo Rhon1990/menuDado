@@ -179,6 +179,30 @@ AiGenerationFailureReason.HIGH_DEMAND ->
         "$context$profileSuffix."
 ```
 
+Como los rangos predeterminados del dominio se almacenan en español, localizar
+solo esos tres valores al construir el mensaje:
+
+```kotlin
+private fun MenuAudience.localizedDefaultAgeRange(language: AppLanguage): String =
+    when (language) {
+        AppLanguage.SPANISH -> defaultAgeRange
+        AppLanguage.ENGLISH -> when (this) {
+            MenuAudience.ADULT -> "18+ years"
+            MenuAudience.CHILD -> "2-12 years"
+            MenuAudience.BABY -> "6-24 months"
+        }
+        AppLanguage.FRENCH -> when (this) {
+            MenuAudience.ADULT -> "18 ans et plus"
+            MenuAudience.CHILD -> "2-12 ans"
+            MenuAudience.BABY -> "6-24 mois"
+        }
+    }
+```
+
+Usar ese helper cuando el rango esté vacío o sea exactamente el predeterminado
+del público. Los rangos personalizados se conservan literalmente y no se cambia
+ningún dato persistido.
+
 - [ ] **Step 6: Ejecutar los tests para observar GREEN**
 
 Run:

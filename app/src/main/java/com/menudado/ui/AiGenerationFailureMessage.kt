@@ -21,7 +21,15 @@ internal fun contextualAiGenerationFailureMessage(
     audience: MenuAudience,
     profile: DietaryProfile
 ): String {
-    val ageRange = profile.ageRange.trim().ifBlank { audience.defaultAgeRange }
+    val configuredAgeRange = profile.ageRange.trim()
+    val ageRange = if (
+        configuredAgeRange.isBlank() ||
+        configuredAgeRange == audience.defaultAgeRange
+    ) {
+        audience.localizedDefaultAgeRange(language)
+    } else {
+        configuredAgeRange
+    }
     val context = "${mealType.localizedLabel(language)} · " +
         "${audience.localizedLabel(language)} ($ageRange)"
     val profileSuffix = if (profile.hasRestrictions) {
@@ -43,6 +51,21 @@ private fun AppLanguage.currentProfileSuffix(): String = when (this) {
     AppLanguage.FRENCH -> " avec votre profil actuel"
 }
 
+private fun MenuAudience.localizedDefaultAgeRange(language: AppLanguage): String =
+    when (language) {
+        AppLanguage.SPANISH -> defaultAgeRange
+        AppLanguage.ENGLISH -> when (this) {
+            MenuAudience.ADULT -> "18+ years"
+            MenuAudience.CHILD -> "2-12 years"
+            MenuAudience.BABY -> "6-24 months"
+        }
+        AppLanguage.FRENCH -> when (this) {
+            MenuAudience.ADULT -> "18 ans et plus"
+            MenuAudience.CHILD -> "2-12 ans"
+            MenuAudience.BABY -> "6-24 mois"
+        }
+    }
+
 private fun AiGenerationFailureReason.spanishMessage(
     context: String,
     profileSuffix: String
@@ -51,8 +74,8 @@ private fun AiGenerationFailureReason.spanishMessage(
         "Has alcanzado el límite diario de ideas para $context. " +
             "Podrás volver a intentarlo mañana."
     AiGenerationFailureReason.HIGH_DEMAND ->
-        "La IA está con mucha demanda y no pudo preparar una idea para " +
-            "$context$profileSuffix. Inténtalo más tarde."
+        "Queremos proponerte algo que encaje de verdad contigo, pero ahora mismo " +
+            "la IA necesita un pequeño respiro para $context$profileSuffix."
     AiGenerationFailureReason.TIMEOUT ->
         "La IA tardó demasiado y no pudo preparar una idea para " +
             "$context$profileSuffix. Revisa tu conexión e inténtalo de nuevo."
@@ -71,8 +94,8 @@ private fun AiGenerationFailureReason.englishMessage(
     AiGenerationFailureReason.DAILY_LIMIT ->
         "You've reached the daily idea limit for $context. You can try again tomorrow."
     AiGenerationFailureReason.HIGH_DEMAND ->
-        "AI is in high demand and couldn't prepare an idea for " +
-            "$context$profileSuffix. Try again later."
+        "We want to suggest something that truly fits you, but AI needs a short " +
+            "break before preparing an idea for $context$profileSuffix."
     AiGenerationFailureReason.TIMEOUT ->
         "AI took too long and couldn't prepare an idea for " +
             "$context$profileSuffix. Check your connection and try again."
@@ -92,8 +115,9 @@ private fun AiGenerationFailureReason.frenchMessage(
         "Vous avez atteint la limite quotidienne d'idées pour $context. " +
             "Vous pourrez réessayer demain."
     AiGenerationFailureReason.HIGH_DEMAND ->
-        "L'IA est très demandée et n'a pas pu préparer d'idée pour " +
-            "$context$profileSuffix. Réessayez plus tard."
+        "Nous voulons vous proposer quelque chose qui vous corresponde vraiment, " +
+            "mais l’IA a besoin d’une courte pause avant de préparer une idée pour " +
+            "$context$profileSuffix."
     AiGenerationFailureReason.TIMEOUT ->
         "L'IA a mis trop de temps et n'a pas pu préparer d'idée pour " +
             "$context$profileSuffix. Vérifiez votre connexion et réessayez."

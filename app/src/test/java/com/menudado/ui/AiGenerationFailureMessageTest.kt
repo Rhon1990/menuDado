@@ -42,12 +42,50 @@ class AiGenerationFailureMessageTest {
         )
 
         assertEquals(
-            "La IA está con mucha demanda y no pudo preparar una idea para " +
-                "Cena · Peques (4-8 años) con tu perfil actual. Inténtalo más tarde.",
+            "Queremos proponerte algo que encaje de verdad contigo, pero ahora mismo " +
+                "la IA necesita un pequeño respiro para Cena · Peques (4-8 años) " +
+                "con tu perfil actual.",
             message
         )
         assertFalse(message.contains("veg", ignoreCase = true))
         assertFalse(message.contains("texto privado", ignoreCase = true))
+    }
+
+    @Test
+    fun `high demand copy is human and localized without exposing restrictions`() {
+        val profile = DietaryProfile(
+            ageRange = MenuAudience.ADULT.defaultAgeRange,
+            isVegan = true,
+            otherAvoidances = "texto privado"
+        )
+        val expected = mapOf(
+            AppLanguage.SPANISH to
+                "Queremos proponerte algo que encaje de verdad contigo, pero ahora mismo " +
+                "la IA necesita un pequeño respiro para Almuerzo · Persona adulta " +
+                "(18+ años) con tu perfil actual.",
+            AppLanguage.ENGLISH to
+                "We want to suggest something that truly fits you, but AI needs a short " +
+                "break before preparing an idea for Lunch · Adult (18+ years) with " +
+                "your current profile.",
+            AppLanguage.FRENCH to
+                "Nous voulons vous proposer quelque chose qui vous corresponde vraiment, " +
+                "mais l’IA a besoin d’une courte pause avant de préparer une idée pour " +
+                "Déjeuner · Adulte (18 ans et plus) avec votre profil actuel."
+        )
+
+        expected.forEach { (language, copy) ->
+            val message = contextualAiGenerationFailureMessage(
+                language = language,
+                reason = AiGenerationFailureReason.HIGH_DEMAND,
+                mealType = MealType.LUNCH,
+                audience = MenuAudience.ADULT,
+                profile = profile
+            )
+
+            assertEquals(copy, message)
+            assertFalse(message.contains("veg", ignoreCase = true))
+            assertFalse(message.contains("texto privado", ignoreCase = true))
+        }
     }
 
     @Test
@@ -75,7 +113,7 @@ class AiGenerationFailureMessageTest {
     fun `every failure reason gives the expected recovery action`() {
         val expectedActions = mapOf(
             AiGenerationFailureReason.DAILY_LIMIT to "mañana",
-            AiGenerationFailureReason.HIGH_DEMAND to "más tarde",
+            AiGenerationFailureReason.HIGH_DEMAND to "pequeño respiro",
             AiGenerationFailureReason.TIMEOUT to "Revisa tu conexión",
             AiGenerationFailureReason.CONNECTION to "Revisa tu conexión",
             AiGenerationFailureReason.SERVICE_UNAVAILABLE to "más tarde"
