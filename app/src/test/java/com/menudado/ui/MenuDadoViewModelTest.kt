@@ -45,6 +45,7 @@ import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
 import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.AiMenuHiveIdentity
+import com.menudado.domain.AI_PROVIDER_DAILY_HARD_LIMIT
 import com.menudado.domain.ShoppingProduct
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -268,6 +269,78 @@ class MenuDadoViewModelTest {
             scopedAiUsageStore.getUsageState(PROVIDER_AI_USAGE_SCOPE, "2026-06-10").usedCount
         )
     }
+
+    @Test
+    fun `provider cap blocks a new rewarded offer after free uses are exhausted`() =
+        runTest(dispatcher) {
+            scopedAiUsageStore.seed(
+                LOCAL_ACCOUNT_AI_USAGE_SCOPE,
+                "2026-06-10",
+                usedCount = 10
+            )
+            scopedAiUsageStore.seed(
+                PROVIDER_AI_USAGE_SCOPE,
+                "2026-06-10",
+                usedCount = AI_PROVIDER_DAILY_HARD_LIMIT
+            )
+            viewModel.updateGuestAccess(
+                isGuest = false,
+                areLimitsEnabled = true,
+                areAiLimitsEnabled = true
+            )
+
+            viewModel.generateMenuIdea()
+
+            assertEquals(
+                AiGenerationLimitState.HARD_LIMIT,
+                viewModel.uiState.value.aiGenerationLimitState
+            )
+            assertFalse(viewModel.uiState.value.canRequestRewardedGeneration)
+            assertFalse(viewModel.requestRewardedGeneration())
+            assertEquals(0, analyzer.generateCalls)
+            assertTrue(hive.searches.isEmpty())
+            assertNull(rewardedAiCreditStore.ledger)
+        }
+
+    @Test
+    fun `earned rewarded credit still uses hive when provider cap is reached`() =
+        runTest(dispatcher) {
+            scopedAiUsageStore.seed(
+                LOCAL_ACCOUNT_AI_USAGE_SCOPE,
+                "2026-06-10",
+                usedCount = 10
+            )
+            scopedAiUsageStore.seed(
+                PROVIDER_AI_USAGE_SCOPE,
+                "2026-06-10",
+                usedCount = AI_PROVIDER_DAILY_HARD_LIMIT
+            )
+            rewardedAiCreditStore.seed(
+                LOCAL_ACCOUNT_AI_USAGE_SCOPE,
+                RewardedAiCreditLedger(
+                    dateKey = "2026-06-10",
+                    earnedCount = 1,
+                    consumedCount = 0
+                )
+            )
+            hive.searchResult = Result.success(sampleHiveCandidate())
+            viewModel.updateGuestAccess(
+                isGuest = false,
+                areLimitsEnabled = true,
+                areAiLimitsEnabled = true
+            )
+
+            viewModel.generateMenuIdea()
+            advanceUntilIdle()
+
+            assertEquals(0, analyzer.generateCalls)
+            assertEquals(1, hive.searches.size)
+            assertEquals(
+                GeneratedMenuOrigin.HIVE_FALLBACK,
+                viewModel.uiState.value.generatedOrigin
+            )
+            assertEquals(1, rewardedAiCreditStore.ledger?.consumedCount)
+        }
 
     @Test
     fun `provider safeguard ignores provider retry and throttle while using hive`() = runTest(dispatcher) {

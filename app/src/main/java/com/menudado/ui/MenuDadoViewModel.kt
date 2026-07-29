@@ -1415,12 +1415,21 @@ class MenuDadoViewModel(
     }
 
     private fun currentGenerationAccess(): AiGenerationAccess {
+        val dateKey = currentPacificDateKey()
         val ledger = currentRewardedLedger()
-        return currentAiUsagePolicy().generationAccess(
-            usedCount = currentScopedAiUsedCount(currentPacificDateKey()),
+        val scopedAccess = currentAiUsagePolicy().generationAccess(
+            usedCount = currentScopedAiUsedCount(dateKey),
             earnedRewardedCredits = ledger.earnedCount,
             consumedRewardedCredits = ledger.consumedCount
         )
+        return if (
+            scopedAccess == AiGenerationAccess.REWARDED_OFFER &&
+            currentProviderAiUsedCount(dateKey) >= AI_PROVIDER_DAILY_HARD_LIMIT
+        ) {
+            AiGenerationAccess.HARD_LIMIT
+        } else {
+            scopedAccess
+        }
     }
 
     private fun consumeRewardedGenerationCredit(): Boolean {
