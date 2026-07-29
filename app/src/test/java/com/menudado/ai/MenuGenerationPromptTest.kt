@@ -2,8 +2,11 @@ package com.menudado.ai
 
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
+import com.menudado.domain.AppLanguage
+import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -76,7 +79,8 @@ class MenuGenerationPromptTest {
 
         assertTrue(prompt.contains("ingredientes base"))
         assertTrue(prompt.contains("berenjena, tomate"))
-        assertTrue(prompt.contains("debe usar esos ingredientes"))
+        assertTrue(prompt.contains("debe incluir esos ingredientes"))
+        assertFalse(prompt.contains("ingredientes como base principal"))
     }
 
     @Test
@@ -112,5 +116,163 @@ class MenuGenerationPromptTest {
         assertTrue(prompt.contains("evaluacion saludable"))
         assertTrue(prompt.contains("breve"))
         assertTrue(prompt.contains("sin tono de juicio"))
+    }
+
+    @Test
+    fun `prompt uses one compact culinary inspiration instead of generic format list`() {
+        val prompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList(),
+            cuisineInspiration = CuisineInspiration.INDIAN
+        ).lowercase()
+
+        assertTrue(prompt.contains("inspiracion culinaria: india."))
+        assertEquals(1, prompt.split("inspiracion culinaria:").size - 1)
+        assertFalse(prompt.contains("variedad saludable: cremas"))
+        assertFalse(prompt.contains("bowls, salteados"))
+    }
+
+    @Test
+    fun `world cuisine prompt stays shorter than equivalent legacy prompt`() {
+        val newPrompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList(),
+            cuisineInspiration = CuisineInspiration.WEST_AFRICAN
+        )
+        val newRule = newPrompt.lineSequence()
+            .single { it.contains("Inspiracion culinaria:") }
+            .trim()
+        val removedRule = "- Variedad saludable: cremas, sopas, ensaladas completas, ensalada cesar saludable, bowls, salteados simples, tortillas, legumbres, wraps, tostas, pasta integral o arroz integral."
+        val equivalentLegacyPrompt = newPrompt.replace(newRule, removedRule)
+
+        assertTrue(newPrompt.length < equivalentLegacyPrompt.length)
+    }
+
+    @Test
+    fun `prompt asks AI to generate content in selected app language`() {
+        val englishPrompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList(),
+            language = AppLanguage.ENGLISH
+        ).lowercase()
+        val frenchPrompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList(),
+            language = AppLanguage.FRENCH
+        ).lowercase()
+
+        assertTrue(englishPrompt.contains("write name, description, notes, reason and suggestion in english"))
+        assertTrue(frenchPrompt.contains("write name, description, notes, reason and suggestion in french"))
+    }
+
+    @Test
+    fun `prompt requires a specific executable recipe`() {
+        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+
+        assertTrue(prompt.contains("nombre concreto"))
+        assertTrue(prompt.contains("cantidades aproximadas"))
+        assertTrue(prompt.contains("una racion"))
+        assertTrue(prompt.contains("2 a 4 indicaciones"))
+        assertTrue(prompt.contains("tiempo total de preparacion"))
+        assertTrue(prompt.contains("sustitucion, conservacion o servicio"))
+    }
+
+    @Test
+    fun `prompt separates description notes and health fields`() {
+        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+
+        assertTrue(prompt.contains("notes no debe repetir description"))
+        assertTrue(prompt.contains("estimacion realista para una racion"))
+        assertTrue(prompt.contains("breves, utiles y sin tono alarmista"))
+    }
+
+    @Test
+    fun `prompt prioritizes safety before variety`() {
+        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+
+        val safety = prompt.indexOf("1. seguridad alimentaria")
+        val audience = prompt.indexOf("2. publico y edad")
+        val mealType = prompt.indexOf("3. tipo de comida")
+        val variety = prompt.indexOf("5. variedad y atractivo")
+
+        assertTrue(safety >= 0)
+        assertTrue(safety < audience)
+        assertTrue(audience < mealType)
+        assertTrue(mealType < variety)
+    }
+
+    @Test
+    fun `prompt requires genuine differentiation from prior ideas`() {
+        val prompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = listOf("Ensalada de pollo", "Bowl de garbanzos")
+        ).lowercase()
+
+        assertTrue(prompt.contains("no basta con cambiar el nombre"))
+        assertTrue(prompt.contains("base, proteina, tecnica o estilo"))
+        assertTrue(prompt.contains("ensalada de pollo"))
+        assertTrue(prompt.contains("bowl de garbanzos"))
+    }
+
+    @Test
+    fun `prompt requires only the closed json schema`() {
+        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+
+        assertTrue(prompt.contains("solo un objeto json valido"))
+        assertTrue(prompt.contains("sin markdown"))
+        assertTrue(prompt.contains("sin texto adicional"))
+        assertTrue(prompt.contains("solo con estos campos"))
+        assertTrue(prompt.contains("\"name\""))
+        assertTrue(prompt.contains("\"description\""))
+        assertTrue(prompt.contains("\"notes\""))
+        assertTrue(prompt.contains("\"calories\""))
+        assertTrue(prompt.contains("\"health_status\""))
+        assertTrue(prompt.contains("\"health_reason\""))
+        assertTrue(prompt.contains("\"health_suggestion\""))
+        assertTrue(prompt.contains("\"deduplication_key\""))
+    }
+
+    @Test
+    fun `prompt asks for market products without quantities`() {
+        val prompt = MenuGenerationPrompt.build(MealType.LUNCH, emptyList()).lowercase()
+
+        assertTrue(prompt.contains("\"shopping_products\""))
+        assertTrue(prompt.contains("sin cantidades"))
+        assertTrue(prompt.contains("productos reales de supermercado"))
+    }
+
+    @Test
+    fun `generation prompt requests one canonical deduplication key in existing json`() {
+        val prompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList()
+        )
+
+        assertTrue(prompt.contains("\"deduplication_key\""))
+        assertTrue(prompt.contains("dish family|main ingredients|preparation"))
+        assertTrue(prompt.contains("spaghetti, macaroni and similar shapes as pasta"))
+        assertFalse(prompt.contains("make another request", ignoreCase = true))
+    }
+
+    @Test
+    fun `canonical identity guidance replaces legacy rules with shorter text`() {
+        val prompt = MenuGenerationPrompt.build(
+            mealType = MealType.LUNCH,
+            avoidIdeas = emptyList()
+        )
+        val canonicalRule = prompt.lineSequence()
+            .single { it.contains("deduplication_key:") }
+            .trim()
+        val previousRules = """
+            - deduplication_key debe estar en ingles y usar exactamente: dish family|main ingredients|preparation.
+            - Si hay varios ingredientes principales, separalos con + y ordenalos alfabeticamente.
+            - Normaliza variantes equivalentes: classify spaghetti, macaroni and similar shapes as pasta; use canonical ingredient names such as tomato.
+            - La clave es tecnica, breve y no debe contener texto del perfil del usuario.
+        """.trimIndent()
+
+        assertTrue(canonicalRule.length < previousRules.length)
+        assertTrue(canonicalRule.contains("vegetables, lentils, tomato"))
+        assertTrue(canonicalRule.contains("mixed"))
+        assertEquals(1, prompt.split("deduplication_key:").size - 1)
     }
 }

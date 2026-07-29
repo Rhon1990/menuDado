@@ -42,6 +42,28 @@ object HealthAnalysisParser {
             .toMap()
     }
 
+    fun parseDetails(rawText: String): MenuAiDetails {
+        val jsonLikeText = rawText.jsonLikeText()
+        return MenuAiDetails(
+            healthAnalysis = parse(jsonLikeText),
+            shoppingProducts = jsonLikeText.parseShoppingProducts()
+        )
+    }
+
+    fun parseBatchDetails(rawText: String): Map<Long, MenuAiDetails> {
+        return rawText.jsonObjects()
+            .mapNotNull { jsonObject ->
+                val id = jsonObject.long("id") ?: return@mapNotNull null
+                val details = parseDetails(jsonObject)
+                if (details.healthAnalysis.status == HealthStatus.UNKNOWN) {
+                    null
+                } else {
+                    id to details
+                }
+            }
+            .toMap()
+    }
+
     private fun String.field(name: String): String? {
         return Regex(quotedField.pattern.format(name), RegexOption.IGNORE_CASE)
             .find(this)

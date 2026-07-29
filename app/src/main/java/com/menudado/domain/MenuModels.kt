@@ -8,7 +8,7 @@ enum class MealType(val label: String) {
 
 enum class MenuAudience(val label: String, val defaultAgeRange: String) {
     ADULT("Adulto", "18+ años"),
-    CHILD("Niño", "2-12 años"),
+    CHILD("Peques", "2-12 años"),
     BABY("Bebé", "6-24 meses")
 }
 
@@ -35,16 +35,27 @@ data class FoodMenu(
     val notes: String = "",
     val healthAnalysis: HealthAnalysis? = null,
     val calories: Int? = null,
+    val imageUri: String? = null,
+    val isFavorite: Boolean = false,
+    val favoritedAt: Long? = null,
     val lastPickedDate: String? = null,
-    val createdAt: Long = System.currentTimeMillis()
-)
+    val createdAt: Long = System.currentTimeMillis(),
+    val cuisineInspiration: CuisineInspiration? = null,
+    val shoppingProducts: List<ShoppingProduct> = emptyList(),
+    val activeShoppingProductKeys: Set<String> = emptySet()
+) {
+    val isShoppingListActive: Boolean
+        get() = activeShoppingProductKeys.isNotEmpty()
+}
 
 data class GeneratedMenu(
     val name: String,
     val description: String,
     val notes: String,
     val calories: Int,
-    val healthAnalysis: HealthAnalysis? = null
+    val healthAnalysis: HealthAnalysis? = null,
+    val shoppingProducts: List<ShoppingProduct> = emptyList(),
+    val deduplicationKey: String? = null
 )
 
 enum class DietaryAllergen(val label: String, val promptName: String) {

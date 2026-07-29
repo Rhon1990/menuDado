@@ -1,0 +1,84 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isHash(value) {
+      return value is string && value.matches('^[a-f0-9]{64}$');
+    }
+
+    function hasValidHiveShape(id) {
+      return request.resource.data.keys().hasOnly([
+          'schemaVersion', 'identityVersion',
+          'semanticHash', 'semanticKey', 'language',
+          'name', 'description', 'notes',
+          'calories', 'healthStatus', 'healthReason', 'healthSuggestion',
+          'cuisineInspiration', 'shoppingProducts', 'eligibilityKeys',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.identityVersion == 2
+        && request.resource.data.semanticHash == id
+        && isHash(request.resource.data.semanticHash)
+        && request.resource.data.semanticKey is string
+        && request.resource.data.semanticKey.size() <= 120
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 3000
+        && request.resource.data.notes is string
+        && request.resource.data.notes.size() <= 1000
+        && request.resource.data.language in ['SPANISH', 'ENGLISH', 'FRENCH']
+        && request.resource.data.calories is int
+        && request.resource.data.calories > 0
+        && request.resource.data.calories <= 5000
+        && request.resource.data.healthStatus in [
+          'HEALTHY', 'IMPROVABLE', 'UNHEALTHY'
+        ]
+        && request.resource.data.healthReason is string
+        && request.resource.data.healthReason.size() <= 1000
+        && request.resource.data.healthSuggestion is string
+        && request.resource.data.healthSuggestion.size() <= 1000
+        && request.resource.data.cuisineInspiration is string
+        && request.resource.data.shoppingProducts is list
+        && request.resource.data.shoppingProducts.size() <= 20
+        && request.resource.data.eligibilityKeys is list
+        && request.resource.data.eligibilityKeys.size() == 1
+        && isHash(request.resource.data.eligibilityKeys[0])
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /sharedAiMenus/{semanticHash} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && hasValidHiveShape(semanticHash);
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['identityVersion', 'eligibilityKeys', 'updatedAt'])
+        && request.resource.data.identityVersion == 2
+        && request.resource.data.eligibilityKeys is list
+        && request.resource.data.eligibilityKeys.size()
+          >= resource.data.eligibilityKeys.size()
+        && request.resource.data.eligibilityKeys.size()
+          <= resource.data.eligibilityKeys.size() + 1
+        && request.resource.data.eligibilityKeys.size() <= 100
+        && isHash(
+          request.resource.data.eligibilityKeys[
+            request.resource.data.eligibilityKeys.size() - 1
+          ]
+        )
+        && resource.data.eligibilityKeys.toSet()
+          .difference(request.resource.data.eligibilityKeys.toSet()).size() == 0
+        && request.resource.data.eligibilityKeys.toSet()
+          .difference(resource.data.eligibilityKeys.toSet()).size() <= 1;
+      allow delete: if false;
+    }
+  }
+}

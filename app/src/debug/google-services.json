@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "148402710586",
+    "project_id": "menudado-debug",
+    "storage_bucket": "menudado-debug.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:148402710586:android:9b3d7000c82325c279ed03",
+        "android_client_info": {
+          "package_name": "com.menudado.debug"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "148402710586-05ram622h0qeigluscm3qqnregaakg4c.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.menudado.debug",
+            "certificate_hash": "d0ed4a6b3d7d06e261a0dd13a39258da0b4381e1"
+          }
+        },
+        {
+          "client_id": "148402710586-oqksgbt62d5n1h9l4qu3jl9b3dbuhf8u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhR8VbM5KFqfutlk8Y1dkGtm0udzHi8Ds"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "148402710586-oqksgbt62d5n1h9l4qu3jl9b3dbuhf8u.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -3,10 +3,17 @@ package com.menudado.data
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.menudado.domain.FoodMenu
+import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
+
+enum class RemoteSyncState {
+    SYNCED,
+    PENDING_UPSERT,
+    PENDING_DELETE
+}
 
 @Entity(tableName = "menus")
 data class MenuEntity(
@@ -21,10 +28,21 @@ data class MenuEntity(
     val healthReason: String?,
     val healthSuggestion: String?,
     val calories: Int?,
+    val imageUri: String? = null,
+    val isFavorite: Boolean = false,
+    val favoritedAt: Long? = null,
     val lastPickedDate: String?,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val remoteSyncState: String = RemoteSyncState.SYNCED.name,
+    val updatedAt: Long = createdAt,
+    val deletedAt: Long? = null,
+    val remoteSyncToken: String? = null,
+    val cuisineInspiration: String? = null
 ) {
-    fun toDomain(): FoodMenu {
+    fun toDomain(
+        shoppingProductEntities: List<MenuShoppingProductEntity> = emptyList()
+    ): FoodMenu {
+        val shoppingProducts = shoppingProductEntities.map(MenuShoppingProductEntity::toDomain)
         return FoodMenu(
             id = id,
             name = name,
@@ -41,13 +59,28 @@ data class MenuEntity(
                 )
             },
             calories = calories,
+            imageUri = imageUri,
+            isFavorite = isFavorite,
+            favoritedAt = favoritedAt,
             lastPickedDate = lastPickedDate,
-            createdAt = createdAt
+            createdAt = createdAt,
+            cuisineInspiration = cuisineInspiration?.let { stored ->
+                runCatching { CuisineInspiration.valueOf(stored) }.getOrNull()
+            },
+            shoppingProducts = shoppingProducts,
+            activeShoppingProductKeys = shoppingProductEntities
+                .filter(MenuShoppingProductEntity::isActive)
+                .mapTo(linkedSetOf(), MenuShoppingProductEntity::productKey)
         )
     }
 }
 
-fun FoodMenu.toEntity(): MenuEntity {
+fun FoodMenu.toEntity(
+    remoteSyncState: RemoteSyncState = RemoteSyncState.SYNCED,
+    updatedAt: Long = createdAt,
+    deletedAt: Long? = null,
+    remoteSyncToken: String? = null
+): MenuEntity {
     return MenuEntity(
         id = id,
         name = name,
@@ -59,7 +92,15 @@ fun FoodMenu.toEntity(): MenuEntity {
         healthReason = healthAnalysis?.reason,
         healthSuggestion = healthAnalysis?.suggestion,
         calories = calories,
+        imageUri = imageUri,
+        isFavorite = isFavorite,
+        favoritedAt = favoritedAt,
         lastPickedDate = lastPickedDate,
-        createdAt = createdAt
+        createdAt = createdAt,
+        remoteSyncState = remoteSyncState.name,
+        updatedAt = updatedAt,
+        deletedAt = deletedAt,
+        remoteSyncToken = remoteSyncToken,
+        cuisineInspiration = cuisineInspiration?.name
     )
 }

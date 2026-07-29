@@ -9,32 +9,35 @@ import com.menudado.domain.DietaryProfile
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.GeneratedMenu
 import com.menudado.domain.GeneratedMenuParser
-import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthAnalysisParser
+import com.menudado.domain.MenuAiDetails
+import com.menudado.domain.AppLanguage
+import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.MealType
 import com.menudado.domain.isAiQuotaExceeded
+import com.menudado.domain.localizedLabel
 
 class FirebaseHealthAnalyzer : HealthAnalyzer {
-    override suspend fun analyze(menu: FoodMenu): Result<HealthAnalysis> {
+    override suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<MenuAiDetails> {
         return runCatching {
             val model = Firebase.ai(backend = GenerativeBackend.googleAI())
                 .generativeModel(BuildConfig.GEMINI_MODEL)
 
-            val response = model.generateContent(menu.toPrompt())
-            HealthAnalysisParser.parse(response.text.orEmpty())
+            val response = model.generateContent(menu.toPrompt(language))
+            HealthAnalysisParser.parseDetails(response.text.orEmpty())
         }.onFailure { error ->
             logAiFailure("Health analysis failed", error)
         }
     }
 
-    override suspend fun analyzeBatch(menus: List<FoodMenu>): Result<Map<Long, HealthAnalysis>> {
+    override suspend fun analyzeBatch(menus: List<FoodMenu>, language: AppLanguage): Result<Map<Long, MenuAiDetails>> {
         return runCatching {
             val model = Firebase.ai(backend = GenerativeBackend.googleAI())
                 .generativeModel(BuildConfig.GEMINI_MODEL)
 
-            val response = model.generateContent(menus.toBatchPrompt())
-            HealthAnalysisParser.parseBatch(response.text.orEmpty())
+            val response = model.generateContent(menus.toBatchPrompt(language))
+            HealthAnalysisParser.parseBatchDetails(response.text.orEmpty())
         }.onFailure { error ->
             logAiFailure("Batch health analysis failed", error)
         }
@@ -45,14 +48,24 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
         avoidIdeas: List<String>,
         dietaryProfile: DietaryProfile,
         audience: MenuAudience,
-        baseIngredients: String
+        baseIngredients: String,
+        language: AppLanguage,
+        cuisineInspiration: CuisineInspiration
     ): Result<GeneratedMenu> {
         return runCatching {
             val model = Firebase.ai(backend = GenerativeBackend.googleAI())
                 .generativeModel(BuildConfig.GEMINI_MODEL)
 
             val response = model.generateContent(
-                MenuGenerationPrompt.build(mealType, avoidIdeas, dietaryProfile, audience, baseIngredients)
+                MenuGenerationPrompt.build(
+                    mealType = mealType,
+                    avoidIdeas = avoidIdeas,
+                    dietaryProfile = dietaryProfile,
+                    audience = audience,
+                    baseIngredients = baseIngredients,
+                    language = language,
+                    cuisineInspiration = cuisineInspiration
+                )
             )
             GeneratedMenuParser.parse(response.text.orEmpty())
         }.onFailure { error ->
@@ -71,33 +84,37 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
         }
     }
 
-    private fun FoodMenu.toPrompt(): String {
+    private fun FoodMenu.toPrompt(language: AppLanguage): String {
         return """
             Evalua si este menu es saludable para: ${audience.promptName()}.
+            Write reason and suggestion in ${language.promptLanguageName}.
+            Write shopping product names in ${language.promptLanguageName}.
             Responde solo JSON valido, sin markdown, con estas claves:
             {
               "status": "saludable|intermedio|no_saludable",
-              "reason": "resumen breve en espanol",
-              "suggestion": "una sugerencia practica en espanol",
-              "calories": 520
+              "reason": "resumen breve",
+              "suggestion": "una sugerencia practica",
+              "calories": 520,
+              "shopping_products": ["producto", "otro producto"]
             }
             Las calorias deben ser una estimacion numerica realista para una racion adecuada a ese publico.
+            shopping_products debe incluir entre 1 y 20 productos reales de supermercado, en singular, sin cantidades, unidades, marcas ni duplicados. No incluyas agua ni ingredientes opcionales.
 
-            Tipo de comida: ${mealType.label}
-            Publico: ${audience.label}
+            Tipo de comida: ${mealType.localizedLabel(language)}
+            Publico: ${audience.localizedLabel(language)}
             Nombre: $name
             Ingredientes o descripcion: $description
             Notas: $notes
         """.trimIndent()
     }
 
-    private fun List<FoodMenu>.toBatchPrompt(): String {
+    private fun List<FoodMenu>.toBatchPrompt(language: AppLanguage): String {
         val menusJson = joinToString(separator = ",\n") { menu ->
             """
             {
               "id": ${menu.id},
-              "meal_type": "${menu.mealType.label}",
-              "audience": "${menu.audience.label}",
+              "meal_type": "${menu.mealType.localizedLabel(language)}",
+              "audience": "${menu.audience.localizedLabel(language)}",
               "name": "${menu.name.promptSafe()}",
               "description": "${menu.description.promptSafe()}",
               "notes": "${menu.notes.promptSafe()}"
@@ -107,20 +124,24 @@ class FirebaseHealthAnalyzer : HealthAnalyzer {
 
         return """
             Evalua si estos menus son saludables para el publico indicado en cada elemento.
+            Write reason and suggestion in ${language.promptLanguageName}.
+            Write shopping product names in ${language.promptLanguageName}.
             Responde solo JSON valido, sin markdown, con esta estructura:
             {
               "results": [
                 {
                   "id": 1,
                   "status": "saludable|intermedio|no_saludable",
-                  "reason": "resumen breve en espanol",
-                  "suggestion": "una sugerencia practica en espanol",
-                  "calories": 520
+                  "reason": "resumen breve",
+                  "suggestion": "una sugerencia practica",
+                  "calories": 520,
+                  "shopping_products": ["producto", "otro producto"]
                 }
               ]
             }
             Devuelve un resultado por cada menu recibido y conserva exactamente el mismo id.
             Las calorias deben ser una estimacion numerica realista para una racion adecuada al publico indicado.
+            shopping_products debe incluir entre 1 y 20 productos reales de supermercado, en singular, sin cantidades, unidades, marcas ni duplicados. No incluyas agua ni ingredientes opcionales.
 
             Menus:
             [

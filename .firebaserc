@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "menudado-6a2da",
+    "release": "menudado-6a2da",
+    "debug": "menudado-debug"
+  }
+}

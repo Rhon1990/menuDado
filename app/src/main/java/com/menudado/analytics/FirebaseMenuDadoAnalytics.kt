@@ -4,6 +4,7 @@ import android.os.Bundle
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MealType
+import com.menudado.domain.MenuAudience
 
 class FirebaseMenuDadoAnalytics(
     private val firebaseAnalytics: FirebaseAnalytics
@@ -26,6 +27,43 @@ class FirebaseMenuDadoAnalytics(
             putBooleanAsLong(PARAM_HAS_AI_ANALYSIS, hasAiAnalysis)
             putBooleanAsLong(PARAM_HAS_CALORIES, hasCalories)
             putLong(PARAM_MENU_COUNT, menuCount.toLong())
+        }
+    }
+
+    override fun trackCtaTapped(screen: String, cta: String) {
+        logEvent(EVENT_CTA_TAPPED) {
+            putString(PARAM_SCREEN, screen.sanitized())
+            putString(PARAM_CTA, cta.sanitized())
+        }
+    }
+
+    override fun trackMyZoneOpened(authMode: String, menuCount: Int) {
+        logEvent(EVENT_MY_ZONE_OPENED) {
+            putString(PARAM_AUTH_MODE, authMode.sanitized())
+            putLong(PARAM_MENU_COUNT, menuCount.toLong())
+        }
+    }
+
+    override fun trackAuthFlowStarted(mode: String, authMode: String, menuCount: Int) {
+        logEvent(EVENT_AUTH_FLOW_STARTED) {
+            putString(PARAM_MODE, mode.sanitized())
+            putString(PARAM_AUTH_MODE, authMode.sanitized())
+            putLong(PARAM_MENU_COUNT, menuCount.toLong())
+        }
+    }
+
+    override fun trackAuthAction(action: String, method: String, authMode: String) {
+        logEvent(EVENT_AUTH_ACTION) {
+            putString(PARAM_ACTION, action.sanitized())
+            putString(PARAM_METHOD, method.sanitized())
+            putString(PARAM_AUTH_MODE, authMode.sanitized())
+        }
+    }
+
+    override fun trackGuestLimitReached(limitType: String, usedCount: Int) {
+        logEvent(EVENT_GUEST_LIMIT_REACHED) {
+            putString(PARAM_LIMIT_TYPE, limitType.sanitized())
+            putLong(PARAM_USED_COUNT, usedCount.toLong())
         }
     }
 
@@ -64,11 +102,62 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
+    override fun trackAudienceFilterSelected(source: String, audience: MenuAudience?, menuCount: Int) {
+        logEvent(EVENT_AUDIENCE_FILTER_SELECTED) {
+            putString(PARAM_SOURCE, source.sanitized())
+            putString(PARAM_AUDIENCE, audience?.analyticsName() ?: VALUE_ALL)
+            putLong(PARAM_MENU_COUNT, menuCount.toLong())
+        }
+    }
+
     override fun trackMenuSaveBlocked(reason: String, hasName: Boolean, hasDescription: Boolean) {
         logEvent(EVENT_MENU_SAVE_BLOCKED) {
             putString(PARAM_REASON, reason.sanitized())
             putBooleanAsLong(PARAM_HAS_NAME, hasName)
             putBooleanAsLong(PARAM_HAS_DESCRIPTION, hasDescription)
+        }
+    }
+
+    override fun trackMenuEditStarted(
+        mealType: MealType,
+        audience: MenuAudience,
+        hasAiAnalysis: Boolean,
+        hasPhoto: Boolean,
+        menuCount: Int
+    ) {
+        logEvent(EVENT_MENU_EDIT_STARTED) {
+            putString(PARAM_MEAL_TYPE, mealType.analyticsName())
+            putString(PARAM_AUDIENCE, audience.analyticsName())
+            putBooleanAsLong(PARAM_HAS_AI_ANALYSIS, hasAiAnalysis)
+            putBooleanAsLong(PARAM_HAS_PHOTO, hasPhoto)
+            putLong(PARAM_MENU_COUNT, menuCount.toLong())
+        }
+    }
+
+    override fun trackMenuEditSaved(
+        mealType: MealType,
+        audience: MenuAudience,
+        changedRecipe: Boolean,
+        hasAiAnalysis: Boolean,
+        hasPhoto: Boolean,
+        menuCount: Int
+    ) {
+        logEvent(EVENT_MENU_EDIT_SAVED) {
+            putString(PARAM_MEAL_TYPE, mealType.analyticsName())
+            putString(PARAM_AUDIENCE, audience.analyticsName())
+            putBooleanAsLong(PARAM_CHANGED_RECIPE, changedRecipe)
+            putBooleanAsLong(PARAM_HAS_AI_ANALYSIS, hasAiAnalysis)
+            putBooleanAsLong(PARAM_HAS_PHOTO, hasPhoto)
+            putLong(PARAM_MENU_COUNT, menuCount.toLong())
+        }
+    }
+
+    override fun trackMenuPhotoUpdated(mealType: MealType, audience: MenuAudience, hasPhoto: Boolean, menuCount: Int) {
+        logEvent(EVENT_MENU_PHOTO_UPDATED) {
+            putString(PARAM_MEAL_TYPE, mealType.analyticsName())
+            putString(PARAM_AUDIENCE, audience.analyticsName())
+            putBooleanAsLong(PARAM_HAS_PHOTO, hasPhoto)
+            putLong(PARAM_MENU_COUNT, menuCount.toLong())
         }
     }
 
@@ -101,6 +190,12 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
+    override fun trackDiceEmptyRecovery(action: String) {
+        logEvent(EVENT_DICE_EMPTY_RECOVERY) {
+            putString(PARAM_ACTION, action.sanitized())
+        }
+    }
+
     override fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int) {
         logEvent(EVENT_MENU_CARD_OPENED) {
             putString(PARAM_MEAL_TYPE, mealType.analyticsName())
@@ -119,8 +214,56 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
+    override fun trackAppUpdatePrompt(action: String) {
+        logEvent(EVENT_APP_UPDATE_PROMPT) {
+            putString(PARAM_ACTION, action.sanitized())
+        }
+    }
+
     override fun trackAboutAppOpened() {
         logEvent(EVENT_ABOUT_APP_OPENED)
+    }
+
+    override fun trackDietaryProfileOpened(activeAudienceCount: Int) {
+        logEvent(EVENT_DIETARY_PROFILE_OPENED) {
+            putLong(PARAM_ACTIVE_AUDIENCE_COUNT, activeAudienceCount.toLong())
+        }
+    }
+
+    override fun trackDietaryProfileAudienceSelected(audience: MenuAudience) {
+        logEvent(EVENT_DIETARY_PROFILE_AUDIENCE_SELECTED) {
+            putString(PARAM_AUDIENCE, audience.analyticsName())
+        }
+    }
+
+    override fun trackDietaryProfileUpdated(audience: MenuAudience, fieldGroup: String, activeAudienceCount: Int) {
+        logEvent(EVENT_DIETARY_PROFILE_UPDATED) {
+            putString(PARAM_AUDIENCE, audience.analyticsName())
+            putString(PARAM_FIELD_GROUP, fieldGroup.sanitized())
+            putLong(PARAM_ACTIVE_AUDIENCE_COUNT, activeAudienceCount.toLong())
+        }
+    }
+
+    override fun trackMenuListViewMoreOpened(audience: MenuAudience, menuCount: Int) {
+        logEvent(EVENT_MENU_LIST_VIEW_MORE_OPENED) {
+            putString(PARAM_AUDIENCE, audience.analyticsName())
+            putLong(PARAM_MENU_COUNT, menuCount.toLong())
+        }
+    }
+
+    override fun trackBackendSyncRetried(source: String, pendingMenuCount: Int) {
+        logEvent(EVENT_BACKEND_SYNC_RETRIED) {
+            putString(PARAM_SOURCE, source.sanitized())
+            putLong(PARAM_PENDING_MENU_COUNT, pendingMenuCount.toLong())
+        }
+    }
+
+    override fun trackBackendSyncFinished(source: String, status: String, pendingMenuCount: Int) {
+        logEvent(EVENT_BACKEND_SYNC_FINISHED) {
+            putString(PARAM_SOURCE, source.sanitized())
+            putString(PARAM_STATUS, status.sanitized())
+            putLong(PARAM_PENDING_MENU_COUNT, pendingMenuCount.toLong())
+        }
     }
 
     override fun trackAiMenuGenerationStarted(mealType: MealType, avoidIdeaCount: Int) {
@@ -141,6 +284,20 @@ class FirebaseMenuDadoAnalytics(
             putString(PARAM_STATUS, success.analyticsStatus())
             putString(PARAM_HEALTH_STATUS, healthStatus?.analyticsName() ?: VALUE_UNKNOWN)
             putString(PARAM_FAILURE_TYPE, failureType ?: VALUE_NONE)
+        }
+    }
+
+    override fun trackAiMenuHiveFallback(
+        mealType: MealType,
+        result: String,
+        triggerFailureType: String,
+        durationMillis: Long
+    ) {
+        logEvent(EVENT_AI_MENU_HIVE_FALLBACK) {
+            putString(PARAM_MEAL_TYPE, mealType.analyticsName())
+            putString(PARAM_STATUS, result.sanitized())
+            putString(PARAM_FAILURE_TYPE, triggerFailureType.sanitized())
+            putLong(PARAM_DURATION_MS, durationMillis.coerceAtLeast(0L))
         }
     }
 
@@ -173,6 +330,13 @@ class FirebaseMenuDadoAnalytics(
     override fun trackAiDailyLimitReached(source: String) {
         logEvent(EVENT_AI_DAILY_LIMIT_REACHED) {
             putString(PARAM_SOURCE, source)
+        }
+    }
+
+    override fun trackAiRewardedOffer(status: String, creditsRemaining: Int) {
+        logEvent(EVENT_AI_REWARDED_OFFER) {
+            putString(PARAM_STATUS, status.sanitized())
+            putLong(PARAM_CREDITS_REMAINING, creditsRemaining.coerceAtLeast(0).toLong())
         }
     }
 
@@ -210,6 +374,8 @@ class FirebaseMenuDadoAnalytics(
 
     private fun HealthStatus.analyticsName(): String = name.lowercase()
 
+    private fun MenuAudience.analyticsName(): String = name.lowercase()
+
     private fun String.sanitized(): String = take(MAX_PARAM_LENGTH).ifBlank { VALUE_UNKNOWN }
 
     private companion object {
@@ -217,32 +383,61 @@ class FirebaseMenuDadoAnalytics(
 
         const val EVENT_APP_OPENED = "app_opened"
         const val EVENT_MENU_SAVED = "menu_saved"
+        const val EVENT_CTA_TAPPED = "cta_tapped"
+        const val EVENT_MY_ZONE_OPENED = "my_zone_opened"
+        const val EVENT_AUTH_FLOW_STARTED = "auth_flow_started"
+        const val EVENT_AUTH_ACTION = "auth_action"
+        const val EVENT_GUEST_LIMIT_REACHED = "guest_limit_reached"
         const val EVENT_MENU_DELETED = "menu_deleted"
         const val EVENT_FIRST_MENU_CREATED = "first_menu_created"
         const val EVENT_MENU_INVENTORY_CHANGED = "menu_inventory_changed"
         const val EVENT_MENU_FORM_STARTED = "menu_form_started"
         const val EVENT_MEAL_TYPE_SELECTED = "meal_type_selected"
+        const val EVENT_AUDIENCE_FILTER_SELECTED = "audience_filter_selected"
         const val EVENT_MENU_SAVE_BLOCKED = "menu_save_blocked"
+        const val EVENT_MENU_EDIT_STARTED = "menu_edit_started"
+        const val EVENT_MENU_EDIT_SAVED = "menu_edit_saved"
+        const val EVENT_MENU_PHOTO_UPDATED = "menu_photo_updated"
         const val EVENT_DICE_ROLLED = "dice_rolled"
         const val EVENT_DICE_FILTER_SELECTED = "dice_filter_selected"
         const val EVENT_DICE_EMPTY_RESULT = "dice_empty_result"
+        const val EVENT_DICE_EMPTY_RECOVERY = "dice_empty_recovery"
         const val EVENT_MENU_CARD_OPENED = "menu_card_opened"
         const val EVENT_ONBOARDING_SHOWN = "onboarding_shown"
         const val EVENT_ONBOARDING_COMPLETED = "onboarding_completed"
+        const val EVENT_APP_UPDATE_PROMPT = "app_update_prompt"
         const val EVENT_ABOUT_APP_OPENED = "about_app_opened"
+        const val EVENT_DIETARY_PROFILE_OPENED = "dietary_profile_opened"
+        const val EVENT_DIETARY_PROFILE_AUDIENCE_SELECTED = "dietary_profile_audience_selected"
+        const val EVENT_DIETARY_PROFILE_UPDATED = "dietary_profile_updated"
+        const val EVENT_MENU_LIST_VIEW_MORE_OPENED = "menu_list_view_more_opened"
+        const val EVENT_BACKEND_SYNC_RETRIED = "backend_sync_retried"
+        const val EVENT_BACKEND_SYNC_FINISHED = "backend_sync_finished"
         const val EVENT_AI_MENU_GENERATION_STARTED = "ai_menu_gen_started"
         const val EVENT_AI_MENU_GENERATION_FINISHED = "ai_menu_gen_finished"
+        const val EVENT_AI_MENU_HIVE_FALLBACK = "ai_menu_hive_fallback"
         const val EVENT_AI_ANALYSIS_STARTED = "ai_analysis_started"
         const val EVENT_AI_ANALYSIS_FINISHED = "ai_analysis_finished"
         const val EVENT_AI_DAILY_LIMIT_REACHED = "ai_daily_limit_reached"
+        const val EVENT_AI_REWARDED_OFFER = "ai_rewarded_offer"
 
         const val PARAM_DEVICE_MANUFACTURER = "device_manufacturer"
         const val PARAM_DEVICE_MODEL = "device_model"
         const val PARAM_ANDROID_VERSION = "android_version"
         const val PARAM_LOCALE_COUNTRY = "locale_country"
         const val PARAM_TIME_ZONE = "time_zone"
+        const val PARAM_SCREEN = "screen"
+        const val PARAM_CTA = "cta"
+        const val PARAM_AUTH_MODE = "auth_mode"
+        const val PARAM_MODE = "mode"
+        const val PARAM_METHOD = "method"
+        const val PARAM_LIMIT_TYPE = "limit_type"
+        const val PARAM_USED_COUNT = "used_count"
         const val PARAM_MEAL_TYPE = "meal_type"
+        const val PARAM_AUDIENCE = "audience"
         const val PARAM_HAS_AI_ANALYSIS = "has_ai_analysis"
+        const val PARAM_HAS_PHOTO = "has_photo"
+        const val PARAM_CHANGED_RECIPE = "changed_recipe"
         const val PARAM_HAS_CALORIES = "has_calories"
         const val PARAM_MENU_COUNT = "menu_count"
         const val PARAM_ANALYZED_MENU_COUNT = "analyzed_menu_count"
@@ -264,6 +459,11 @@ class FirebaseMenuDadoAnalytics(
         const val PARAM_HEALTH_STATUS = "health_status"
         const val PARAM_FAILURE_TYPE = "failure_type"
         const val PARAM_ACTION = "action"
+        const val PARAM_FIELD_GROUP = "field_group"
+        const val PARAM_ACTIVE_AUDIENCE_COUNT = "active_audience_count"
+        const val PARAM_PENDING_MENU_COUNT = "pending_menu_count"
+        const val PARAM_DURATION_MS = "duration_ms"
+        const val PARAM_CREDITS_REMAINING = "credits_remaining"
 
         const val VALUE_ALL = "all"
         const val VALUE_NONE = "none"

@@ -4,14 +4,35 @@ import com.menudado.analytics.MenuDadoAnalytics
 import com.menudado.analytics.DeviceInfo
 import com.menudado.ai.HealthAnalyzer
 import com.menudado.data.DietaryProfileStore
+import com.menudado.data.FormAudienceSelectionStore
 import com.menudado.data.AiDailyUsageState
 import com.menudado.data.AiDailyUsageStore
 import com.menudado.data.AiQuotaRetryStore
 import com.menudado.data.AiQuotaRetryState
+import com.menudado.data.AiRequestThrottleStore
+import com.menudado.data.AiMenuHiveCandidate
+import com.menudado.data.AiMenuHiveContribution
+import com.menudado.data.AiMenuHiveGateway
+import com.menudado.data.AiMenuHiveLookupSource
+import com.menudado.data.AiMenuHiveSearchRequest
+import com.menudado.data.CuisineRotation
+import com.menudado.data.CuisineRotationStateStore
+import com.menudado.data.GuestDailyUsageState
+import com.menudado.data.GuestUsageStore
+import com.menudado.data.GUEST_AI_USAGE_SCOPE
+import com.menudado.data.HiveRotationSnapshot
+import com.menudado.data.HiveRotationStore
+import com.menudado.data.LOCAL_ACCOUNT_AI_USAGE_SCOPE
 import com.menudado.data.MenuDao
 import com.menudado.data.MenuEntity
 import com.menudado.data.MenuRepository
 import com.menudado.data.OnboardingStore
+import com.menudado.data.RemoteSyncState
+import com.menudado.data.RewardedAiCreditLedger
+import com.menudado.data.RewardedAiCreditStore
+import com.menudado.data.PROVIDER_AI_USAGE_SCOPE
+import com.menudado.data.ScopedAiUsageStore
+import com.menudado.data.accountAiUsageScope
 import com.menudado.data.toEntity
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.GeneratedMenu
@@ -19,10 +40,17 @@ import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
+import com.menudado.domain.MenuAiDetails
+import com.menudado.domain.AppLanguage
 import com.menudado.domain.DietaryAllergen
 import com.menudado.domain.DietaryProfile
+import com.menudado.domain.CuisineInspiration
+import com.menudado.domain.AiMenuHiveIdentity
+import com.menudado.domain.AI_PROVIDER_DAILY_HARD_LIMIT
+import com.menudado.domain.ShoppingProduct
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -39,9 +67,11 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.util.Calendar
+import java.util.Locale
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MenuDadoViewModelTest {
@@ -49,30 +79,61 @@ class MenuDadoViewModelTest {
     private lateinit var dao: FakeMenuDao
     private lateinit var analyzer: RecordingHealthAnalyzer
     private lateinit var aiQuotaRetryStore: FakeAiQuotaRetryStore
+    private lateinit var aiRequestThrottleStore: FakeAiRequestThrottleStore
     private lateinit var aiDailyUsageStore: FakeAiDailyUsageStore
+    private lateinit var scopedAiUsageStore: FakeScopedAiUsageStore
+    private lateinit var guestUsageStore: FakeGuestUsageStore
+    private lateinit var rewardedAiCreditStore: FakeRewardedAiCreditStore
     private lateinit var dietaryProfileStore: FakeDietaryProfileStore
+    private lateinit var formAudienceSelectionStore: FakeFormAudienceSelectionStore
     private lateinit var onboardingStore: FakeOnboardingStore
+    private lateinit var cuisineRotationStateStore: FakeCuisineRotationStateStore
+    private lateinit var cuisineRotation: CuisineRotation
     private lateinit var analytics: RecordingMenuDadoAnalytics
+    private lateinit var hive: RecordingAiMenuHiveGateway
+    private lateinit var hiveRotationStore: FakeHiveRotationStore
     private lateinit var viewModel: MenuDadoViewModel
+    private lateinit var originalLocale: Locale
 
     @Before
     fun setUp() {
+        originalLocale = Locale.getDefault()
+        Locale.setDefault(Locale("es"))
         Dispatchers.setMain(dispatcher)
         dao = FakeMenuDao()
         analyzer = RecordingHealthAnalyzer()
         aiQuotaRetryStore = FakeAiQuotaRetryStore()
+        aiRequestThrottleStore = FakeAiRequestThrottleStore()
         aiDailyUsageStore = FakeAiDailyUsageStore()
+        scopedAiUsageStore = FakeScopedAiUsageStore()
+        guestUsageStore = FakeGuestUsageStore()
+        rewardedAiCreditStore = FakeRewardedAiCreditStore()
         dietaryProfileStore = FakeDietaryProfileStore()
+        formAudienceSelectionStore = FakeFormAudienceSelectionStore()
         onboardingStore = FakeOnboardingStore(completed = true)
+        cuisineRotationStateStore = FakeCuisineRotationStateStore()
+        cuisineRotation = CuisineRotation(cuisineRotationStateStore) { 2 }
         analytics = RecordingMenuDadoAnalytics()
+        hive = RecordingAiMenuHiveGateway()
+        hiveRotationStore = FakeHiveRotationStore()
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
+            todayProvider = { "2026-06-11" },
             clockMillisProvider = { localMillisAtHour(8) },
             aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
+            initialAiUsageScope = LOCAL_ACCOUNT_AI_USAGE_SCOPE,
+            guestUsageStore = guestUsageStore,
+            rewardedAiCreditStore = rewardedAiCreditStore,
             dietaryProfileStore = dietaryProfileStore,
-            onboardingStore = onboardingStore
+            formAudienceSelectionStore = formAudienceSelectionStore,
+            onboardingStore = onboardingStore,
+            cuisineRotation = cuisineRotation,
+            aiMenuHive = hive,
+            hiveRotationStore = hiveRotationStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -82,7 +143,762 @@ class MenuDadoViewModelTest {
 
     @After
     fun tearDown() {
+        Locale.setDefault(originalLocale)
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `slow live request changes copy phase while dice remains active`() = runTest(dispatcher) {
+        analyzer.generateDelayMillis = 13_000L
+
+        viewModel.generateMenuIdea()
+        runCurrent()
+        assertEquals(AiGenerationPhase.GENERATING, viewModel.uiState.value.aiGenerationPhase)
+
+        advanceTimeBy(12_000L)
+        runCurrent()
+
+        assertEquals(AiGenerationPhase.GENERATING_SLOW, viewModel.uiState.value.aiGenerationPhase)
+        assertTrue(viewModel.uiState.value.isGeneratingMenu)
+
+        advanceTimeBy(1_000L)
+        advanceUntilIdle()
+        assertEquals(AiGenerationPhase.IDLE, viewModel.uiState.value.aiGenerationPhase)
+    }
+
+    @Test
+    fun `provider failure keeps dice active and opens compatible hive result`() = runTest(dispatcher) {
+        analyzer.generateFailure = IllegalStateException("internal")
+        hive.searchResult = Result.success(sampleHiveCandidate())
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, hive.searches.size)
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+        assertEquals("Idea recuperada", viewModel.uiState.value.name)
+        assertEquals(AiGenerationPhase.IDLE, viewModel.uiState.value.aiGenerationPhase)
+        assertFalse(viewModel.uiState.value.isGeneratingMenu)
+    }
+
+    @Test
+    fun `five guest uses leave ten free uses after sign in`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(GUEST_AI_USAGE_SCOPE, "2026-06-10", usedCount = 5)
+        viewModel.updateGuestAccess(
+            isGuest = true,
+            areLimitsEnabled = true,
+            areAiLimitsEnabled = true,
+            userId = "anonymous-user"
+        )
+
+        assertEquals(0, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+
+        viewModel.updateGuestAccess(
+            isGuest = false,
+            areLimitsEnabled = true,
+            areAiLimitsEnabled = true,
+            userId = "user-a"
+        )
+
+        assertEquals(10, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+    }
+
+    @Test
+    fun `guest rewarded videos do not reduce account rewarded allowance`() = runTest(dispatcher) {
+        rewardedAiCreditStore.seed(
+            GUEST_AI_USAGE_SCOPE,
+            RewardedAiCreditLedger(
+                dateKey = "2026-06-10",
+                earnedCount = 10,
+                consumedCount = 10
+            )
+        )
+        scopedAiUsageStore.seed(accountAiUsageScope("user-a"), "2026-06-10", usedCount = 10)
+
+        viewModel.updateGuestAccess(
+            isGuest = false,
+            areLimitsEnabled = true,
+            areAiLimitsEnabled = true,
+            userId = "user-a"
+        )
+
+        assertEquals(AiGenerationLimitState.REWARDED_OFFER, viewModel.uiState.value.aiGenerationLimitState)
+        assertEquals(10, viewModel.uiState.value.rewardedCreditsRemainingToday)
+    }
+
+    @Test
+    fun `logging out restores previous guest balance`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(GUEST_AI_USAGE_SCOPE, "2026-06-10", usedCount = 4)
+        scopedAiUsageStore.seed(accountAiUsageScope("user-a"), "2026-06-10", usedCount = 7)
+
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+        assertEquals(3, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+
+        viewModel.updateGuestAccess(true, true, true, userId = "anonymous-user")
+        assertEquals(1, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+    }
+
+    @Test
+    fun `authenticated accounts keep independent free allowances`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(accountAiUsageScope("user-a"), "2026-06-10", usedCount = 10)
+
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+        assertEquals(0, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+
+        viewModel.updateGuestAccess(false, true, true, userId = "user-b")
+        assertEquals(10, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+    }
+
+    @Test
+    fun `provider safeguard routes an entitled generation directly to hive`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        hive.searchResult = Result.success(sampleHiveCandidate())
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(1, hive.searches.size)
+        assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
+        assertEquals(
+            1,
+            scopedAiUsageStore.getUsageState(
+                accountAiUsageScope("user-a"),
+                "2026-06-10"
+            ).usedCount
+        )
+        assertEquals(
+            20,
+            scopedAiUsageStore.getUsageState(PROVIDER_AI_USAGE_SCOPE, "2026-06-10").usedCount
+        )
+    }
+
+    @Test
+    fun `provider cap blocks a new rewarded offer after free uses are exhausted`() =
+        runTest(dispatcher) {
+            scopedAiUsageStore.seed(
+                LOCAL_ACCOUNT_AI_USAGE_SCOPE,
+                "2026-06-10",
+                usedCount = 10
+            )
+            scopedAiUsageStore.seed(
+                PROVIDER_AI_USAGE_SCOPE,
+                "2026-06-10",
+                usedCount = AI_PROVIDER_DAILY_HARD_LIMIT
+            )
+            viewModel.updateGuestAccess(
+                isGuest = false,
+                areLimitsEnabled = true,
+                areAiLimitsEnabled = true
+            )
+
+            viewModel.generateMenuIdea()
+
+            assertEquals(
+                AiGenerationLimitState.HARD_LIMIT,
+                viewModel.uiState.value.aiGenerationLimitState
+            )
+            assertFalse(viewModel.uiState.value.canRequestRewardedGeneration)
+            assertFalse(viewModel.requestRewardedGeneration())
+            assertEquals(0, analyzer.generateCalls)
+            assertTrue(hive.searches.isEmpty())
+            assertNull(rewardedAiCreditStore.ledger)
+        }
+
+    @Test
+    fun `earned rewarded credit still uses hive when provider cap is reached`() =
+        runTest(dispatcher) {
+            scopedAiUsageStore.seed(
+                LOCAL_ACCOUNT_AI_USAGE_SCOPE,
+                "2026-06-10",
+                usedCount = 10
+            )
+            scopedAiUsageStore.seed(
+                PROVIDER_AI_USAGE_SCOPE,
+                "2026-06-10",
+                usedCount = AI_PROVIDER_DAILY_HARD_LIMIT
+            )
+            rewardedAiCreditStore.seed(
+                LOCAL_ACCOUNT_AI_USAGE_SCOPE,
+                RewardedAiCreditLedger(
+                    dateKey = "2026-06-10",
+                    earnedCount = 1,
+                    consumedCount = 0
+                )
+            )
+            hive.searchResult = Result.success(sampleHiveCandidate())
+            viewModel.updateGuestAccess(
+                isGuest = false,
+                areLimitsEnabled = true,
+                areAiLimitsEnabled = true
+            )
+
+            viewModel.generateMenuIdea()
+            advanceUntilIdle()
+
+            assertEquals(0, analyzer.generateCalls)
+            assertEquals(1, hive.searches.size)
+            assertEquals(
+                GeneratedMenuOrigin.HIVE_FALLBACK,
+                viewModel.uiState.value.generatedOrigin
+            )
+            assertEquals(1, rewardedAiCreditStore.ledger?.consumedCount)
+        }
+
+    @Test
+    fun `provider safeguard ignores provider retry and throttle while using hive`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        aiQuotaRetryStore.storedRetryAtMillis = Long.MAX_VALUE
+        aiRequestThrottleStore.storedLastRequestAtMillis = Long.MAX_VALUE
+        hive.searchResult = Result.success(sampleHiveCandidate())
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(1, hive.searches.size)
+        assertEquals(Long.MAX_VALUE, aiRequestThrottleStore.storedLastRequestAtMillis)
+        assertFalse(viewModel.uiState.value.isAiProviderAvailableToday)
+        assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
+    }
+
+    @Test
+    fun `hive fallback reads and records active account rotation`() = runTest(dispatcher) {
+        val candidate = sampleHiveCandidate(startsNewRotationCycle = true)
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        hive.searchResult = Result.success(candidate)
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(listOf(accountAiUsageScope("user-a")), hiveRotationStore.snapshotScopes)
+        assertEquals(
+            listOf(
+                Triple(
+                    accountAiUsageScope("user-a"),
+                    candidate.semanticHash,
+                    true
+                )
+            ),
+            hiveRotationStore.records
+        )
+    }
+
+    @Test
+    fun `guest and account pass independent hive histories`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        hive.searchResult = Result.success(sampleHiveCandidate())
+        hiveRotationStore.seed(
+            GUEST_AI_USAGE_SCOPE,
+            hashes = listOf("guest-hash"),
+            lastShownHash = "guest-hash"
+        )
+        hiveRotationStore.seed(
+            accountAiUsageScope("user-a"),
+            hashes = listOf("account-hash"),
+            lastShownHash = "account-hash"
+        )
+
+        viewModel.updateGuestAccess(true, true, true, userId = "anonymous")
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        viewModel.discardGeneratedMenuIdea()
+
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(setOf("guest-hash"), hive.searches[0].recentSemanticHashes)
+        assertEquals("guest-hash", hive.searches[0].lastShownHash)
+        assertEquals(setOf("account-hash"), hive.searches[1].recentSemanticHashes)
+        assertEquals("account-hash", hive.searches[1].lastShownHash)
+    }
+
+    @Test
+    fun `hive fallback continues when local rotation cannot be read`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        hive.searchResult = Result.success(sampleHiveCandidate())
+        hiveRotationStore.throwOnSnapshot = true
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, hive.searches.size)
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+    }
+
+    @Test
+    fun `hive result remains visible when local rotation cannot be written`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        hive.searchResult = Result.success(sampleHiveCandidate())
+        hiveRotationStore.throwOnRecord = true
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+        assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
+    }
+
+    @Test
+    fun `provider safeguard blocks analysis without consuming account allowance`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(PROVIDER_AI_USAGE_SCOPE, "2026-06-10", usedCount = 20)
+        viewModel.updateGuestAccess(false, true, true, userId = "user-a")
+
+        viewModel.analyzeExisting(
+            FoodMenu(
+                id = 1,
+                name = "Tostadas",
+                mealType = MealType.BREAKFAST,
+                audience = MenuAudience.ADULT,
+                description = "Pan, tomate y aguacate"
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.analysisCalls)
+        assertEquals(
+            0,
+            scopedAiUsageStore.getUsageState(
+                accountAiUsageScope("user-a"),
+                "2026-06-10"
+            ).usedCount
+        )
+    }
+
+    @Test
+    fun `legacy guest usage migrates once without becoming account usage`() = runTest(dispatcher) {
+        val legacyStore = FakeAiDailyUsageStore().apply {
+            storedDateKey = "2026-06-10"
+            storedUsedCount = 5
+        }
+        val migratedScopedStore = FakeScopedAiUsageStore()
+        val migratedViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { localMillisAtHour(8) },
+            aiDailyUsageStore = legacyStore,
+            scopedAiUsageStore = migratedScopedStore,
+            initialAiUsageScope = GUEST_AI_USAGE_SCOPE,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+
+        migratedViewModel.updateGuestAccess(true, true, true, userId = "anonymous-user")
+
+        assertEquals(0, migratedViewModel.uiState.value.aiGenerationUsesRemainingToday)
+        assertEquals(
+            5,
+            migratedScopedStore.getUsageState(GUEST_AI_USAGE_SCOPE, "2026-06-10").usedCount
+        )
+        assertEquals(
+            5,
+            migratedScopedStore.getUsageState(PROVIDER_AI_USAGE_SCOPE, "2026-06-10").usedCount
+        )
+        assertEquals(5, legacyStore.storedUsedCount)
+        assertEquals(0, legacyStore.saveCalls)
+
+        migratedViewModel.updateGuestAccess(false, true, true, userId = "user-a")
+
+        assertEquals(10, migratedViewModel.uiState.value.aiGenerationUsesRemainingToday)
+    }
+
+    @Test
+    fun `signed in free limit offers rewarded generation without a daily retry lock`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
+        viewModel.updateGuestAccess(isGuest = false, areLimitsEnabled = true, areAiLimitsEnabled = true)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(AiGenerationLimitState.REWARDED_OFFER, viewModel.uiState.value.aiGenerationLimitState)
+        assertTrue(viewModel.uiState.value.canRequestRewardedGeneration)
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
+    }
+
+    @Test
+    fun `rewarded offer is tracked when the app starts with free uses already exhausted`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { localMillisAtHour(8) },
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
+            rewardedAiCreditStore = rewardedAiCreditStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore,
+            cuisineRotation = cuisineRotation,
+            aiMenuHive = hive
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        analytics.events.clear()
+
+        viewModel.generateMenuIdea()
+        assertFalse(analytics.events.contains("ai_rewarded_offer:shown:10"))
+        viewModel.trackRewardedGenerationOfferShown()
+
+        assertTrue(analytics.events.contains("ai_rewarded_offer:shown:10"))
+    }
+
+    @Test
+    fun `earned reward resumes Gemini and keeps the existing hive fallback`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
+        analyzer.generateFailure = IllegalStateException("internal")
+        hive.searchResult = Result.success(sampleHiveCandidate())
+        viewModel.generateMenuIdea()
+
+        assertTrue(viewModel.requestRewardedGeneration())
+        viewModel.onRewardedGenerationEarned()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals(1, hive.searches.size)
+        assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
+        assertEquals(11, aiDailyUsageStore.storedUsedCount)
+        assertEquals(1, rewardedAiCreditStore.ledger?.earnedCount)
+        assertEquals(1, rewardedAiCreditStore.ledger?.consumedCount)
+    }
+
+    @Test
+    fun `rewarded generated menu saves after guest manual save limit is exhausted`() =
+        runTest(dispatcher) {
+            guestUsageStore.state = GuestDailyUsageState(
+                dateKey = "2026-06-11",
+                savedMenuCount = 5,
+                generatedIdeaCount = 0,
+                analysisCount = 0
+            )
+            scopedAiUsageStore.seed(GUEST_AI_USAGE_SCOPE, "2026-06-10", usedCount = 5)
+            viewModel.updateGuestAccess(
+                isGuest = true,
+                areLimitsEnabled = true,
+                areAiLimitsEnabled = true
+            )
+            viewModel.generateMenuIdea()
+            assertTrue(viewModel.requestRewardedGeneration())
+
+            viewModel.onRewardedGenerationEarned()
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+
+            viewModel.saveGeneratedMenuIdea()
+            advanceUntilIdle()
+
+            assertEquals(1, dao.saved.size)
+            assertFalse(viewModel.uiState.value.showGeneratedMenuDetail)
+            assertEquals(1L, viewModel.uiState.value.menuSaveSuccessRevision)
+            assertNull(viewModel.uiState.value.message)
+        }
+
+    @Test
+    fun `quota fallback success keeps retry internal and reveals only generated menu`() =
+        runTest(dispatcher) {
+            analyzer.generateFailure =
+                IllegalStateException("Quota exceeded. Please retry in 57s.")
+            hive.searchResult = Result.success(sampleHiveCandidate())
+            hive.searchDelayMillis = 1_000L
+
+            viewModel.generateMenuIdea()
+            runCurrent()
+
+            assertEquals(AiGenerationPhase.SEARCHING_HIVE, viewModel.uiState.value.aiGenerationPhase)
+            assertNull(viewModel.uiState.value.message)
+            assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
+
+            advanceTimeBy(1_000L)
+            runCurrent()
+
+            val state = viewModel.uiState.value
+            assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, state.generatedOrigin)
+            assertTrue(state.showGeneratedMenuDetail)
+            assertNull(state.message)
+            assertFalse(state.isAiRetryNoticeVisible)
+            assertTrue(state.aiRetryAtMillis != null)
+        }
+
+    @Test
+    fun `quota fallback miss reveals one retry notice after loading`() = runTest(dispatcher) {
+        analyzer.generateFailure =
+            IllegalStateException("Quota exceeded. Please retry in 57s.")
+        hive.searchResult = Result.success(null)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isGeneratingMenu)
+        assertFalse(state.showGeneratedMenuDetail)
+        assertEquals(
+            "La IA está con mucha demanda y no pudo preparar una idea para " +
+                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
+            state.message
+        )
+        assertTrue(state.isAiRetryNoticeVisible)
+        assertTrue(state.aiRetryAtMillis != null)
+    }
+
+    @Test
+    fun `fast rewarded generation keeps dice active for minimum presentation`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
+        viewModel.generateMenuIdea()
+        assertTrue(viewModel.requestRewardedGeneration())
+
+        viewModel.onRewardedGenerationEarned()
+        runCurrent()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertTrue(viewModel.uiState.value.isGeneratingMenu)
+        assertTrue(viewModel.uiState.value.isRewardedMenuRevealPending)
+
+        advanceTimeBy(REWARDED_AI_DICE_MINIMUM_PRESENTATION_MILLIS - 1L)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isRewardedMenuRevealPending)
+
+        advanceTimeBy(1L)
+        runCurrent()
+        assertFalse(viewModel.uiState.value.isRewardedMenuRevealPending)
+        assertFalse(viewModel.uiState.value.isGeneratingMenu)
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+    }
+
+    @Test
+    fun `normal generation does not use rewarded minimum presentation`() = runTest(dispatcher) {
+        viewModel.generateMenuIdea()
+        runCurrent()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertFalse(viewModel.uiState.value.isRewardedMenuRevealPending)
+        assertFalse(viewModel.uiState.value.isGeneratingMenu)
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+    }
+
+    @Test
+    fun `slow rewarded generation adds no wait after AI finishes`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
+        analyzer.generateDelayMillis = REWARDED_AI_DICE_MINIMUM_PRESENTATION_MILLIS + 500L
+        viewModel.generateMenuIdea()
+        assertTrue(viewModel.requestRewardedGeneration())
+
+        viewModel.onRewardedGenerationEarned()
+        runCurrent()
+        advanceTimeBy(REWARDED_AI_DICE_MINIMUM_PRESENTATION_MILLIS)
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.isGeneratingMenu)
+
+        advanceTimeBy(500L)
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.isGeneratingMenu)
+        assertFalse(viewModel.uiState.value.isRewardedMenuRevealPending)
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+    }
+
+    @Test
+    fun `dismissed rewarded ad grants no credit and starts no generation`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
+        viewModel.generateMenuIdea()
+
+        assertTrue(viewModel.requestRewardedGeneration())
+        viewModel.onRewardedGenerationDismissed()
+        viewModel.onRewardedGenerationEarned()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertNull(rewardedAiCreditStore.ledger)
+        assertFalse(viewModel.uiState.value.isRewardedGenerationPending)
+    }
+
+    @Test
+    fun `rewarded generation request ignores a second tap while the ad is pending`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
+        viewModel.generateMenuIdea()
+
+        assertTrue(viewModel.requestRewardedGeneration())
+        assertFalse(viewModel.requestRewardedGeneration())
+        assertTrue(viewModel.uiState.value.isRewardedGenerationPending)
+    }
+
+    @Test
+    fun `earned reward generates with the request validated before the ad`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
+        viewModel.updateAiBaseIngredients("tomate")
+        viewModel.generateMenuIdea()
+
+        assertTrue(viewModel.requestRewardedGeneration())
+        viewModel.updateAiBaseIngredients("pollo")
+        viewModel.onRewardedGenerationEarned()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals("tomate", analyzer.requestedBaseIngredients)
+    }
+
+    @Test
+    fun `guest reaches rewarded offer after five shared AI requests`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(GUEST_AI_USAGE_SCOPE, "2026-06-10", usedCount = 5)
+        viewModel.updateGuestAccess(
+            isGuest = true,
+            areLimitsEnabled = false,
+            areAiLimitsEnabled = true
+        )
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(AiGenerationLimitState.REWARDED_OFFER, viewModel.uiState.value.aiGenerationLimitState)
+    }
+
+    @Test
+    fun `analysis stops at free limit and never offers a rewarded credit`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-10", usedCount = 10)
+        val menu = FoodMenu(
+            id = 1,
+            name = "Tostadas",
+            mealType = MealType.BREAKFAST,
+            audience = MenuAudience.ADULT,
+            description = "Pan, tomate y aguacate"
+        )
+
+        viewModel.analyzeExisting(menu)
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.analysisCalls)
+        assertEquals(AiGenerationLimitState.REWARDED_OFFER, viewModel.uiState.value.aiGenerationLimitState)
+        assertTrue(viewModel.uiState.value.canRequestRewardedGeneration)
+        assertNull(rewardedAiCreditStore.ledger)
+    }
+
+    @Test
+    fun `provider failure and hive miss show requested baby context`() = runTest(dispatcher) {
+        analyzer.generateFailure = IllegalStateException("internal")
+        hive.searchResult = Result.success(null)
+        viewModel.setDietaryProfileAudience(MenuAudience.BABY)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+        viewModel.updateDietaryProfileAgeRange("8-10 meses")
+        viewModel.setFormMealType(MealType.LUNCH)
+        viewModel.setFormAudience(MenuAudience.BABY)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(
+            "No pudimos preparar una idea para Almuerzo · Bebé (8-10 meses) " +
+                "en este momento. Inténtalo nuevamente más tarde.",
+            viewModel.uiState.value.message
+        )
+    }
+
+    @Test
+    fun `provider cap hard limit shows context without offering an ad`() =
+        runTest(dispatcher) {
+            scopedAiUsageStore.seed(
+                LOCAL_ACCOUNT_AI_USAGE_SCOPE,
+                "2026-06-10",
+                usedCount = 10
+            )
+            scopedAiUsageStore.seed(
+                PROVIDER_AI_USAGE_SCOPE,
+                "2026-06-10",
+                usedCount = AI_PROVIDER_DAILY_HARD_LIMIT
+            )
+            viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+            viewModel.setDietaryProfileAudienceEnabled(true)
+            viewModel.setFormMealType(MealType.DINNER)
+            viewModel.setFormAudience(MenuAudience.CHILD)
+            viewModel.updateGuestAccess(false, true, true)
+
+            viewModel.generateMenuIdea()
+
+            assertEquals(
+                "Has alcanzado el límite diario de ideas para Cena · Peques (2-12 años). " +
+                    "Podrás volver a intentarlo mañana.",
+                viewModel.uiState.value.message
+            )
+            assertFalse(viewModel.uiState.value.canRequestRewardedGeneration)
+            assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
+            assertTrue(viewModel.uiState.value.aiRetryAtMillis != null)
+        }
+
+    @Test
+    fun `local validation never queries hive`() = runTest(dispatcher) {
+        dietaryProfileStore.storedProfile = DietaryProfile(
+            ageRange = "18+ años",
+            isVegan = true
+        )
+        viewModel.updateAiBaseIngredients("queso")
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertTrue(hive.searches.isEmpty())
+    }
+
+    @Test
+    fun `saving untouched live AI idea contributes after local save`() = runTest(dispatcher) {
+        analyzer.generatedMenu = sampleGeneratedMenu(
+            name = "Pasta con tomate",
+            deduplicationKey = "pasta|tomato|sauce"
+        )
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        viewModel.saveGeneratedMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, dao.saved.size)
+        assertEquals(1, hive.contributions.size)
+        assertEquals(
+            "pasta|tomato|sauce",
+            hive.contributions.single().generatedMenu.deduplicationKey
+        )
+    }
+
+    @Test
+    fun `editing generated recipe clears identity and never contributes`() = runTest(dispatcher) {
+        analyzer.generatedMenu = sampleGeneratedMenu()
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        viewModel.updateDescription("Texto cambiado por el usuario")
+        viewModel.saveGeneratedMenuIdea()
+        advanceUntilIdle()
+
+        assertTrue(hive.contributions.isEmpty())
+    }
+
+    @Test
+    fun `saving hive fallback does not write it again`() = runTest(dispatcher) {
+        analyzer.generateFailure = IllegalStateException("internal")
+        hive.searchResult = Result.success(sampleHiveCandidate())
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        viewModel.saveGeneratedMenuIdea()
+        advanceUntilIdle()
+
+        assertTrue(hive.contributions.isEmpty())
+    }
+
+    @Test
+    fun `hive fallback analytics contains outcome and failure type only`() = runTest(dispatcher) {
+        analyzer.generateFailure = IllegalStateException("internal")
+        hive.searchResult = Result.success(sampleHiveCandidate(name = "Nombre privado"))
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertTrue(
+            analytics.events.any {
+                it == "ai_menu_hive_fallback:BREAKFAST:hit:temporary:0"
+            }
+        )
+        assertTrue(analytics.events.none { "Nombre privado" in it })
     }
 
     private fun localMillisAtHour(hourOfDay: Int): Long {
@@ -105,6 +921,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { localMillisAtHour(8) },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -129,6 +946,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { localMillisAtHour(13) },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -138,6 +956,7 @@ class MenuDadoViewModelTest {
             clockMillisProvider = { localMillisAtHour(21) },
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -149,12 +968,62 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `generate menu sends current device language to AI`() = runTest(dispatcher) {
+        val originalLocale = Locale.getDefault()
+        Locale.setDefault(Locale.FRENCH)
+        try {
+            viewModel.generateMenuIdea()
+            advanceUntilIdle()
+
+            assertEquals(AppLanguage.FRENCH, analyzer.requestedLanguage)
+        } finally {
+            Locale.setDefault(originalLocale)
+        }
+    }
+
+    @Test
+    fun `track cta tapped delegates safe screen and cta names to analytics`() {
+        viewModel.trackCtaTapped(screen = "home", cta = "generate_ai_menu")
+
+        assertEquals(listOf("cta_tapped:home:generate_ai_menu"), analytics.events)
+    }
+
+    @Test
+    fun `dice empty recovery actions use closed analytics values`() {
+        analytics.trackDiceEmptyRecovery("change_filters")
+
+        assertEquals(listOf("dice_empty_recovery:change_filters"), analytics.events)
+    }
+
+    @Test
+    fun `account and my zone analytics use closed values without personal data`() {
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
+
+        viewModel.trackMyZoneOpened()
+        viewModel.trackAuthFlowStarted("register")
+        viewModel.trackAuthAction("register", "email")
+        viewModel.updateGuestAccess(isGuest = false, areLimitsEnabled = true)
+        viewModel.trackAuthAction("sign_out", "account")
+
+        assertEquals(
+            listOf(
+                "my_zone_opened:guest:0",
+                "auth_flow_started:register:guest:0",
+                "auth_action:register:email:guest",
+                "auth_action:sign_out:account:signed_in"
+            ),
+            analytics.events
+        )
+    }
+
+    @Test
     fun `save menu requires selecting an audience`() = runTest(dispatcher) {
         val freshViewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -168,7 +1037,8 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
-        assertEquals("Selecciona si el menu es para adulto, niño o bebe.", freshViewModel.uiState.value.message)
+        assertEquals("Selecciona si el menú es para persona adulta, peques o bebé.", freshViewModel.uiState.value.message)
+        assertEquals(0L, freshViewModel.uiState.value.menuSaveSuccessRevision)
     }
 
     @Test
@@ -178,6 +1048,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -189,7 +1060,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
-        assertEquals("Selecciona si el menu es para adulto, niño o bebe.", freshViewModel.uiState.value.message)
+        assertEquals("Selecciona si el menú es para persona adulta, peques o bebé.", freshViewModel.uiState.value.message)
     }
 
     @Test
@@ -208,8 +1079,11 @@ class MenuDadoViewModelTest {
         assertEquals(MenuAudience.ADULT, saved.audience)
         assertEquals("Pan, tomate y aguacate", saved.description)
         assertNull(saved.healthAnalysis)
+        assertNull(saved.cuisineInspiration)
         assertFalse(analyzer.wasCalled)
+        assertEquals(1L, viewModel.uiState.value.menuSaveSuccessRevision)
         assertEquals(MealType.BREAKFAST, viewModel.uiState.value.formMealType)
+        assertEquals(MenuAudience.ADULT, viewModel.uiState.value.formAudience)
         assertEquals(
             listOf(
                 "first_menu_created:BREAKFAST",
@@ -217,6 +1091,158 @@ class MenuDadoViewModelTest {
                 "menu_inventory_changed:1:0:1"
             ),
             analytics.events
+        )
+    }
+
+    @Test
+    fun `guest cannot save more than five manual menus per day when limits are enabled`() = runTest(dispatcher) {
+        guestUsageStore.state = GuestDailyUsageState(
+            dateKey = "2026-06-11",
+            savedMenuCount = 5,
+            generatedIdeaCount = 0,
+            analysisCount = 0
+        )
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
+        viewModel.updateName("Tostadas")
+        viewModel.updateDescription("Pan, tomate y aguacate")
+
+        viewModel.saveMenu()
+        advanceUntilIdle()
+
+        assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
+        assertTrue(viewModel.uiState.value.message.orEmpty().contains("5 menús"))
+        assertTrue(analytics.events.contains("guest_limit_reached:menu_save:5"))
+    }
+
+    @Test
+    fun `guest save limit can be disabled remotely`() = runTest(dispatcher) {
+        guestUsageStore.state = GuestDailyUsageState(
+            dateKey = "2026-06-11",
+            savedMenuCount = 5,
+            generatedIdeaCount = 0,
+            analysisCount = 0
+        )
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = false)
+        viewModel.updateName("Tostadas")
+        viewModel.updateDescription("Pan, tomate y aguacate")
+
+        viewModel.saveMenu()
+        advanceUntilIdle()
+
+        assertEquals("Tostadas", dao.saved.single().name)
+    }
+
+    @Test
+    fun `guest generation uses shared five request limit when AI limits are enabled`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(GUEST_AI_USAGE_SCOPE, "2026-06-10", usedCount = 5)
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true, areAiLimitsEnabled = true)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(AiGenerationLimitState.REWARDED_OFFER, viewModel.uiState.value.aiGenerationLimitState)
+    }
+
+    @Test
+    fun `guest sees guest AI counters instead of project daily counter when limits are enabled`() = runTest(dispatcher) {
+        guestUsageStore.state = GuestDailyUsageState(
+            dateKey = "2026-06-11",
+            savedMenuCount = 0,
+            generatedIdeaCount = 0,
+            analysisCount = 2
+        )
+
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
+
+        assertEquals(5, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(5, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+        assertEquals(5, viewModel.uiState.value.aiAnalysisUsesRemainingToday)
+    }
+
+    @Test
+    fun `guest sees project AI counter when guest limits are disabled`() = runTest(dispatcher) {
+        guestUsageStore.state = GuestDailyUsageState(
+            dateKey = "2026-06-11",
+            savedMenuCount = 0,
+            generatedIdeaCount = 5,
+            analysisCount = 5
+        )
+
+        viewModel.updateGuestAccess(
+            isGuest = true,
+            areLimitsEnabled = false,
+            areAiLimitsEnabled = false
+        )
+
+        assertEquals(10, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+        assertEquals(10, viewModel.uiState.value.aiAnalysisUsesRemainingToday)
+    }
+
+    @Test
+    fun `guest analysis uses shared five request limit when AI limits are enabled`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(GUEST_AI_USAGE_SCOPE, "2026-06-10", usedCount = 5)
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true, areAiLimitsEnabled = true)
+
+        viewModel.analyzeExisting(
+            FoodMenu(
+                id = 1,
+                name = "Tostadas",
+                mealType = MealType.BREAKFAST,
+                audience = MenuAudience.ADULT,
+                description = "Pan, tomate y aguacate"
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.analysisCalls)
+        assertTrue(viewModel.uiState.value.message.orEmpty().contains("IA gratuita"))
+    }
+
+    @Test
+    fun `guest AI actions share the provider request counter`() = runTest(dispatcher) {
+        guestUsageStore.state = GuestDailyUsageState(
+            dateKey = "2026-06-11",
+            savedMenuCount = 4,
+            generatedIdeaCount = 4,
+            analysisCount = 4
+        )
+        viewModel.updateGuestAccess(isGuest = true, areLimitsEnabled = true)
+        viewModel.updateName("Tostadas")
+        viewModel.updateDescription("Pan, tomate y aguacate")
+
+        viewModel.saveMenu()
+        advanceUntilIdle()
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        aiRequestThrottleStore.clearLastRequest()
+        viewModel.analyzeExisting(
+            FoodMenu(
+                id = 1,
+                name = "Tostadas",
+                mealType = MealType.BREAKFAST,
+                audience = MenuAudience.ADULT,
+                description = "Pan, tomate y aguacate"
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            GuestDailyUsageState(
+                dateKey = "2026-06-11",
+                savedMenuCount = 5,
+                generatedIdeaCount = 4,
+                analysisCount = 4
+            ),
+            guestUsageStore.state
+        )
+        assertEquals(
+            2,
+            scopedAiUsageStore.getUsageState(GUEST_AI_USAGE_SCOPE, "2026-06-10").usedCount
+        )
+        assertEquals(
+            2,
+            scopedAiUsageStore.getUsageState(PROVIDER_AI_USAGE_SCOPE, "2026-06-10").usedCount
         )
     }
 
@@ -262,11 +1288,81 @@ class MenuDadoViewModelTest {
         assertEquals("", viewModel.uiState.value.name)
         assertEquals(
             listOf(
+                "menu_edit_started:BREAKFAST:ADULT:true:false:1",
+                "menu_edit_saved:BREAKFAST:ADULT:true:false:false:1",
                 "menu_saved:BREAKFAST:false:false:1",
                 "menu_inventory_changed:1:0:1"
             ),
             analytics.events
         )
+    }
+
+    @Test
+    fun `editing saved menu can update optional user photo without clearing IA analysis`() = runTest(dispatcher) {
+        val savedMenu = FoodMenu(
+            id = 9,
+            name = "Pasta",
+            mealType = MealType.LUNCH,
+            description = "Pasta con tomate",
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Equilibrado.",
+                suggestion = "Mantener."
+            ),
+            calories = 480
+        )
+        dao.seed(listOf(savedMenu))
+        advanceUntilIdle()
+
+        viewModel.startEditingMenu(savedMenu)
+        viewModel.updateEditImageUri("content://menu/photo/1")
+        assertEquals("content://menu/photo/1", viewModel.uiState.value.editImageUri)
+
+        viewModel.saveEditedMenu()
+        advanceUntilIdle()
+
+        val saved = dao.saved.single().toDomain()
+        assertEquals("Pasta", saved.name)
+        assertEquals("content://menu/photo/1", saved.imageUri)
+        assertEquals(HealthStatus.HEALTHY, saved.healthAnalysis?.status)
+        assertEquals(480, saved.calories)
+    }
+
+    @Test
+    fun `toggle favorite updates saved menu without clearing analysis or photo`() = runTest(dispatcher) {
+        val savedMenu = FoodMenu(
+            id = 8L,
+            name = "Pasta",
+            mealType = MealType.LUNCH,
+            description = "Pasta con tomate",
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Equilibrado.",
+                suggestion = "Mantener verduras.",
+                calories = 480
+            ),
+            calories = 480,
+            imageUri = "content://menu/photo/1"
+        )
+        dao.seed(listOf(savedMenu))
+        advanceUntilIdle()
+
+        viewModel.toggleFavorite(savedMenu)
+        advanceUntilIdle()
+
+        val saved = dao.saved.single().toDomain()
+        assertTrue(saved.isFavorite)
+        assertEquals(localMillisAtHour(8), saved.favoritedAt)
+        assertEquals(HealthStatus.HEALTHY, saved.healthAnalysis?.status)
+        assertEquals(480, saved.calories)
+        assertEquals("content://menu/photo/1", saved.imageUri)
+
+        viewModel.toggleFavorite(saved)
+        advanceUntilIdle()
+
+        val unmarked = dao.saved.single().toDomain()
+        assertFalse(unmarked.isFavorite)
+        assertNull(unmarked.favoritedAt)
     }
 
     @Test
@@ -278,6 +1374,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = firstRunStore
         )
@@ -295,6 +1392,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = FakeOnboardingStore(completed = true)
         )
@@ -306,12 +1404,13 @@ class MenuDadoViewModelTest {
     @Test
     fun `shows onboarding again when stored completion is from older content version`() = runTest(dispatcher) {
         analytics.events.clear()
-        val previousContentStore = FakeOnboardingStore(completed = true, completedVersion = 1)
+        val previousContentStore = FakeOnboardingStore(completed = true, completedVersion = 3)
         val updatedViewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = previousContentStore
         )
@@ -322,7 +1421,7 @@ class MenuDadoViewModelTest {
         updatedViewModel.completeOnboarding()
 
         assertEquals(false, updatedViewModel.uiState.value.showOnboarding)
-        assertEquals(2, previousContentStore.completedVersion)
+        assertEquals(5, previousContentStore.completedVersion)
     }
 
     @Test
@@ -334,6 +1433,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -355,6 +1455,7 @@ class MenuDadoViewModelTest {
             analytics = analytics,
             aiQuotaRetryStore = aiQuotaRetryStore,
             aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
             onboardingStore = onboardingStore
         )
@@ -432,6 +1533,165 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `home starts in IA mode so the dice creates a new idea by default`() = runTest(dispatcher) {
+        assertEquals(HomeMenuMode.Ai, viewModel.uiState.value.homeMenuMode)
+    }
+
+    @Test
+    fun `generated IA idea is marked as pending detail before saving`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Bowl de lentejas",
+            description = "Lentejas, arroz integral, tomate y aguacate.",
+            notes = "Puedes usar lentejas cocidas.",
+            calories = 540,
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Aporta fibra y proteina vegetal.",
+                suggestion = "Ajusta la sal.",
+                calories = 540
+            )
+        )
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+        assertEquals("Bowl de lentejas", viewModel.uiState.value.name)
+        assertEquals(CuisineInspiration.MEXICAN, viewModel.uiState.value.generatedCuisineInspiration)
+        assertEquals(emptyList<FoodMenu>(), dao.saved.map { it.toDomain() })
+    }
+
+    @Test
+    fun `discard generated IA idea clears pending detail and draft`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Bowl de lentejas",
+            description = "Lentejas, arroz integral, tomate y aguacate.",
+            notes = "Puedes usar lentejas cocidas.",
+            calories = 540
+        )
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        viewModel.discardGeneratedMenuIdea()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.showGeneratedMenuDetail)
+        assertEquals("", state.name)
+        assertEquals("", state.description)
+        assertEquals("", state.notes)
+        assertNull(state.calories)
+        assertNull(state.generatedHealthAnalysis)
+        assertNull(state.generatedCuisineInspiration)
+    }
+
+    @Test
+    fun `try another generated idea preserves intent and starts one protected request`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Idea inicial",
+            description = "Calabacín y arroz",
+            notes = "",
+            calories = 420
+        )
+        viewModel.setFormMealType(MealType.LUNCH)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        viewModel.updateAiBaseIngredients("calabacín")
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        aiRequestThrottleStore.clearLastRequest()
+        analytics.events.clear()
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Idea alternativa",
+            description = "Calabacín y quinoa",
+            notes = "",
+            calories = 450
+        )
+
+        viewModel.tryAnotherGeneratedMenuIdea()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Idea alternativa", state.name)
+        assertEquals("calabacín", state.aiBaseIngredients)
+        assertEquals(MealType.LUNCH, state.formMealType)
+        assertEquals(MenuAudience.ADULT, state.formAudience)
+        assertTrue(state.showGeneratedMenuDetail)
+        assertEquals(2, analyzer.generateCalls)
+        assertEquals(1, analytics.events.count { it.startsWith("ai_menu_generation_started") })
+    }
+
+    @Test
+    fun `failed alternative clears cuisine from previous generated idea`() = runTest(dispatcher) {
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        assertEquals(CuisineInspiration.MEXICAN, viewModel.uiState.value.generatedCuisineInspiration)
+        aiRequestThrottleStore.clearLastRequest()
+        analyzer.generateFailure = IllegalStateException("offline")
+
+        viewModel.tryAnotherGeneratedMenuIdea()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.generatedCuisineInspiration)
+        assertFalse(viewModel.uiState.value.showGeneratedMenuDetail)
+    }
+
+    @Test
+    fun `save generated IA idea from pending detail stores menu and closes detail`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Bowl de lentejas",
+            description = "Lentejas, arroz integral, tomate y aguacate.",
+            notes = "Puedes usar lentejas cocidas.",
+            calories = 540,
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Aporta fibra y proteina vegetal.",
+                suggestion = "Ajusta la sal.",
+                calories = 540
+            )
+        )
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        viewModel.saveGeneratedMenuIdea()
+        advanceUntilIdle()
+
+        val saved = dao.saved.single().toDomain()
+        val state = viewModel.uiState.value
+        assertFalse(state.showGeneratedMenuDetail)
+        assertNull(state.generatedCuisineInspiration)
+        assertEquals("Bowl de lentejas", saved.name)
+        assertEquals(CuisineInspiration.MEXICAN, saved.cuisineInspiration)
+        assertEquals(HealthStatus.HEALTHY, saved.healthAnalysis?.status)
+        assertEquals(540, saved.calories)
+    }
+
+    @Test
+    fun `generated IA idea exposes market products enabled by default`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Tacos de pollo",
+            description = "Pollo, tomate y tortillas.",
+            notes = "Cena rápida.",
+            calories = 480,
+            shoppingProducts = listOf(
+                requireNotNull(com.menudado.domain.ShoppingProduct.fromAi("Pollo")),
+                requireNotNull(com.menudado.domain.ShoppingProduct.fromAi("Tomate"))
+            )
+        )
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Pollo", "Tomate"),
+            viewModel.uiState.value.generatedShoppingProducts.map { it.displayName }
+        )
+        assertTrue(viewModel.uiState.value.addGeneratedMenuToMarketList)
+
+        viewModel.setAddGeneratedMenuToMarketList(false)
+
+        assertFalse(viewModel.uiState.value.addGeneratedMenuToMarketList)
+    }
+
+    @Test
     fun `save generated menu stores included IA analysis without analyzing again`() = runTest(dispatcher) {
         analyzer.generatedMenu = GeneratedMenu(
             name = "Bowl de lentejas",
@@ -461,6 +1721,78 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `saved generated menu appears first in matching carousel`() = runTest(dispatcher) {
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(
+                menuDao = dao,
+                healthAnalyzer = analyzer,
+                clockMillisProvider = { 2_000L }
+            ),
+            analytics = analytics,
+            clockMillisProvider = { localMillisAtHour(12) },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        dao.seed(
+            listOf(
+                FoodMenu(
+                    id = 1L,
+                    name = "Menu antiguo",
+                    mealType = MealType.LUNCH,
+                    audience = MenuAudience.ADULT,
+                    description = "Arroz con pollo.",
+                    createdAt = 1_000L
+                )
+            )
+        )
+        advanceUntilIdle()
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Bowl mediterraneo",
+            description = "Quinoa, pollo, tomate y pepino.",
+            notes = "Servir fresco.",
+            calories = 520,
+            healthAnalysis = HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Incluye proteina y vegetales.",
+                suggestion = "Mantener."
+            )
+        )
+        viewModel.setFormMealType(MealType.LUNCH)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        viewModel.saveMenu()
+        advanceUntilIdle()
+
+        val visibleMenus = menuCarouselVisibleMenus(
+            menus = viewModel.uiState.value.menus,
+            audience = MenuAudience.ADULT,
+            isExpanded = false
+        )
+        assertEquals("Bowl mediterraneo", visibleMenus.first().name)
+        assertEquals(MealType.LUNCH, visibleMenus.first().mealType)
+        assertEquals(MenuAudience.ADULT, visibleMenus.first().audience)
+    }
+
+    @Test
+    fun `manual menu is created without photo from add form`() = runTest(dispatcher) {
+        viewModel.updateName("Crema de calabaza")
+        viewModel.updateDescription("Calabaza, patata y aceite de oliva.")
+
+        viewModel.saveMenu()
+        advanceUntilIdle()
+
+        val saved = dao.saved.single().toDomain()
+        assertEquals("Crema de calabaza", saved.name)
+        assertNull(saved.imageUri)
+    }
+
+    @Test
     fun `manual edit after generated IA idea clears included analysis and shows notice`() = runTest(dispatcher) {
         analyzer.generatedMenu = GeneratedMenu(
             name = "Bowl de lentejas",
@@ -484,7 +1816,7 @@ class MenuDadoViewModelTest {
         val saved = dao.saved.single().toDomain()
         assertNull(saved.healthAnalysis)
         assertEquals(
-            "Modificaste la receta generada. Para verla como analizada, guarda el menu y toca Analizar IA.",
+            "Modificaste la receta generada. Para verla como analizada, guarda el menú y toca Analizar IA.",
             viewModel.uiState.value.message
         )
     }
@@ -562,10 +1894,11 @@ class MenuDadoViewModelTest {
             repository = MenuRepository(dao, analyzer),
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore,
-            aiDailyUsageStore = aiDailyUsageStore
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
 
-        assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(10, viewModel.uiState.value.aiUsesRemainingToday)
     }
 
     @Test
@@ -574,7 +1907,8 @@ class MenuDadoViewModelTest {
             repository = MenuRepository(dao, analyzer),
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore,
-            aiDailyUsageStore = aiDailyUsageStore
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -582,21 +1916,132 @@ class MenuDadoViewModelTest {
         viewModel.generateMenuIdea()
         advanceUntilIdle()
 
-        assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
         assertEquals(1, aiDailyUsageStore.storedUsedCount)
     }
 
     @Test
+    fun `generate menu idea keeps local IA pause hidden after real request`() = runTest(dispatcher) {
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { 100_000L },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRequestThrottlePause)
+        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
+        assertNull(viewModel.uiState.value.message)
+        assertEquals(100_000L, aiRequestThrottleStore.storedLastRequestAtMillis)
+    }
+
+    @Test
+    fun `typing base ingredients does not expose hidden local IA pause`() = runTest(dispatcher) {
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { 100_000L },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        viewModel.updateAiBaseIngredients("berenjera")
+
+        assertEquals("berenjera", viewModel.uiState.value.aiBaseIngredients)
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRequestThrottlePause)
+        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
+    }
+
+    @Test
+    fun `restored local request pause is cleared on startup and does not block generation`() = runTest(dispatcher) {
+        aiRequestThrottleStore.storedLastRequestAtMillis = 99_000L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { 100_000L },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertNull(viewModel.uiState.value.message)
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRequestThrottlePause)
+    }
+
+    @Test
+    fun `generate menu idea stops loading and shows timeout message when IA takes too long`() = runTest(dispatcher) {
+        analyzer.generateDelayMillis = 46_000L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { currentTime },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+
+        viewModel.generateMenuIdea()
+        runCurrent()
+        advanceTimeBy(45_001L)
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.isGeneratingMenu)
+        assertEquals(
+            "La IA tardó demasiado y no pudo preparar una idea para " +
+                "Desayuno · Persona adulta (18+ años). Revisa tu conexión e inténtalo de nuevo.",
+            viewModel.uiState.value.message
+        )
+        assertEquals(1, analyzer.generateCalls)
+    }
+
+    @Test
+    fun `generate menu idea stops loading even if post success tracking fails`() = runTest(dispatcher) {
+        analytics.throwOnAiMenuGenerationFinished = true
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals("Tostada", viewModel.uiState.value.name)
+        assertFalse(viewModel.uiState.value.isGeneratingMenu)
+    }
+
+    @Test
     fun `generate menu idea does not call IA when daily local uses are exhausted`() = runTest(dispatcher) {
+        scopedAiUsageStore.seed(
+            LOCAL_ACCOUNT_AI_USAGE_SCOPE,
+            "1969-12-31",
+            usedCount = 20
+        )
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore,
-            aiDailyUsageStore = aiDailyUsageStore.apply {
-                storedDateKey = "1969-12-31"
-                storedUsedCount = 20
-            }
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -607,7 +2052,11 @@ class MenuDadoViewModelTest {
 
         assertEquals(0, analyzer.generateCalls)
         assertEquals(0, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals("La ayuda con IA gratuita de hoy se agoto. Tus menus siguen disponibles y podras volver a probar mas adelante.", viewModel.uiState.value.message)
+        assertEquals(
+            "Has alcanzado el límite diario de ideas para Desayuno · Persona adulta (18+ años). " +
+                "Podrás volver a intentarlo mañana.",
+            viewModel.uiState.value.message
+        )
         assertEquals(listOf("ai_daily_limit_reached:generate_menu"), analytics.events)
     }
 
@@ -631,6 +2080,206 @@ class MenuDadoViewModelTest {
             listOf(
                 "Tostada de aguacate: Pan integral con aguacate y huevo",
                 "Yogur con fruta: Yogur griego, fresas y avena"
+            ),
+            analyzer.avoidIdeas
+        )
+    }
+
+    @Test
+    fun `world cuisine generation keeps the existing limit of eight avoided ideas`() = runTest(dispatcher) {
+        dao.seed(
+            (1L..10L).map { id ->
+                FoodMenu(
+                    id = id,
+                    name = "Menu $id",
+                    mealType = MealType.BREAKFAST,
+                    audience = MenuAudience.ADULT,
+                    description = "Descripcion $id"
+                )
+            }
+        )
+        advanceUntilIdle()
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(8, analyzer.avoidIdeas.size)
+        assertEquals("Menu 3: Descripcion 3", analyzer.avoidIdeas.first())
+        assertEquals("Menu 10: Descripcion 10", analyzer.avoidIdeas.last())
+    }
+
+    @Test
+    fun `successful generation advances cuisine once while using one IA call`() = runTest(dispatcher) {
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals(CuisineInspiration.MEXICAN, analyzer.requestedCuisineInspiration)
+        assertEquals(CuisineInspiration.MEXICAN, viewModel.uiState.value.generatedCuisineInspiration)
+        assertEquals(
+            CuisineInspiration.JAPANESE,
+            cuisineRotation.current(MealType.BREAKFAST, MenuAudience.ADULT)
+        )
+    }
+
+    @Test
+    fun `failed generation keeps pending cuisine for retry`() = runTest(dispatcher) {
+        analyzer.generateFailure = IllegalStateException("offline")
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals(CuisineInspiration.MEXICAN, analyzer.requestedCuisineInspiration)
+        assertNull(viewModel.uiState.value.generatedCuisineInspiration)
+        assertEquals(
+            CuisineInspiration.MEXICAN,
+            cuisineRotation.current(MealType.BREAKFAST, MenuAudience.ADULT)
+        )
+    }
+
+    @Test
+    fun `generate menu idea ignores repeated taps while previous generation is running`() = runTest(dispatcher) {
+        analyzer.generateDelayMillis = 1_000L
+
+        viewModel.generateMenuIdea()
+        runCurrent()
+        viewModel.generateMenuIdea()
+        runCurrent()
+
+        assertEquals(1, analyzer.generateCalls)
+        advanceTimeBy(1_000L)
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `generate menu idea ignores immediate repeated taps before generation coroutine starts`() = runTest(dispatcher) {
+        analyzer.generateDelayMillis = 1_000L
+
+        viewModel.generateMenuIdea()
+        viewModel.generateMenuIdea()
+        runCurrent()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
+        advanceTimeBy(1_000L)
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `generate menu idea waits locally before another real IA request`() = runTest(dispatcher) {
+        var nowMillis = 100_000L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { nowMillis },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        aiRequestThrottleStore.storedLastRequestAtMillis = 99_500L
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(10, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(100_500L, viewModel.uiState.value.aiRetryAtMillis)
+        assertNull(viewModel.uiState.value.message)
+        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
+
+        nowMillis = 100_500L
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(100_500L, aiRequestThrottleStore.storedLastRequestAtMillis)
+    }
+
+    @Test
+    fun `generate menu idea can be requested again after a completed response exceeds local anti double tap pause`() = runTest(dispatcher) {
+        analyzer.generateDelayMillis = 1_500L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { 100_000L + currentTime },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        viewModel.discardGeneratedMenuIdea()
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(2, analyzer.generateCalls)
+        assertEquals(8, viewModel.uiState.value.aiUsesRemainingToday)
+        assertNull(viewModel.uiState.value.message)
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
+    }
+
+    @Test
+    fun `generate menu idea avoids other generated ideas from the same day`() = runTest(dispatcher) {
+        var nowMillis = 100_000L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { nowMillis },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Crema de calabacin",
+            description = "Calabacin, yogur natural y semillas.",
+            notes = "Lista en pocos minutos.",
+            calories = 310
+        )
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        nowMillis += 30_000L
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Ensalada Cesar saludable",
+            description = "Lechuga, pollo a la plancha, yogur y pan integral tostado.",
+            notes = "Usa salsa ligera.",
+            calories = 430
+        )
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+        nowMillis += 30_000L
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Bowl de garbanzos",
+            description = "Garbanzos, tomate, pepino y aguacate.",
+            notes = "Servir fresco.",
+            calories = 480
+        )
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                "Crema de calabacin: Calabacin, yogur natural y semillas.",
+                "Ensalada Cesar saludable: Lechuga, pollo a la plancha, yogur y pan integral tostado."
             ),
             analyzer.avoidIdeas
         )
@@ -681,6 +2330,87 @@ class MenuDadoViewModelTest {
     fun `single active audience is selected by default in selectors`() = runTest(dispatcher) {
         assertEquals(MenuAudience.ADULT, viewModel.uiState.value.formAudience)
         assertEquals(MenuAudience.ADULT, viewModel.uiState.value.diceAudienceFilter)
+    }
+
+    @Test
+    fun `new view model restores last selected form audience when several are active`() =
+        runTest(dispatcher) {
+            dietaryProfileStore.saveProfile(
+                DietaryProfile(
+                    isEnabled = true,
+                    ageRange = MenuAudience.CHILD.defaultAgeRange
+                ),
+                MenuAudience.CHILD
+            )
+            val selectionStore = FakeFormAudienceSelectionStore()
+            val firstViewModel = MenuDadoViewModel(
+                repository = MenuRepository(dao, analyzer),
+                dietaryProfileStore = dietaryProfileStore,
+                formAudienceSelectionStore = selectionStore
+            )
+
+            firstViewModel.setFormAudience(MenuAudience.CHILD)
+
+            val reopenedViewModel = MenuDadoViewModel(
+                repository = MenuRepository(dao, analyzer),
+                dietaryProfileStore = dietaryProfileStore,
+                formAudienceSelectionStore = selectionStore
+            )
+
+            assertEquals(MenuAudience.CHILD, selectionStore.storedAudience)
+            assertEquals(MenuAudience.CHILD, reopenedViewModel.uiState.value.formAudience)
+        }
+
+    @Test
+    fun `new view model keeps selection empty with several active audiences and no history`() =
+        runTest(dispatcher) {
+            dietaryProfileStore.saveProfile(
+                DietaryProfile(
+                    isEnabled = true,
+                    ageRange = MenuAudience.CHILD.defaultAgeRange
+                ),
+                MenuAudience.CHILD
+            )
+
+            val reopenedViewModel = MenuDadoViewModel(
+                repository = MenuRepository(dao, analyzer),
+                dietaryProfileStore = dietaryProfileStore,
+                formAudienceSelectionStore = FakeFormAudienceSelectionStore()
+            )
+
+            assertNull(reopenedViewModel.uiState.value.formAudience)
+        }
+
+    @Test
+    fun `single active audience overrides an inactive saved selection`() = runTest(dispatcher) {
+        val reopenedViewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            dietaryProfileStore = dietaryProfileStore,
+            formAudienceSelectionStore = FakeFormAudienceSelectionStore(MenuAudience.CHILD)
+        )
+
+        assertEquals(MenuAudience.ADULT, reopenedViewModel.uiState.value.formAudience)
+    }
+
+    @Test
+    fun `remote profile refresh selects the only active audience`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+        assertNull(viewModel.uiState.value.formAudience)
+
+        dietaryProfileStore.saveProfile(
+            DietaryProfile(
+                isEnabled = false,
+                ageRange = MenuAudience.ADULT.defaultAgeRange
+            ),
+            MenuAudience.ADULT
+        )
+
+        viewModel.refreshDietaryProfile()
+
+        assertEquals(listOf(MenuAudience.CHILD), viewModel.uiState.value.enabledAudiences)
+        assertEquals(MenuAudience.CHILD, viewModel.uiState.value.formAudience)
+        assertEquals(MenuAudience.CHILD, viewModel.uiState.value.diceAudienceFilter)
     }
 
     @Test
@@ -754,6 +2484,67 @@ class MenuDadoViewModelTest {
 
         assertEquals(MenuAudience.ADULT, viewModel.uiState.value.formAudience)
         assertEquals(MenuAudience.ADULT, viewModel.uiState.value.diceAudienceFilter)
+    }
+
+    @Test
+    fun `dice discards result if its audience is disabled while rolling`() = runTest(dispatcher) {
+        dietaryProfileStore.saveProfile(
+            DietaryProfile(isEnabled = true, ageRange = MenuAudience.CHILD.defaultAgeRange),
+            MenuAudience.CHILD
+        )
+        viewModel.refreshDietaryProfile()
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setFormAudience(MenuAudience.CHILD)
+        viewModel.setDiceAudienceFilter(MenuAudience.CHILD)
+        viewModel.setDiceFilter(MealType.BREAKFAST)
+        dao.seed(
+            listOf(
+                FoodMenu(
+                    id = 1,
+                    name = "Desayuno peques",
+                    mealType = MealType.BREAKFAST,
+                    audience = MenuAudience.CHILD,
+                    description = "Oculto"
+                )
+            )
+        )
+        advanceUntilIdle()
+
+        viewModel.rollDice()
+        runCurrent()
+        viewModel.setDietaryProfileAudienceEnabled(false)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.result)
+        assertNull(dao.saved.single().toDomain().lastPickedDate)
+    }
+
+    @Test
+    fun `generated idea is discarded if its audience is disabled during request`() = runTest(dispatcher) {
+        dietaryProfileStore.saveProfile(
+            DietaryProfile(isEnabled = true, ageRange = MenuAudience.CHILD.defaultAgeRange),
+            MenuAudience.CHILD
+        )
+        viewModel.refreshDietaryProfile()
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setFormAudience(MenuAudience.CHILD)
+        analyzer.generateDelayMillis = 100L
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Idea para peques",
+            description = "Contenido infantil",
+            notes = "",
+            calories = 420
+        )
+
+        viewModel.generateMenuIdea()
+        runCurrent()
+        viewModel.setDietaryProfileAudienceEnabled(false)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.showGeneratedMenuDetail)
+        assertEquals("", state.name)
+        assertEquals(MenuAudience.ADULT, state.formAudience)
     }
 
     @Test
@@ -851,7 +2642,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
-        assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(10, viewModel.uiState.value.aiUsesRemainingToday)
         assertEquals(0, aiDailyUsageStore.storedUsedCount)
         assertEquals(
             "Revisa los ingredientes: crema no encaja con tu perfil alimentario.",
@@ -887,7 +2678,8 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA esta tomando una pausa para evitar intentos fallidos. Tus menus siguen disponibles.",
+            "La IA está con mucha demanda y no pudo preparar una idea para " +
+                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -911,7 +2703,8 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA recibio varias peticiones seguidas. Espera un momento antes de volver a intentarlo.",
+            "La IA está con mucha demanda y no pudo preparar una idea para " +
+                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
             viewModel.uiState.value.message
         )
     }
@@ -933,7 +2726,8 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La idea necesita un descanso antes de procesarse de nuevo. Puedes seguir usando tus menus.",
+            "La IA está con mucha demanda y no pudo preparar una idea para " +
+                "Desayuno · Persona adulta (18+ años). Inténtalo más tarde.",
             viewModel.uiState.value.message
         )
     }
@@ -955,9 +2749,34 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La ayuda con IA gratuita de hoy se agoto. Tus menus siguen disponibles y podras volver a probar mas adelante.",
+            "Has alcanzado el límite diario de ideas para Desayuno · Persona adulta (18+ años). " +
+                "Podrás volver a intentarlo mañana.",
             viewModel.uiState.value.message
         )
+        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
+        assertTrue(viewModel.uiState.value.aiRetryAtMillis != null)
+    }
+
+    @Test
+    fun `generate menu idea shows temporary AI message when provider returns internal error`() = runTest(dispatcher) {
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { 100_000L },
+            aiQuotaRetryStore = aiQuotaRetryStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        analyzer.generateFailure = IllegalStateException("INTERNAL")
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(
+            "No pudimos preparar una idea para Desayuno · Persona adulta (18+ años) " +
+                "en este momento. Inténtalo nuevamente más tarde.",
+            viewModel.uiState.value.message
+        )
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
     }
 
     @Test
@@ -981,7 +2800,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(1, analyzer.generateCalls)
         assertEquals(
-            "La IA esta tomando una pausa para evitar intentos fallidos. Tus menus siguen disponibles.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
@@ -1004,10 +2823,38 @@ class MenuDadoViewModelTest {
 
         assertEquals(0, analyzer.generateCalls)
         assertEquals(
-            "La IA esta tomando una pausa para evitar intentos fallidos. Tus menus siguen disponibles.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
+    }
+
+    @Test
+    fun `persisted quota retry takes precedence over local request pause`() = runTest(dispatcher) {
+        var nowMillis = 120_000L
+        aiQuotaRetryStore.storedRetryAtMillis = 159_000L
+        aiRequestThrottleStore.storedLastRequestAtMillis = 110_000L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { nowMillis },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+
+        assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRequestThrottlePause)
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
+        assertEquals(
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
+            viewModel.uiState.value.message
+        )
     }
 
     @Test
@@ -1033,6 +2880,7 @@ class MenuDadoViewModelTest {
         assertEquals(2, analyzer.generateCalls)
         assertNull(viewModel.uiState.value.message)
         assertNull(viewModel.uiState.value.aiRetryAtMillis)
+        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
         assertNull(aiQuotaRetryStore.storedRetryAtMillis)
         assertEquals("Tostada", viewModel.uiState.value.name)
     }
@@ -1063,13 +2911,13 @@ class MenuDadoViewModelTest {
     @Test
     fun `active quota retry refreshes when Pacific daily reset arrives without user interaction`() = runTest(dispatcher) {
         val resetAtMillis = 1_780_642_800_000L
-        aiDailyUsageStore.storedDateKey = "2026-06-04"
-        aiDailyUsageStore.storedUsedCount = 20
+        scopedAiUsageStore.seed(LOCAL_ACCOUNT_AI_USAGE_SCOPE, "2026-06-04", usedCount = 20)
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             clockMillisProvider = { 1_780_642_799_000L + currentTime },
             aiQuotaRetryStore = aiQuotaRetryStore,
-            aiDailyUsageStore = aiDailyUsageStore
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -1082,7 +2930,7 @@ class MenuDadoViewModelTest {
         runCurrent()
 
         assertNull(viewModel.uiState.value.aiRetryAtMillis)
-        assertEquals(20, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(10, viewModel.uiState.value.aiUsesRemainingToday)
     }
 
     @Test
@@ -1132,10 +2980,36 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            "La IA esta tomando una pausa para evitar intentos fallidos. Tus menus siguen disponibles.",
+            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
             viewModel.uiState.value.message
         )
         assertEquals(295_000L, viewModel.uiState.value.aiRetryAtMillis)
+    }
+
+    @Test
+    fun `analyze existing shows temporary AI message when provider returns internal error`() = runTest(dispatcher) {
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            clockMillisProvider = { 250_000L },
+            aiQuotaRetryStore = aiQuotaRetryStore
+        )
+        analyzer.analysisFailure = IllegalStateException("INTERNAL")
+
+        viewModel.analyzeExisting(
+            FoodMenu(
+                id = 1,
+                name = "Tostadas",
+                mealType = MealType.BREAKFAST,
+                description = "Pan y aguacate"
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            "El servicio tuvo un problema temporal. Inténtalo nuevamente más tarde.",
+            viewModel.uiState.value.message
+        )
+        assertNull(viewModel.uiState.value.aiRetryAtMillis)
     }
 
     @Test
@@ -1158,13 +3032,71 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `analyze existing ignores immediate repeated taps before analysis coroutine starts`() = runTest(dispatcher) {
+        val menu = FoodMenu(
+            id = 1,
+            name = "Arroz",
+            mealType = MealType.LUNCH,
+            description = "Arroz con atun"
+        )
+        analyzer.analysisDelayMillis = 1_000L
+
+        viewModel.analyzeExisting(menu)
+        viewModel.analyzeExisting(menu)
+        runCurrent()
+
+        assertEquals(1, analyzer.analysisCalls)
+        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
+        advanceTimeBy(1_000L)
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `analyze existing shares local wait with recent IA generation`() = runTest(dispatcher) {
+        var nowMillis = 200_000L
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            clockMillisProvider = { nowMillis },
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.setFormAudience(MenuAudience.ADULT)
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        nowMillis += 500L
+        viewModel.analyzeExisting(
+            FoodMenu(
+                id = 1,
+                name = "Arroz",
+                mealType = MealType.LUNCH,
+                description = "Arroz con atun"
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(1, analyzer.generateCalls)
+        assertEquals(0, analyzer.analysisCalls)
+        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(201_000L, viewModel.uiState.value.aiRetryAtMillis)
+    }
+
+    @Test
     fun `analyze pending menus uses one IA call and saves valid results`() = runTest(dispatcher) {
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
             clockMillisProvider = { 100_000L },
             aiQuotaRetryStore = aiQuotaRetryStore,
-            aiDailyUsageStore = aiDailyUsageStore
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiDailyUsageStore = aiDailyUsageStore,
+            scopedAiUsageStore = scopedAiUsageStore
         )
         val analyzed = FoodMenu(
             id = 1,
@@ -1214,7 +3146,7 @@ class MenuDadoViewModelTest {
         val savedById = dao.saved.map { it.toDomain() }.associateBy { it.id }
         assertEquals(1, analyzer.batchAnalyzeCalls)
         assertEquals(listOf(2L, 3L), analyzer.batchAnalyzeMenuIds)
-        assertEquals(19, viewModel.uiState.value.aiUsesRemainingToday)
+        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
         assertEquals(1, aiDailyUsageStore.storedUsedCount)
         assertEquals(HealthStatus.IMPROVABLE, savedById.getValue(2L).healthAnalysis?.status)
         assertEquals(620, savedById.getValue(2L).calories)
@@ -1228,6 +3160,39 @@ class MenuDadoViewModelTest {
             ),
             analytics.events
         )
+    }
+
+    @Test
+    fun `analyze pending menus ignores inactive profiles`() = runTest(dispatcher) {
+        val adultMenu = FoodMenu(
+            id = 1,
+            name = "Adulto",
+            mealType = MealType.LUNCH,
+            audience = MenuAudience.ADULT,
+            description = "Visible"
+        )
+        val childMenu = FoodMenu(
+            id = 2,
+            name = "Peques",
+            mealType = MealType.LUNCH,
+            audience = MenuAudience.CHILD,
+            description = "Oculto"
+        )
+        dao.seed(listOf(adultMenu, childMenu))
+        analyzer.batchAnalyses = mapOf(
+            1L to HealthAnalysis(
+                status = HealthStatus.HEALTHY,
+                reason = "Correcto.",
+                suggestion = "Mantener."
+            )
+        )
+        advanceUntilIdle()
+
+        viewModel.analyzePendingMenus()
+        advanceUntilIdle()
+
+        assertEquals(listOf(1L), analyzer.batchAnalyzeMenuIds)
+        assertNull(dao.saved.single { it.id == 2L }.toDomain().healthAnalysis)
     }
 
     @Test
@@ -1262,6 +3227,7 @@ class MenuDadoViewModelTest {
         assertEquals(
             listOf(
                 "ai_menu_generation_started:BREAKFAST:0",
+                "ai_menu_hive_fallback:BREAKFAST:miss:generic:0",
                 "ai_menu_generation_finished:BREAKFAST:false:unknown:generic"
             ),
             analytics.events
@@ -1286,7 +3252,7 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertEquals("Agrega nombre e ingredientes para guardar el menu.", state.message)
+        assertEquals("Agrega nombre e ingredientes para guardar el menú.", state.message)
         assertEquals(159_000L, state.aiRetryAtMillis)
         assertFalse(state.isAiRetryNoticeVisible)
     }
@@ -1362,8 +3328,97 @@ class MenuDadoViewModelTest {
         val state = viewModel.uiState.value
         assertFalse(state.isRolling)
         assertNull(state.result)
-        assertEquals("Selecciona si el menu es para adulto, niño o bebe.", state.message)
+        assertEquals("Selecciona si el menú es para persona adulta, peques o bebé.", state.message)
         assertEquals(emptyList<String>(), analytics.events)
+    }
+
+    @Test
+    fun `missing audience while saving menu is tracked without menu content`() = runTest(dispatcher) {
+        dietaryProfileStore.saveProfile(
+            DietaryProfile(isEnabled = true, ageRange = MenuAudience.CHILD.defaultAgeRange),
+            MenuAudience.CHILD
+        )
+        viewModel = MenuDadoViewModel(
+            repository = MenuRepository(dao, analyzer),
+            analytics = analytics,
+            dietaryProfileStore = dietaryProfileStore,
+            onboardingStore = onboardingStore
+        )
+        viewModel.setFormMealType(MealType.BREAKFAST)
+        viewModel.updateName("Tostada secreta")
+        viewModel.updateDescription("Ingredientes privados")
+        analytics.events.clear()
+
+        viewModel.saveMenu()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("menu_save_blocked:missing_audience:true:true"),
+            analytics.events
+        )
+    }
+
+    @Test
+    fun `dice audience filter selection is tracked`() = runTest(dispatcher) {
+        dao.seed(listOf(FoodMenu(id = 1, name = "Tostada", mealType = MealType.BREAKFAST, description = "Pan")))
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
+
+        assertEquals(listOf("audience_filter_selected:dice:ADULT:1"), analytics.events)
+    }
+
+    @Test
+    fun `dietary profile updates are tracked by audience and field group only`() = runTest(dispatcher) {
+        analytics.events.clear()
+
+        viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+        viewModel.setDietaryProfileAudienceEnabled(true)
+        viewModel.setDietaryProfileVegan(true)
+        viewModel.updateDietaryProfileOtherAvoidances("texto privado")
+
+        assertEquals(
+            listOf(
+                "dietary_profile_audience_selected:CHILD",
+                "dietary_profile_updated:CHILD:enabled:2",
+                "dietary_profile_updated:CHILD:vegan:2",
+                "dietary_profile_updated:CHILD:other_avoidances:2"
+            ),
+            analytics.events
+        )
+    }
+
+    @Test
+    fun `menu edit and photo updates are tracked without menu ids or names`() = runTest(dispatcher) {
+        val menu = FoodMenu(
+            id = 1,
+            name = "Nombre privado",
+            mealType = MealType.LUNCH,
+            audience = MenuAudience.ADULT,
+            description = "Receta privada"
+        )
+        dao.seed(listOf(menu))
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        viewModel.startEditingMenu(menu)
+        viewModel.updateEditName("Nombre nuevo privado")
+        viewModel.saveEditedMenu()
+        advanceUntilIdle()
+        viewModel.updateMenuImageUri(menu.id, "content://private")
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                "menu_edit_started:LUNCH:ADULT:false:false:1",
+                "menu_edit_saved:LUNCH:ADULT:true:false:false:1",
+                "menu_saved:LUNCH:false:false:1",
+                "menu_inventory_changed:1:0:1",
+                "menu_photo_updated:LUNCH:ADULT:true:1"
+            ),
+            analytics.events
+        )
     }
 
     @Test
@@ -1394,6 +3449,42 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `roll dice keeps rolling for the fixed animation duration`() = runTest(dispatcher) {
+        dao.seed(
+            listOf(
+                FoodMenu(
+                    id = 1,
+                    name = "Tostada",
+                    mealType = MealType.BREAKFAST,
+                    audience = MenuAudience.ADULT,
+                    description = "Pan"
+                )
+            )
+        )
+        advanceUntilIdle()
+        viewModel.setDiceFilter(MealType.BREAKFAST)
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
+
+        viewModel.rollDice()
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.isRolling)
+        assertNull(viewModel.uiState.value.result)
+
+        advanceTimeBy(DICE_ROLL_DURATION_MILLIS - 1)
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.isRolling)
+        assertNull(viewModel.uiState.value.result)
+
+        advanceTimeBy(1)
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.isRolling)
+        assertEquals("Tostada", viewModel.uiState.value.result?.name)
+    }
+
+    @Test
     fun `dice filter selection and empty result are tracked`() = runTest(dispatcher) {
         viewModel.setDiceFilter(MealType.DINNER)
         viewModel.rollDice()
@@ -1403,10 +3494,113 @@ class MenuDadoViewModelTest {
             listOf(
                 "dice_filter_selected:DINNER:0",
                 "dice_rolled:DINNER:false:NONE:0:0",
-                "dice_empty_result:DINNER:0"
+                "dice_empty_result:DINNER:0",
+                "dice_empty_recovery:shown"
             ),
             analytics.events
         )
+    }
+
+    @Test
+    fun `empty dice result exposes recovery with alternative meal for same audience`() = runTest(dispatcher) {
+        dao.seed(
+            listOf(
+                FoodMenu(
+                    id = 1,
+                    name = "Cena adulta",
+                    mealType = MealType.DINNER,
+                    audience = MenuAudience.ADULT,
+                    description = "Cena"
+                )
+            )
+        )
+        advanceUntilIdle()
+        viewModel.setDiceFilter(MealType.BREAKFAST)
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
+        analytics.events.clear()
+
+        viewModel.rollDice()
+        advanceUntilIdle()
+
+        val recovery = viewModel.uiState.value.diceEmptyRecovery
+        assertEquals(MealType.BREAKFAST, recovery?.mealType)
+        assertEquals(MenuAudience.ADULT, recovery?.audience)
+        assertTrue(recovery?.canBroadenMealType == true)
+        assertTrue(analytics.events.contains("dice_empty_recovery:shown"))
+    }
+
+    @Test
+    fun `broadened dice roll preserves audience and selects another meal type`() = runTest(dispatcher) {
+        dao.seed(
+            listOf(
+                FoodMenu(
+                    id = 1,
+                    name = "Cena adulta",
+                    mealType = MealType.DINNER,
+                    audience = MenuAudience.ADULT,
+                    description = "Cena"
+                ),
+                FoodMenu(
+                    id = 2,
+                    name = "Cena bebé",
+                    mealType = MealType.DINNER,
+                    audience = MenuAudience.BABY,
+                    description = "Cena"
+                )
+            )
+        )
+        advanceUntilIdle()
+        viewModel.setDiceFilter(MealType.BREAKFAST)
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
+        viewModel.rollDice()
+        advanceUntilIdle()
+
+        viewModel.rollDiceAcrossMealTypesForSelectedAudience()
+        advanceUntilIdle()
+
+        assertEquals("Cena adulta", viewModel.uiState.value.result?.name)
+        assertEquals(MenuAudience.ADULT, viewModel.uiState.value.diceAudienceFilter)
+        assertEquals(MealType.BREAKFAST, viewModel.uiState.value.diceFilter)
+    }
+
+    @Test
+    fun `changing filters dismisses empty recovery and tracks the action`() = runTest(dispatcher) {
+        viewModel.setDiceFilter(MealType.DINNER)
+        viewModel.rollDice()
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        viewModel.dismissDiceEmptyRecovery()
+
+        assertNull(viewModel.uiState.value.diceEmptyRecovery)
+        assertEquals(listOf("dice_empty_recovery:change_filters"), analytics.events)
+    }
+
+    @Test
+    fun `empty recovery can generate ai with the same meal and audience`() = runTest(dispatcher) {
+        analyzer.generatedMenu = GeneratedMenu(
+            name = "Desayuno nuevo",
+            description = "Avena y fruta",
+            notes = "",
+            calories = 380
+        )
+        viewModel.setDiceFilter(MealType.BREAKFAST)
+        viewModel.setDiceAudienceFilter(MenuAudience.ADULT)
+        viewModel.rollDice()
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        viewModel.generateAiFromDiceEmptyRecovery()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.diceEmptyRecovery)
+        assertEquals(MealType.BREAKFAST, state.formMealType)
+        assertEquals(MenuAudience.ADULT, state.formAudience)
+        assertEquals("Desayuno nuevo", state.name)
+        assertTrue(state.showGeneratedMenuDetail)
+        assertTrue(analytics.events.contains("dice_empty_recovery:generate_ai"))
+        assertEquals(1, analytics.events.count { it.startsWith("ai_menu_generation_started") })
     }
 
     @Test
@@ -1531,6 +3725,61 @@ private class FakeMenuDao : MenuDao {
 
     override fun observeMenus(): Flow<List<MenuEntity>> = menus
 
+    override suspend fun getPendingSyncMenus(): List<MenuEntity> {
+        return menus.value.filter { it.remoteSyncState != RemoteSyncState.SYNCED.name }
+    }
+
+    override suspend fun countPendingSyncMenus(): Int {
+        return getPendingSyncMenus().size
+    }
+
+    override suspend fun markUpsertSynced(id: Long, remoteSyncToken: String): Int {
+        var updatedCount = 0
+        menus.value = menus.value.map { existing ->
+            if (
+                existing.id == id &&
+                existing.remoteSyncToken == remoteSyncToken &&
+                existing.remoteSyncState == RemoteSyncState.PENDING_UPSERT.name
+            ) {
+                updatedCount += 1
+                existing.copy(
+                    remoteSyncState = RemoteSyncState.SYNCED.name,
+                    remoteSyncToken = null
+                )
+            } else {
+                existing
+            }
+        }
+        return updatedCount
+    }
+
+    override suspend fun markVisibleMenusPendingUpsert(updatedAt: Long): Int {
+        var updatedCount = 0
+        menus.value = menus.value.map { existing ->
+            if (existing.deletedAt == null) {
+                updatedCount += 1
+                existing.copy(
+                    remoteSyncState = RemoteSyncState.PENDING_UPSERT.name,
+                    updatedAt = updatedAt,
+                    remoteSyncToken = null
+                )
+            } else {
+                existing
+            }
+        }
+        return updatedCount
+    }
+
+    override suspend fun deletePendingTombstone(id: Long, deletedAt: Long): Int {
+        val initialSize = menus.value.size
+        menus.value = menus.value.filterNot { entity ->
+            entity.id == id &&
+                entity.remoteSyncState == RemoteSyncState.PENDING_DELETE.name &&
+                entity.deletedAt == deletedAt
+        }
+        return initialSize - menus.value.size
+    }
+
     override suspend fun insert(menu: MenuEntity): Long {
         val nextId = (menus.value.maxOfOrNull { it.id } ?: 0L) + 1L
         menus.value = listOf(menu.copy(id = nextId)) + menus.value
@@ -1550,6 +3799,7 @@ private class FakeMenuDao : MenuDao {
 
 private class RecordingHealthAnalyzer : HealthAnalyzer {
     var wasCalled = false
+    var analysisCalls = 0
     var generateCalls = 0
     var batchAnalyzeCalls = 0
     var requestedMealType: MealType? = null
@@ -1563,6 +3813,10 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
     var batchAnalyzeMenuIds: List<Long> = emptyList()
     var generateFailure: Throwable? = null
     var requestedAudience: MenuAudience? = null
+    var requestedLanguage: AppLanguage? = null
+    var requestedCuisineInspiration: CuisineInspiration? = null
+    var analysisDelayMillis: Long = 0L
+    var generateDelayMillis: Long = 0L
     var generatedMenu = GeneratedMenu(
         name = "Tostada",
         description = "Pan integral y huevo.",
@@ -1570,24 +3824,40 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
         calories = 350
     )
 
-    override suspend fun analyze(menu: FoodMenu): Result<HealthAnalysis> {
+    override suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<MenuAiDetails> {
         wasCalled = true
+        analysisCalls += 1
+        requestedLanguage = language
+        if (analysisDelayMillis > 0L) {
+            delay(analysisDelayMillis)
+        }
         analysisFailure?.let { return Result.failure(it) }
         return Result.success(
-            HealthAnalysis(
+            MenuAiDetails(
+                healthAnalysis = HealthAnalysis(
                 status = HealthStatus.HEALTHY,
                 reason = "Equilibrado.",
                 suggestion = "Mantener variedad.",
                 calories = analysisCalories
+                ),
+                shoppingProducts = emptyList()
             )
         )
     }
 
-    override suspend fun analyzeBatch(menus: List<FoodMenu>): Result<Map<Long, HealthAnalysis>> {
+    override suspend fun analyzeBatch(menus: List<FoodMenu>, language: AppLanguage): Result<Map<Long, MenuAiDetails>> {
         batchAnalyzeCalls += 1
+        requestedLanguage = language
         batchAnalyzeMenuIds = menus.map { it.id }
         batchAnalysisFailure?.let { return Result.failure(it) }
-        return Result.success(batchAnalyses)
+        return Result.success(
+            batchAnalyses.mapValues { (_, analysis) ->
+                MenuAiDetails(
+                    healthAnalysis = analysis,
+                    shoppingProducts = emptyList()
+                )
+            }
+        )
     }
 
     override suspend fun generateMenu(
@@ -1595,16 +3865,125 @@ private class RecordingHealthAnalyzer : HealthAnalyzer {
         avoidIdeas: List<String>,
         dietaryProfile: DietaryProfile,
         audience: MenuAudience,
-        baseIngredients: String
+        baseIngredients: String,
+        language: AppLanguage,
+        cuisineInspiration: CuisineInspiration
     ): Result<GeneratedMenu> {
         generateCalls += 1
         requestedMealType = mealType
         requestedDietaryProfile = dietaryProfile
         requestedAudience = audience
         requestedBaseIngredients = baseIngredients
+        requestedLanguage = language
+        requestedCuisineInspiration = cuisineInspiration
         this.avoidIdeas = avoidIdeas
+        if (generateDelayMillis > 0L) {
+            delay(generateDelayMillis)
+        }
         generateFailure?.let { return Result.failure(it) }
         return Result.success(generatedMenu)
+    }
+}
+
+private fun sampleGeneratedMenu(
+    name: String = "Idea recuperada",
+    deduplicationKey: String = "pasta|tomato|sauce"
+) = GeneratedMenu(
+    name = name,
+    description = "Pasta integral con salsa de tomate.",
+    notes = "Lista en 10 minutos.",
+    calories = 430,
+    healthAnalysis = HealthAnalysis(
+        status = HealthStatus.HEALTHY,
+        reason = "Incluye cereal y tomate.",
+        suggestion = "Acompaña con verduras.",
+        calories = 430
+    ),
+    shoppingProducts = listOf(
+        requireNotNull(ShoppingProduct.fromAi("Pasta integral")),
+        requireNotNull(ShoppingProduct.fromAi("Tomate"))
+    ),
+    deduplicationKey = deduplicationKey
+)
+
+private fun sampleHiveCandidate(
+    name: String = "Idea recuperada",
+    startsNewRotationCycle: Boolean = false
+): AiMenuHiveCandidate {
+    val generated = sampleGeneratedMenu(name)
+    val identity = requireNotNull(
+        AiMenuHiveIdentity.from(AppLanguage.SPANISH, generated.deduplicationKey)
+    )
+    return AiMenuHiveCandidate(
+        generatedMenu = generated,
+        cuisineInspiration = CuisineInspiration.ITALIAN,
+        semanticHash = identity.semanticHash,
+        source = AiMenuHiveLookupSource.SERVER,
+        startsNewRotationCycle = startsNewRotationCycle
+    )
+}
+
+private class RecordingAiMenuHiveGateway : AiMenuHiveGateway {
+    var searchResult: Result<AiMenuHiveCandidate?> = Result.success(null)
+    var searchDelayMillis: Long = 0L
+    val searches = mutableListOf<AiMenuHiveSearchRequest>()
+    val contributions = mutableListOf<AiMenuHiveContribution>()
+
+    override suspend fun findCompatibleMenu(
+        request: AiMenuHiveSearchRequest
+    ): Result<AiMenuHiveCandidate?> {
+        searches += request
+        delay(searchDelayMillis)
+        return searchResult
+    }
+
+    override suspend fun contribute(contribution: AiMenuHiveContribution): Result<Unit> {
+        contributions += contribution
+        return Result.success(Unit)
+    }
+}
+
+private class FakeHiveRotationStore : HiveRotationStore {
+    private val snapshots = mutableMapOf<String, HiveRotationSnapshot>()
+    val snapshotScopes = mutableListOf<String>()
+    val records = mutableListOf<Triple<String, String, Boolean>>()
+    var throwOnSnapshot = false
+    var throwOnRecord = false
+
+    fun seed(scope: String, hashes: List<String>, lastShownHash: String?) {
+        snapshots[scope] = HiveRotationSnapshot(hashes, lastShownHash)
+    }
+
+    override fun snapshot(scope: String): HiveRotationSnapshot {
+        if (throwOnSnapshot) error("rotation read failed")
+        snapshotScopes += scope
+        return snapshots[scope] ?: HiveRotationSnapshot()
+    }
+
+    override fun recordShown(
+        scope: String,
+        semanticHash: String,
+        startsNewCycle: Boolean
+    ) {
+        if (throwOnRecord) error("rotation write failed")
+        records += Triple(scope, semanticHash, startsNewCycle)
+        val existing = snapshots[scope] ?: HiveRotationSnapshot()
+        val hashes = if (startsNewCycle) {
+            listOf(semanticHash)
+        } else {
+            (existing.seenHashes - semanticHash + semanticHash).takeLast(24)
+        }
+        snapshots[scope] = HiveRotationSnapshot(hashes, semanticHash)
+    }
+}
+
+private class FakeCuisineRotationStateStore : CuisineRotationStateStore {
+    private val indices = mutableMapOf<String, Int>()
+
+    override fun readIndex(key: String): Int? = indices[key]
+
+    override fun writeIndex(key: String, index: Int) {
+        indices[key] = index
     }
 }
 
@@ -1632,9 +4011,19 @@ private class FakeDietaryProfileStore : DietaryProfileStore {
     }
 }
 
+private class FakeFormAudienceSelectionStore(
+    var storedAudience: MenuAudience? = null
+) : FormAudienceSelectionStore {
+    override fun getSelectedAudience(): MenuAudience? = storedAudience
+
+    override fun saveSelectedAudience(audience: MenuAudience) {
+        storedAudience = audience
+    }
+}
+
 private class FakeOnboardingStore(
     var completed: Boolean = false,
-    var completedVersion: Int = if (completed) 2 else 0
+    var completedVersion: Int = if (completed) 5 else 0
 ) : OnboardingStore {
     override fun isOnboardingCompleted(requiredVersion: Int): Boolean =
         completed && completedVersion >= requiredVersion
@@ -1667,9 +4056,24 @@ private class FakeAiQuotaRetryStore : AiQuotaRetryStore {
     }
 }
 
+private class FakeAiRequestThrottleStore : AiRequestThrottleStore {
+    var storedLastRequestAtMillis: Long? = null
+
+    override fun getLastRequestAtMillis(): Long? = storedLastRequestAtMillis
+
+    override fun saveLastRequestAtMillis(requestAtMillis: Long) {
+        storedLastRequestAtMillis = requestAtMillis
+    }
+
+    override fun clearLastRequest() {
+        storedLastRequestAtMillis = null
+    }
+}
+
 private class FakeAiDailyUsageStore : AiDailyUsageStore {
     var storedDateKey: String? = null
     var storedUsedCount = 0
+    var saveCalls = 0
 
     override fun getUsageState(): AiDailyUsageState? {
         return storedDateKey?.let { dateKey ->
@@ -1681,13 +4085,85 @@ private class FakeAiDailyUsageStore : AiDailyUsageStore {
     }
 
     override fun saveUsageState(state: AiDailyUsageState) {
+        saveCalls += 1
         storedDateKey = state.dateKey
         storedUsedCount = state.usedCount
     }
 }
 
+private class FakeScopedAiUsageStore : ScopedAiUsageStore {
+    private val states = mutableMapOf<String, AiDailyUsageState>()
+    private var migrationComplete = false
+
+    fun seed(scope: String, dateKey: String, usedCount: Int) {
+        states[scope] = AiDailyUsageState(dateKey = dateKey, usedCount = usedCount)
+    }
+
+    override fun getUsageState(scope: String, dateKey: String): AiDailyUsageState {
+        return states[scope]?.takeIf { it.dateKey == dateKey }
+            ?: AiDailyUsageState(dateKey = dateKey, usedCount = 0)
+    }
+
+    override fun saveUsageState(scope: String, state: AiDailyUsageState) {
+        states[scope] = state
+    }
+
+    override fun migrateLegacyUsage(scope: String, legacyState: AiDailyUsageState?): Boolean {
+        if (migrationComplete) {
+            return false
+        }
+        legacyState?.let { state ->
+            states.putIfAbsent(scope, state)
+            states.putIfAbsent(PROVIDER_AI_USAGE_SCOPE, state)
+        }
+        migrationComplete = true
+        return true
+    }
+}
+
+private class FakeGuestUsageStore : GuestUsageStore {
+    var state: GuestDailyUsageState? = null
+
+    override fun getUsageState(): GuestDailyUsageState? = state
+
+    override fun saveUsageState(state: GuestDailyUsageState) {
+        this.state = state
+    }
+}
+
+private class FakeRewardedAiCreditStore : RewardedAiCreditStore {
+    private val ledgers = mutableMapOf<String, RewardedAiCreditLedger>()
+    private var lastSavedScope: String? = null
+    var ledger: RewardedAiCreditLedger?
+        get() = lastSavedScope?.let(ledgers::get)
+        set(value) {
+            if (value == null) {
+                lastSavedScope?.let(ledgers::remove)
+                lastSavedScope = null
+            } else {
+                ledgers[GUEST_AI_USAGE_SCOPE] = value
+                lastSavedScope = GUEST_AI_USAGE_SCOPE
+            }
+        }
+
+    fun seed(scope: String, ledger: RewardedAiCreditLedger) {
+        ledgers[scope] = ledger
+    }
+
+    override fun getLedger(scope: String, dateKey: String): RewardedAiCreditLedger {
+        return ledgers[scope]?.takeIf { it.dateKey == dateKey }
+            ?: RewardedAiCreditLedger(dateKey = dateKey, earnedCount = 0, consumedCount = 0)
+    }
+
+    override fun saveLedger(scope: String, ledger: RewardedAiCreditLedger) {
+        ledgers[scope] = ledger
+        lastSavedScope = scope
+    }
+}
+
 private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
     val events = mutableListOf<String>()
+    var throwOnAiMenuGenerationFinished = false
 
     override fun trackAppOpened(deviceInfo: DeviceInfo?) {
         events += "app_opened"
@@ -1700,6 +4176,26 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
         menuCount: Int
     ) {
         events += "menu_saved:${mealType.name}:$hasAiAnalysis:$hasCalories:$menuCount"
+    }
+
+    override fun trackCtaTapped(screen: String, cta: String) {
+        events += "cta_tapped:$screen:$cta"
+    }
+
+    override fun trackMyZoneOpened(authMode: String, menuCount: Int) {
+        events += "my_zone_opened:$authMode:$menuCount"
+    }
+
+    override fun trackAuthFlowStarted(mode: String, authMode: String, menuCount: Int) {
+        events += "auth_flow_started:$mode:$authMode:$menuCount"
+    }
+
+    override fun trackAuthAction(action: String, method: String, authMode: String) {
+        events += "auth_action:$action:$method:$authMode"
+    }
+
+    override fun trackGuestLimitReached(limitType: String, usedCount: Int) {
+        events += "guest_limit_reached:$limitType:$usedCount"
     }
 
     override fun trackMenuDeleted(mealType: MealType, hadAiAnalysis: Boolean) {
@@ -1722,8 +4218,37 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
         events += "meal_type_selected:${mealType.name}:$formHasContent"
     }
 
+    override fun trackAudienceFilterSelected(source: String, audience: MenuAudience?, menuCount: Int) {
+        events += "audience_filter_selected:$source:${audience?.name ?: "ALL"}:$menuCount"
+    }
+
     override fun trackMenuSaveBlocked(reason: String, hasName: Boolean, hasDescription: Boolean) {
         events += "menu_save_blocked:$reason:$hasName:$hasDescription"
+    }
+
+    override fun trackMenuEditStarted(
+        mealType: MealType,
+        audience: MenuAudience,
+        hasAiAnalysis: Boolean,
+        hasPhoto: Boolean,
+        menuCount: Int
+    ) {
+        events += "menu_edit_started:${mealType.name}:${audience.name}:$hasAiAnalysis:$hasPhoto:$menuCount"
+    }
+
+    override fun trackMenuEditSaved(
+        mealType: MealType,
+        audience: MenuAudience,
+        changedRecipe: Boolean,
+        hasAiAnalysis: Boolean,
+        hasPhoto: Boolean,
+        menuCount: Int
+    ) {
+        events += "menu_edit_saved:${mealType.name}:${audience.name}:$changedRecipe:$hasAiAnalysis:$hasPhoto:$menuCount"
+    }
+
+    override fun trackMenuPhotoUpdated(mealType: MealType, audience: MenuAudience, hasPhoto: Boolean, menuCount: Int) {
+        events += "menu_photo_updated:${mealType.name}:${audience.name}:$hasPhoto:$menuCount"
     }
 
     override fun trackDiceRolled(
@@ -1743,6 +4268,10 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
         events += "dice_empty_result:${filter?.name ?: "ALL"}:$availableCandidateCount"
     }
 
+    override fun trackDiceEmptyRecovery(action: String) {
+        events += "dice_empty_recovery:$action"
+    }
+
     override fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int) {
         events += "menu_card_opened:${mealType.name}:$hasAiAnalysis:$menuCount"
     }
@@ -1755,8 +4284,36 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
         events += "onboarding_completed:$action"
     }
 
+    override fun trackAppUpdatePrompt(action: String) {
+        events += "app_update_prompt:$action"
+    }
+
     override fun trackAboutAppOpened() {
         events += "about_app_opened"
+    }
+
+    override fun trackDietaryProfileOpened(activeAudienceCount: Int) {
+        events += "dietary_profile_opened:$activeAudienceCount"
+    }
+
+    override fun trackDietaryProfileAudienceSelected(audience: MenuAudience) {
+        events += "dietary_profile_audience_selected:${audience.name}"
+    }
+
+    override fun trackDietaryProfileUpdated(audience: MenuAudience, fieldGroup: String, activeAudienceCount: Int) {
+        events += "dietary_profile_updated:${audience.name}:$fieldGroup:$activeAudienceCount"
+    }
+
+    override fun trackMenuListViewMoreOpened(audience: MenuAudience, menuCount: Int) {
+        events += "menu_list_view_more_opened:${audience.name}:$menuCount"
+    }
+
+    override fun trackBackendSyncRetried(source: String, pendingMenuCount: Int) {
+        events += "backend_sync_retried:$source:$pendingMenuCount"
+    }
+
+    override fun trackBackendSyncFinished(source: String, status: String, pendingMenuCount: Int) {
+        events += "backend_sync_finished:$source:$status:$pendingMenuCount"
     }
 
     override fun trackAiMenuGenerationStarted(mealType: MealType, avoidIdeaCount: Int) {
@@ -1769,7 +4326,19 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
         healthStatus: HealthStatus?,
         failureType: String?
     ) {
+        if (throwOnAiMenuGenerationFinished) {
+            throw IllegalStateException("tracking failed")
+        }
         events += "ai_menu_generation_finished:${mealType.name}:$success:${healthStatus?.name?.lowercase() ?: "unknown"}:${failureType ?: "none"}"
+    }
+
+    override fun trackAiMenuHiveFallback(
+        mealType: MealType,
+        result: String,
+        triggerFailureType: String,
+        durationMillis: Long
+    ) {
+        events += "ai_menu_hive_fallback:${mealType.name}:$result:$triggerFailureType:$durationMillis"
     }
 
     override fun trackAiAnalysisStarted(scope: String, mealType: MealType?, menuCount: Int) {
@@ -1789,5 +4358,9 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
 
     override fun trackAiDailyLimitReached(source: String) {
         events += "ai_daily_limit_reached:$source"
+    }
+
+    override fun trackAiRewardedOffer(status: String, creditsRemaining: Int) {
+        events += "ai_rewarded_offer:$status:$creditsRemaining"
     }
 }

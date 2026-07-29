@@ -2,6 +2,7 @@ package com.menudado.analytics
 
 import com.menudado.domain.MealType
 import com.menudado.domain.HealthStatus
+import com.menudado.domain.MenuAudience
 
 data class DeviceInfo(
     val manufacturer: String,
@@ -21,6 +22,16 @@ interface MenuDadoAnalytics {
         menuCount: Int
     )
 
+    fun trackCtaTapped(screen: String, cta: String)
+
+    fun trackMyZoneOpened(authMode: String, menuCount: Int)
+
+    fun trackAuthFlowStarted(mode: String, authMode: String, menuCount: Int)
+
+    fun trackAuthAction(action: String, method: String, authMode: String)
+
+    fun trackGuestLimitReached(limitType: String, usedCount: Int)
+
     fun trackMenuDeleted(mealType: MealType, hadAiAnalysis: Boolean)
 
     fun trackFirstMenuCreated(mealType: MealType)
@@ -31,7 +42,28 @@ interface MenuDadoAnalytics {
 
     fun trackMealTypeSelected(mealType: MealType, formHasContent: Boolean)
 
+    fun trackAudienceFilterSelected(source: String, audience: MenuAudience?, menuCount: Int)
+
     fun trackMenuSaveBlocked(reason: String, hasName: Boolean, hasDescription: Boolean)
+
+    fun trackMenuEditStarted(
+        mealType: MealType,
+        audience: MenuAudience,
+        hasAiAnalysis: Boolean,
+        hasPhoto: Boolean,
+        menuCount: Int
+    )
+
+    fun trackMenuEditSaved(
+        mealType: MealType,
+        audience: MenuAudience,
+        changedRecipe: Boolean,
+        hasAiAnalysis: Boolean,
+        hasPhoto: Boolean,
+        menuCount: Int
+    )
+
+    fun trackMenuPhotoUpdated(mealType: MealType, audience: MenuAudience, hasPhoto: Boolean, menuCount: Int)
 
     fun trackDiceRolled(
         filter: MealType?,
@@ -44,13 +76,29 @@ interface MenuDadoAnalytics {
 
     fun trackDiceEmptyResult(filter: MealType?, availableCandidateCount: Int)
 
+    fun trackDiceEmptyRecovery(action: String)
+
     fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int)
 
     fun trackOnboardingShown()
 
     fun trackOnboardingCompleted(action: String)
 
+    fun trackAppUpdatePrompt(action: String)
+
     fun trackAboutAppOpened()
+
+    fun trackDietaryProfileOpened(activeAudienceCount: Int)
+
+    fun trackDietaryProfileAudienceSelected(audience: MenuAudience)
+
+    fun trackDietaryProfileUpdated(audience: MenuAudience, fieldGroup: String, activeAudienceCount: Int)
+
+    fun trackMenuListViewMoreOpened(audience: MenuAudience, menuCount: Int)
+
+    fun trackBackendSyncRetried(source: String, pendingMenuCount: Int)
+
+    fun trackBackendSyncFinished(source: String, status: String, pendingMenuCount: Int)
 
     fun trackAiMenuGenerationStarted(mealType: MealType, avoidIdeaCount: Int)
 
@@ -59,6 +107,13 @@ interface MenuDadoAnalytics {
         success: Boolean,
         healthStatus: HealthStatus?,
         failureType: String?
+    )
+
+    fun trackAiMenuHiveFallback(
+        mealType: MealType,
+        result: String,
+        triggerFailureType: String,
+        durationMillis: Long
     )
 
     fun trackAiAnalysisStarted(scope: String, mealType: MealType?, menuCount: Int)
@@ -73,6 +128,8 @@ interface MenuDadoAnalytics {
     )
 
     fun trackAiDailyLimitReached(source: String)
+
+    fun trackAiRewardedOffer(status: String, creditsRemaining: Int)
 }
 
 object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
@@ -85,6 +142,16 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
         menuCount: Int
     ) = Unit
 
+    override fun trackCtaTapped(screen: String, cta: String) = Unit
+
+    override fun trackMyZoneOpened(authMode: String, menuCount: Int) = Unit
+
+    override fun trackAuthFlowStarted(mode: String, authMode: String, menuCount: Int) = Unit
+
+    override fun trackAuthAction(action: String, method: String, authMode: String) = Unit
+
+    override fun trackGuestLimitReached(limitType: String, usedCount: Int) = Unit
+
     override fun trackMenuDeleted(mealType: MealType, hadAiAnalysis: Boolean) = Unit
 
     override fun trackFirstMenuCreated(mealType: MealType) = Unit
@@ -95,7 +162,28 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
 
     override fun trackMealTypeSelected(mealType: MealType, formHasContent: Boolean) = Unit
 
+    override fun trackAudienceFilterSelected(source: String, audience: MenuAudience?, menuCount: Int) = Unit
+
     override fun trackMenuSaveBlocked(reason: String, hasName: Boolean, hasDescription: Boolean) = Unit
+
+    override fun trackMenuEditStarted(
+        mealType: MealType,
+        audience: MenuAudience,
+        hasAiAnalysis: Boolean,
+        hasPhoto: Boolean,
+        menuCount: Int
+    ) = Unit
+
+    override fun trackMenuEditSaved(
+        mealType: MealType,
+        audience: MenuAudience,
+        changedRecipe: Boolean,
+        hasAiAnalysis: Boolean,
+        hasPhoto: Boolean,
+        menuCount: Int
+    ) = Unit
+
+    override fun trackMenuPhotoUpdated(mealType: MealType, audience: MenuAudience, hasPhoto: Boolean, menuCount: Int) = Unit
 
     override fun trackDiceRolled(
         filter: MealType?,
@@ -108,13 +196,29 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
 
     override fun trackDiceEmptyResult(filter: MealType?, availableCandidateCount: Int) = Unit
 
+    override fun trackDiceEmptyRecovery(action: String) = Unit
+
     override fun trackMenuCardOpened(mealType: MealType, hasAiAnalysis: Boolean, menuCount: Int) = Unit
 
     override fun trackOnboardingShown() = Unit
 
     override fun trackOnboardingCompleted(action: String) = Unit
 
+    override fun trackAppUpdatePrompt(action: String) = Unit
+
     override fun trackAboutAppOpened() = Unit
+
+    override fun trackDietaryProfileOpened(activeAudienceCount: Int) = Unit
+
+    override fun trackDietaryProfileAudienceSelected(audience: MenuAudience) = Unit
+
+    override fun trackDietaryProfileUpdated(audience: MenuAudience, fieldGroup: String, activeAudienceCount: Int) = Unit
+
+    override fun trackMenuListViewMoreOpened(audience: MenuAudience, menuCount: Int) = Unit
+
+    override fun trackBackendSyncRetried(source: String, pendingMenuCount: Int) = Unit
+
+    override fun trackBackendSyncFinished(source: String, status: String, pendingMenuCount: Int) = Unit
 
     override fun trackAiMenuGenerationStarted(mealType: MealType, avoidIdeaCount: Int) = Unit
 
@@ -123,6 +227,13 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
         success: Boolean,
         healthStatus: HealthStatus?,
         failureType: String?
+    ) = Unit
+
+    override fun trackAiMenuHiveFallback(
+        mealType: MealType,
+        result: String,
+        triggerFailureType: String,
+        durationMillis: Long
     ) = Unit
 
     override fun trackAiAnalysisStarted(scope: String, mealType: MealType?, menuCount: Int) = Unit
@@ -137,4 +248,6 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
     ) = Unit
 
     override fun trackAiDailyLimitReached(source: String) = Unit
+
+    override fun trackAiRewardedOffer(status: String, creditsRemaining: Int) = Unit
 }

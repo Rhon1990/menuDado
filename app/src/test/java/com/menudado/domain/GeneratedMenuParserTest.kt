@@ -1,6 +1,8 @@
 package com.menudado.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GeneratedMenuParserTest {
@@ -82,5 +84,55 @@ class GeneratedMenuParserTest {
 
         assertEquals("Bowl \"verde\" de pollo", generated.name)
         assertEquals(540, generated.calories)
+    }
+
+    @Test
+    fun `parsea productos sin cantidades y elimina duplicados`() {
+        val generated = GeneratedMenuParser.parse(
+            """
+            {
+              "name": "Tacos de pollo",
+              "description": "Pollo, tomate y tortillas.",
+              "notes": "Cena rápida.",
+              "calories": 480,
+              "shopping_products": ["Pollo", " Tomáte ", "tomate", "Tortillas de maíz"]
+            }
+            """.trimIndent()
+        )
+
+        assertEquals(
+            listOf("Pollo", "Tomáte", "Tortillas de maíz"),
+            generated.shoppingProducts.map { it.displayName }
+        )
+    }
+
+    @Test
+    fun `lista ausente no invalida menu generado`() {
+        val generated = GeneratedMenuParser.parse(
+            """{"name":"Sopa","description":"Verduras cocidas.","notes":"","calories":320}"""
+        )
+
+        assertTrue(generated.shoppingProducts.isEmpty())
+    }
+
+    @Test
+    fun `parsea clave semantica opcional sin hacerla requisito del menu`() {
+        val withKey = GeneratedMenuParser.parse(
+            """
+            {
+              "name": "Espaguetis en salsa de tomate",
+              "description": "Pasta con tomate.",
+              "notes": "Lista en 10 minutos.",
+              "calories": 430,
+              "deduplication_key": "pasta|tomato|sauce"
+            }
+            """.trimIndent()
+        )
+        val legacy = GeneratedMenuParser.parse(
+            """{"name":"Sopa","description":"Verduras.","notes":"","calories":320}"""
+        )
+
+        assertEquals("pasta|tomato|sauce", withKey.deduplicationKey)
+        assertNull(legacy.deduplicationKey)
     }
 }

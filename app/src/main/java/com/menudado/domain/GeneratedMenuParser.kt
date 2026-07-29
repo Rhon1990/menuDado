@@ -11,6 +11,9 @@ object GeneratedMenuParser {
         val notes = jsonLikeText.quoted("notes").orEmpty()
         val calories = jsonLikeText.int("calories") ?: jsonLikeText.quoted("calories")?.firstNumber()
         val healthAnalysis = jsonLikeText.healthAnalysis(calories)
+        val shoppingProducts = jsonLikeText.parseShoppingProducts()
+        val deduplicationKey = jsonLikeText.quoted("deduplication_key")
+            ?.takeIf { it.isNotBlank() }
 
         if (name.isNullOrBlank() || description.isNullOrBlank() || calories == null) {
             throw IllegalArgumentException("No se pudo interpretar el menu generado por IA.")
@@ -21,7 +24,9 @@ object GeneratedMenuParser {
             description = description,
             notes = notes,
             calories = calories,
-            healthAnalysis = healthAnalysis
+            healthAnalysis = healthAnalysis,
+            shoppingProducts = shoppingProducts,
+            deduplicationKey = deduplicationKey
         )
     }
 
