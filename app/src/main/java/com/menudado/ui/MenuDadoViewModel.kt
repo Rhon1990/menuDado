@@ -585,7 +585,7 @@ class MenuDadoViewModel(
     }
 
     fun saveGeneratedMenuIdea() {
-        saveMenu()
+        saveMenu(ignoreGuestMenuSaveLimit = true)
     }
 
     fun setAddGeneratedMenuToMarketList(isEnabled: Boolean) {
@@ -827,6 +827,10 @@ class MenuDadoViewModel(
     }
 
     fun saveMenu() {
+        saveMenu(ignoreGuestMenuSaveLimit = false)
+    }
+
+    private fun saveMenu(ignoreGuestMenuSaveLimit: Boolean) {
         val state = _uiState.value
         val name = state.name.trim()
         val description = state.description.trim()
@@ -868,7 +872,7 @@ class MenuDadoViewModel(
             return
         }
 
-        if (!canGuestSaveMenuOrShowNotice()) {
+        if (!ignoreGuestMenuSaveLimit && !canGuestSaveMenuOrShowNotice()) {
             return
         }
 

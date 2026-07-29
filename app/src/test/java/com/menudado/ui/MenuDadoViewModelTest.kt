@@ -488,6 +488,37 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `rewarded generated menu saves after guest manual save limit is exhausted`() =
+        runTest(dispatcher) {
+            guestUsageStore.state = GuestDailyUsageState(
+                dateKey = "2026-06-11",
+                savedMenuCount = 5,
+                generatedIdeaCount = 0,
+                analysisCount = 0
+            )
+            scopedAiUsageStore.seed(GUEST_AI_USAGE_SCOPE, "2026-06-10", usedCount = 5)
+            viewModel.updateGuestAccess(
+                isGuest = true,
+                areLimitsEnabled = true,
+                areAiLimitsEnabled = true
+            )
+            viewModel.generateMenuIdea()
+            assertTrue(viewModel.requestRewardedGeneration())
+
+            viewModel.onRewardedGenerationEarned()
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.showGeneratedMenuDetail)
+
+            viewModel.saveGeneratedMenuIdea()
+            advanceUntilIdle()
+
+            assertEquals(1, dao.saved.size)
+            assertFalse(viewModel.uiState.value.showGeneratedMenuDetail)
+            assertEquals(1L, viewModel.uiState.value.menuSaveSuccessRevision)
+            assertNull(viewModel.uiState.value.message)
+        }
+
+    @Test
     fun `quota fallback success keeps retry internal and reveals only generated menu`() =
         runTest(dispatcher) {
             analyzer.generateFailure =
@@ -949,7 +980,7 @@ class MenuDadoViewModelTest {
     }
 
     @Test
-    fun `guest cannot save more than five menus per day when limits are enabled`() = runTest(dispatcher) {
+    fun `guest cannot save more than five manual menus per day when limits are enabled`() = runTest(dispatcher) {
         guestUsageStore.state = GuestDailyUsageState(
             dateKey = "2026-06-11",
             savedMenuCount = 5,
