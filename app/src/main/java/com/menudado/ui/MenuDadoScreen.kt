@@ -1723,12 +1723,16 @@ internal fun aiDiceActionEnabled(
     canUseFormActions: Boolean,
     isAiPaused: Boolean,
     limitState: AiGenerationLimitState,
-    isRewardedGenerationPending: Boolean
+    isRewardedGenerationPending: Boolean,
+    isHardLimitActionable: Boolean
 ): Boolean {
     return canUseFormActions &&
         !isAiPaused &&
         !isRewardedGenerationPending &&
-        limitState != AiGenerationLimitState.HARD_LIMIT
+        (
+            limitState != AiGenerationLimitState.HARD_LIMIT ||
+                isHardLimitActionable
+            )
 }
 
 internal fun aiGenerationIsPaused(
@@ -3213,7 +3217,9 @@ private fun TodayMenuSection(
         canUseFormActions = canUseFormActions,
         isAiPaused = isAiGenerationPaused,
         limitState = displayedLimitState,
-        isRewardedGenerationPending = state.isRewardedGenerationPending
+        isRewardedGenerationPending = state.isRewardedGenerationPending,
+        isHardLimitActionable =
+            state.aiGenerationLimitState == AiGenerationLimitState.HARD_LIMIT
     )
     val canRollSavedMenu = canUseFormActions && !state.isRolling
     val aiDiceDisabledReason = aiDiceDisabledReasonRes(
