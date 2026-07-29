@@ -260,7 +260,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - Eventos propios del dado: `dice_filter_selected`, `dice_rolled`, `dice_empty_result` y `dice_empty_recovery`; este último usa `action` cerrado (`shown`, `generate_ai`, `broaden_meal_type`, `change_filters`).
   - Eventos propios de consulta de contenido: `menu_card_opened`, `about_app_opened`.
   - Eventos propios de perfil alimentario: `dietary_profile_opened`, `dietary_profile_audience_selected`, `dietary_profile_updated`, sin enviar alérgenos, embarazo, condiciones ni texto libre.
-  - Eventos propios de onboarding: `onboarding_shown` y `onboarding_completed` incluyen `onboarding_version=6` y `exposure_type` limitado a `new_install` o `upgrade`; el segundo añade `action` limitado a `start` o `skip`.
+  - Eventos propios de onboarding: `onboarding_shown` y `onboarding_completed` incluyen `onboarding_version=v6` como valor categórico alfanumérico y `exposure_type` limitado a `new_install` o `upgrade`; el segundo añade `action` limitado a `start` o `skip`.
   - Las dimensiones personalizadas prospectivas del embudo son `screen`, `cta`, `action`, `onboarding_version` y `exposure_type`. `first_menu_created` es el evento clave de activación; completar el onboarding por sí solo no se considera conversión.
   - Los favoritos y la lista de mercado conservan sus valores cerrados existentes en `cta_tapped`; no se duplican como eventos adicionales.
   - Eventos propios de actualización de app: `app_update_prompt` con parámetro `action` limitado a `shown`, `update`, `later` o `install`; no envía versión instalada, versión de tienda ni identificadores de usuario.

@@ -206,7 +206,7 @@ class FirebaseMenuDadoAnalytics(
 
     override fun trackOnboardingShown(contentVersion: Int, exposureType: String) {
         logEvent(EVENT_ONBOARDING_SHOWN) {
-            putString(PARAM_ONBOARDING_VERSION, contentVersion.toString())
+            putString(PARAM_ONBOARDING_VERSION, onboardingVersionDimensionValue(contentVersion))
             putString(PARAM_EXPOSURE_TYPE, exposureType.sanitized())
         }
     }
@@ -218,7 +218,7 @@ class FirebaseMenuDadoAnalytics(
     ) {
         logEvent(EVENT_ONBOARDING_COMPLETED) {
             putString(PARAM_ACTION, action.sanitized())
-            putString(PARAM_ONBOARDING_VERSION, contentVersion.toString())
+            putString(PARAM_ONBOARDING_VERSION, onboardingVersionDimensionValue(contentVersion))
             putString(PARAM_EXPOSURE_TYPE, exposureType.sanitized())
         }
     }
@@ -483,3 +483,5 @@ class FirebaseMenuDadoAnalytics(
         const val VALUE_FAILURE = "failure"
     }
 }
+
+internal fun onboardingVersionDimensionValue(contentVersion: Int): String = "v$contentVersion"

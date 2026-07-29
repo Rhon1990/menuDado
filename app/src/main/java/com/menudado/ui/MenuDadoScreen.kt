@@ -25,6 +25,7 @@ import androidx.compose.animation.core.Animatable as ComposeAnimatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -1846,6 +1847,11 @@ internal fun onboardingContainerCornerRadiusDp(): Int = 24
 internal fun onboardingStartCta(): String = "create_first_menu"
 
 internal fun onboardingSkipCta(): String = "explore_without_onboarding"
+
+internal fun onboardingContentModifier(scrollState: ScrollState): Modifier =
+    Modifier
+        .padding(24.dp)
+        .verticalScroll(scrollState)
 
 private const val MENU_DADO_PRIVACY_POLICY_URL = "https://rhon1990.github.io/menuDado/privacy-policy/"
 private const val AI_DICE_BASE_CYCLE_MILLIS = 850.0
@@ -7010,7 +7016,7 @@ private fun OnboardingDialog(
             shape = RoundedCornerShape(onboardingContainerCornerRadiusDp().dp)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = onboardingContentModifier(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {

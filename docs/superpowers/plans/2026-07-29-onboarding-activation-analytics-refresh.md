@@ -97,7 +97,7 @@ Replace the Firebase adapter methods with:
 ```kotlin
 override fun trackOnboardingShown(contentVersion: Int, exposureType: String) {
     logEvent(EVENT_ONBOARDING_SHOWN) {
-        putString(PARAM_ONBOARDING_VERSION, contentVersion.toString())
+        putString(PARAM_ONBOARDING_VERSION, onboardingVersionDimensionValue(contentVersion))
         putString(PARAM_EXPOSURE_TYPE, exposureType.sanitized())
     }
 }
@@ -109,10 +109,13 @@ override fun trackOnboardingCompleted(
 ) {
     logEvent(EVENT_ONBOARDING_COMPLETED) {
         putString(PARAM_ACTION, action.sanitized())
-        putString(PARAM_ONBOARDING_VERSION, contentVersion.toString())
+        putString(PARAM_ONBOARDING_VERSION, onboardingVersionDimensionValue(contentVersion))
         putString(PARAM_EXPOSURE_TYPE, exposureType.sanitized())
     }
 }
+
+internal fun onboardingVersionDimensionValue(contentVersion: Int): String =
+    "v$contentVersion"
 ```
 
 Add these parameter constants next to the existing onboarding/action constants:
@@ -338,6 +341,16 @@ internal fun onboardingSkipCta(): String = "explore_without_onboarding"
 Make both onboarding click handlers pass these helpers to
 `viewModel.trackCtaTapped` and remove the two private onboarding CTA constants.
 
+Use a scrollable content modifier so larger fonts and short windows retain
+access to both actions:
+
+```kotlin
+internal fun onboardingContentModifier(scrollState: ScrollState): Modifier =
+    Modifier
+        .padding(24.dp)
+        .verticalScroll(scrollState)
+```
+
 - [ ] **Step 4: Run the UI-state test and verify it passes**
 
 Run:
@@ -537,8 +550,8 @@ version 5 state -> onboarding shown -> skip
 Expected:
 
 ```text
-onboarding_shown: onboarding_version=6, exposure_type=new_install|upgrade
-onboarding_completed: action=start|skip, onboarding_version=6,
+onboarding_shown: onboarding_version=v6, exposure_type=new_install|upgrade
+onboarding_completed: action=start|skip, onboarding_version=v6,
   exposure_type=new_install|upgrade
 cta_tapped: screen=onboarding,
   cta=create_first_menu|explore_without_onboarding

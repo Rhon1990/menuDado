@@ -10,6 +10,7 @@ import com.menudado.domain.HealthStatus
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
 import com.menudado.ui.theme.MenuDadoColors
+import androidx.compose.foundation.ScrollState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -1240,6 +1241,11 @@ class MenuCardUiStateTest {
         assertEquals(24, onboardingContainerCornerRadiusDp())
         assertEquals("create_first_menu", onboardingStartCta())
         assertEquals("explore_without_onboarding", onboardingSkipCta())
+        val modifierElementNames = onboardingContentModifier(ScrollState(0))
+            .foldIn(emptyList<String>()) { names, element ->
+                names + element.javaClass.simpleName
+            }
+        assertTrue(modifierElementNames.any { "Scroll" in it })
     }
 
     @Test

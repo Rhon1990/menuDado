@@ -122,8 +122,8 @@ Onboarding methods accept the content version and exposure type explicitly so
 the Firebase adapter and test fake cannot silently disagree.
 
 The Firebase implementation sanitizes closed strings with the existing helper
-and writes the content version as a categorical string so GA4 can expose it as
-an event-scoped custom dimension.
+and writes the content version as the alphanumeric categorical value `v6` so
+GA4 can expose it as an event-scoped custom dimension for an Android app.
 
 ## Analytics Schema
 
@@ -131,13 +131,13 @@ an event-scoped custom dimension.
 
 `onboarding_shown`:
 
-- `onboarding_version`: `6`
+- `onboarding_version`: `v6`
 - `exposure_type`: `new_install` or `upgrade`
 
 `onboarding_completed`:
 
 - `action`: `start` or `skip`
-- `onboarding_version`: `6`
+- `onboarding_version`: `v6`
 - `exposure_type`: `new_install` or `upgrade`
 
 `cta_tapped` keeps:
