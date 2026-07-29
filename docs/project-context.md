@@ -174,6 +174,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - En una instalación sin sesión resuelta, MenuDado entra por defecto como invitado y conserva el comportamiento anterior con usuario anónimo; no muestra una pantalla de acceso antes de Inicio.
    - En modo invitado, MenuDado permite usar el dado local sin límite, editar y borrar menús, y marcar favoritos. `guest_limits_enabled` controla únicamente el límite diario local de 5 menús escritos manualmente; una idea ya generada con IA siempre se puede guardar desde su detalle, incluida la obtenida mediante un anuncio bonificado. El uso de Gemini se rige por el contador compartido de IA: 5 llamadas gratuitas para invitado y 10 para cuenta registrada cuando `guest_ai_limits_enabled=true`, más las recompensas opcionales permitidas solo para generar ideas.
    - La barra inferior incluye `Mi zona`, una sección de cuenta inspirada en el patrón de zona de usuario: saludo, franja/botón de ventajas que abre un modal con beneficios ampliados y acciones `Registrarme gratis` e `Iniciar sesión` cuando el usuario sigue como invitado.
+   - El modal `Tu cuenta te da más` comunica cuatro ventajas verificables: 10 usos gratuitos diarios de IA para una cuenta frente a 5 para invitado cuando `guest_ai_limits_enabled=true`; recuperación de menús y favoritos tras reinstalar; conservación del perfil alimentario y sus preferencias; y persistencia de los menús analizados con los productos de su lista de mercado. No presenta como ventaja el uso en otro móvil ni promete uso o guardado ilimitado.
    - Los formularios de `Registrarme gratis` e `Iniciar sesión` son pantallas internas reutilizables dentro de `Mi zona`, no modales bloqueantes ni pantallas previas al uso de la app. Ambas permiten continuar con Google además de correo y contraseña.
    - Si un invitado crea cuenta con correo, MenuDado vincula el usuario anónimo actual con la credencial de email para conservar el mismo `uid`; así los datos existentes bajo `users/{uid}` quedan asociados a la cuenta sin copiar documentos.
    - Si un invitado inicia sesión con Google, MenuDado vincula el usuario anónimo actual con la credencial de Google cuando Firebase lo permite para conservar el mismo `uid`; en sesiones no invitadas usa el inicio de sesión Firebase normal con Google.
@@ -208,6 +209,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 9. Acerca de la app.
    - `Acerca de la app` se abre desde `Mi zona`.
    - La descripción, el creador y el contacto visibles vienen de Firebase Remote Config mediante las variables string `about_description`, `about_created_by` y `about_contact`; si no existen o están vacías, la app usa textos locales de respaldo.
+   - La descripción local de respaldo explica la propuesta completa: ideas con IA adaptadas al perfil, menús guardados, elección con el dado, productos de la lista de mercado, acceso inicial sin registro y creación opcional de una cuenta para conservar los datos.
    - Muestra siempre un aviso de salud independiente de Remote Config indicando que MenuDado ofrece ideas informativas, no es un dispositivo médico y no diagnostica, trata, cura ni previene condiciones médicas; también recuerda consultar con un profesional sanitario para asesoramiento, diagnóstico o tratamiento.
    - Muestra un acceso a la política de privacidad pública `https://rhon1990.github.io/menuDado/privacy-policy/`.
    - Muestra al final la versión visible de la app desde `BuildConfig.VERSION_NAME` y `BuildConfig.VERSION_CODE` en formato `versionName (versionCode)` en texto pequeño.
@@ -236,7 +238,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - El respaldo compartido reutiliza Firestore y Remote Config existentes. No añade migración Room, Cloud Functions, embeddings, búsqueda vectorial, servicios nuevos ni llamadas adicionales a Gemini.
 - Remote Config:
   - La visibilidad de publicidad se controla con la variable booleana `ads_enabled`; solo si vale `true` se solicita consentimiento, se inicializa AdMob y se pueden mostrar formatos publicitarios habilitados. El valor por defecto local es `false`.
-  - El contenido de `Acerca de la app` se controla con las variables string `about_description`, `about_created_by` y `about_contact`; sus valores por defecto locales conservan la descripción actual, el creador `Rhonal A. Delgado Padilla` y el contacto `rhonal.delgado@gmail.com`.
+  - El contenido de `Acerca de la app` se controla con las variables string `about_description`, `about_created_by` y `about_contact`; sus valores por defecto locales conservan la descripción completa de la propuesta de valor, el creador `Rhonal A. Delgado Padilla` y el contacto `rhonal.delgado@gmail.com`. Un `about_description` remoto no vacío prevalece sobre el fallback localizado.
   - `guest_limits_enabled` controla únicamente el límite diario de menús escritos manualmente por el invitado; no bloquea guardar una idea que la IA ya entregó. Por defecto local vale `true`.
   - `guest_ai_limits_enabled` controla el tramo gratuito propio del invitado (5 usos frente a los 10 de cada cuenta registrada); por defecto local vale `true`.
   - `rewarded_ai_enabled` controla la oferta de anuncio bonificado al agotar el tramo gratuito; por seguridad su valor por defecto local es `false` y la oferta también exige publicidad inicializada, consentimiento resuelto y un ID de bloque no vacío.
@@ -336,11 +338,11 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Validar que el manifest final no declare permisos de ubicación, contactos ni identificador publicitario.
 - Validar que crear, editar y eliminar menús sincroniza Firestore cuando hay conexión y mantiene pendientes locales cuando falla la red.
 
-## Auditoría QA prepublicación (actualizada 2026-07-26)
+## Auditoría QA prepublicación (actualizada 2026-07-29)
 
-- Veredicto actual: visto bueno técnico automatizado para preparar candidato de publicación. El visto bueno final de tienda queda condicionado a prueba manual en dispositivo real con Firebase producción y a generar el artefacto firmado final de Play.
-- Versión objetivo actual: `1.2.1` (`versionCode` 13), orientada a Android 16 (`compileSdk=36`, `targetSdk=36`).
-- Validación automatizada ejecutada:
+- Estado de `1.3.0`: candidato en preparación; la evidencia automatizada específica de esta versión debe registrarse después de ejecutar la suite y generar el nuevo artefacto. El visto bueno final de tienda queda condicionado a prueba manual en dispositivo real con Firebase producción y a generar el artefacto firmado final de Play.
+- Versión objetivo actual: `1.3.0` (`versionCode` 14), orientada a Android 16 (`compileSdk=36`, `targetSdk=36`).
+- Evidencia histórica de `1.2.1` (`versionCode` 13):
   - `./gradlew :app:clean :app:testDebugUnitTest :app:lintRelease :app:bundleRelease`: correcto; ejecuta 305 tests, lint release y genera el AAB release.
   - Inspección del manifest dentro del AAB: `compileSdk=36`, `targetSdk=36`, `minSdk=23`, `versionName=1.2.1` y `versionCode=13`.
   - `git diff --check`: sin errores de whitespace.
