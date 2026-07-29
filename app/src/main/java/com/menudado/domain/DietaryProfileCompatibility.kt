@@ -57,19 +57,19 @@ fun DietaryProfile.compatibilityWith(
         }
         if (
             audience == MenuAudience.BABY &&
-            candidateText.containsAnyFoodTerm(BABY_UNSAFE_PHRASES)
+            candidateText.containsAnyProhibitedFoodTerm(BABY_UNSAFE_PHRASES)
         ) {
             add(DietaryProfileViolation.BABY_SAFETY)
         }
         if (
             audience == MenuAudience.CHILD &&
-            candidateText.containsAnyFoodTerm(CHILD_UNSAFE_PHRASES)
+            candidateText.containsAnyProhibitedFoodTerm(CHILD_UNSAFE_PHRASES)
         ) {
             add(DietaryProfileViolation.CHILD_SAFETY)
         }
         if (
             isPregnant &&
-            candidateText.containsAnyFoodTerm(PREGNANCY_UNSAFE_PHRASES)
+            candidateText.containsAnyProhibitedFoodTerm(PREGNANCY_UNSAFE_PHRASES)
         ) {
             add(DietaryProfileViolation.PREGNANCY_SAFETY)
         }
@@ -161,7 +161,8 @@ private fun DietaryAllergen.excludedTerms(): Set<String> = when (this) {
     DietaryAllergen.GLUTEN -> setOf(
         "gluten", "trigo", "wheat", "ble", "cebada", "barley", "orge",
         "centeno", "rye", "seigle", "semola", "semolina", "semoule",
-        "cuscus", "couscous", "seitan", "harina", "flour", "farine",
+        "cuscus", "couscous", "seitan", "avena", "oats", "avoine",
+        "harina", "flour", "farine",
         "pan", "bread", "pain", "pasta", "pates"
     )
     DietaryAllergen.DAIRY -> DAIRY_TERMS
@@ -204,6 +205,9 @@ private val COMPATIBLE_FOOD_CONTEXTS = setOf(
     "pasta gluten-free",
     "gluten-free pasta",
     "pates sans gluten",
+    "avena sin gluten",
+    "gluten-free oats",
+    "avoine sans gluten",
     "pan sin gluten",
     "gluten-free bread",
     "pain sans gluten",
@@ -247,12 +251,13 @@ private val DAIRY_TERMS = setOf(
     "leche", "milk", "lait", "queso", "cheese", "fromage",
     "yogur", "yogurt", "yaourt", "mantequilla", "butter", "beurre",
     "nata", "crema", "cream", "creme", "caseina", "casein", "caseine",
-    "suero de leche", "whey", "lactoserum"
+    "suero de leche", "proteina de suero", "whey", "whey protein", "lactoserum"
 )
 
 private val EGG_TERMS = setOf(
     "huevo", "huevos", "egg", "eggs", "oeuf", "oeufs",
-    "tortilla francesa", "mayonesa", "mayonnaise"
+    "tortilla francesa", "mayonesa", "mayonnaise",
+    "albumina", "albumen"
 )
 
 private val TREE_NUT_TERMS = setOf(
@@ -283,7 +288,9 @@ private val SHELLFISH_TERMS = setOf(
     "langostino", "langostinos", "cangrejo", "crab", "crabe",
     "mejillon", "mejillones", "mussel", "mussels", "moule", "moules",
     "almeja", "almejas", "clam", "clams", "palourde", "palourdes",
-    "langosta", "lobster", "homard"
+    "langosta", "lobster", "homard", "calamar", "calamares", "squid", "calmar",
+    "pulpo", "octopus", "poulpe", "ostra", "ostras", "oyster", "oysters",
+    "huitre", "huitres", "vieira", "vieiras", "scallop", "scallops"
 )
 
 private val MEAT_TERMS = setOf(
@@ -304,6 +311,8 @@ private val BABY_UNSAFE_PHRASES = setOf(
     "sal anadida", "added salt", "sel ajoute",
     "azucar anadida", "added sugar", "sucre ajoute",
     "edulcorante", "sweetener", "edulcorant",
+    "salsa de soja", "soy sauce", "sauce soja", "tamari",
+    "cubito de caldo", "bouillon cube", "cube de bouillon",
     "alcohol", "vino sin cocinar", "uncooked wine", "vin non cuit",
     "frutos secos enteros", "whole nuts", "noix entieres",
     "palomitas", "popcorn",
@@ -322,7 +331,8 @@ private val CHILD_UNSAFE_PHRASES = setOf(
     "alcohol", "vino sin cocinar", "uncooked wine", "vin non cuit",
     "frutos secos enteros", "whole nuts", "noix entieres",
     "uvas enteras", "whole grapes", "raisins entiers",
-    "palomitas", "popcorn"
+    "palomitas", "popcorn",
+    "salchicha en rodajas", "sliced sausage", "saucisse en rondelles"
 )
 
 private val PREGNANCY_UNSAFE_PHRASES = setOf(
@@ -330,8 +340,11 @@ private val PREGNANCY_UNSAFE_PHRASES = setOf(
     "leche no pasteurizada", "unpasteurized milk", "lait non pasteurise",
     "queso no pasteurizado", "unpasteurized cheese", "fromage non pasteurise",
     "huevo crudo", "raw egg", "oeuf cru",
+    "huevo poco cocinado", "huevo poco hecho", "undercooked egg", "oeuf peu cuit",
     "carne cruda", "raw meat", "viande crue",
+    "carne poco cocinada", "carne poco hecha", "undercooked meat", "viande peu cuite",
     "pescado crudo", "raw fish", "poisson cru",
+    "pescado poco cocinado", "undercooked fish", "poisson peu cuit",
     "sushi", "sashimi", "ceviche", "carpaccio", "steak tartar",
     "pez espada", "emperador", "atun rojo", "tiburon", "lucio",
     "swordfish", "bluefin tuna", "shark", "pike",

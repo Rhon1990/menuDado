@@ -56,10 +56,65 @@ class DietaryProfileCompatibilityTest {
         listOf(
             generated("Sushi de atún rojo"),
             generated("Queso de leche no pasteurizada"),
-            generated("Salsa con vino sin cocinar")
+            generated("Salsa con vino sin cocinar"),
+            generated("Huevo poco cocinado")
         ).forEach { menu ->
             assertFalse(profile.accepts(menu, MenuAudience.ADULT))
         }
+    }
+
+    @Test
+    fun `baby and young child profiles reject salty condiments and sliced sausages`() {
+        val profile = DietaryProfile()
+
+        assertFalse(
+            profile.accepts(
+                generated("Arroz tierno con una cucharadita de salsa de soja"),
+                MenuAudience.BABY
+            )
+        )
+        assertFalse(
+            profile.accepts(
+                generated("Salchicha en rodajas con verduras"),
+                MenuAudience.CHILD
+            )
+        )
+    }
+
+    @Test
+    fun `allergen derivatives are rejected across every supported family`() {
+        val examples = mapOf(
+            DietaryAllergen.GLUTEN to "Avena cocida",
+            DietaryAllergen.DAIRY to "Proteína de suero",
+            DietaryAllergen.EGG to "Albúmina",
+            DietaryAllergen.TREE_NUTS to "Macadamia",
+            DietaryAllergen.PEANUT to "Mantequilla de cacahuete",
+            DietaryAllergen.SOY to "Miso",
+            DietaryAllergen.FISH to "Salsa de anchoas",
+            DietaryAllergen.SHELLFISH to "Calamar",
+            DietaryAllergen.SESAME to "Aceite de sésamo"
+        )
+
+        examples.forEach { (allergen, description) ->
+            val profile = DietaryProfile(
+                hasAllergies = true,
+                allergens = setOf(allergen)
+            )
+
+            assertFalse("$allergen should reject $description", profile.accepts(generated(description)))
+        }
+    }
+
+    @Test
+    fun `explicitly absent safety hazards do not reject a compatible recipe`() {
+        val profile = DietaryProfile(isPregnant = true)
+
+        assertTrue(
+            profile.accepts(
+                generated("Salsa sin alcohol con queso pasteurizado"),
+                MenuAudience.ADULT
+            )
+        )
     }
 
     @Test
