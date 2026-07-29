@@ -1362,9 +1362,9 @@ class MenuCardUiStateTest {
         assertEquals("MenuDado ayuda a decidir que comer.", info.description)
         assertEquals("Rhonal A. Delgado Padilla", info.createdBy)
         assertEquals("rhonal.delgado@gmail.com", info.contact)
-        assertEquals("1.2.1", BuildConfig.VERSION_NAME)
-        assertEquals(13, BuildConfig.VERSION_CODE)
-        assertEquals("1.2.1 (13)", aboutVersionLabel(versionName = "1.2.1", versionCode = 13))
+        assertEquals("1.3.0", BuildConfig.VERSION_NAME)
+        assertEquals(14, BuildConfig.VERSION_CODE)
+        assertEquals("1.3.0 (14)", aboutVersionLabel(versionName = "1.3.0", versionCode = 14))
     }
 
     @Test
