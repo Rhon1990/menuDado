@@ -234,7 +234,8 @@ Run:
 rg -n 'KEY_ABOUT_DESCRIPTION|remoteTextOrFallback' app/src/main/java/com/menudado/about/MenuDadoAboutRemoteConfig.kt
 ```
 
-Expected: `about_description` still uses the local description only as fallback.
+Expected: `about_description_v2` uses the local description as fallback and
+retires the stale `about_description` value.
 
 - [ ] **Step 6: Commit the About copy**
 
@@ -359,7 +360,7 @@ Verify:
 1. `Mi zona` shows `Tu cuenta te da más`.
 2. The modal contains exactly four benefits and remains scrollable/readable.
 3. No benefit promises unlimited use or another phone.
-4. `Acerca de la app` shows the new fallback when `about_description` is empty.
+4. `Acerca de la app` shows the new fallback when `about_description_v2` is empty.
 5. The footer shows `Versión 1.3.0 (14)`.
 6. English and French follow the selected device locale without clipping.
 

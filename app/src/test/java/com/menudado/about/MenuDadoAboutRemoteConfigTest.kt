@@ -41,4 +41,12 @@ class MenuDadoAboutRemoteConfigTest {
         assertEquals(0L, MenuDadoAboutRemoteConfig.fetchIntervalSeconds(isDebugBuild = true))
         assertEquals(3_600L, MenuDadoAboutRemoteConfig.fetchIntervalSeconds(isDebugBuild = false))
     }
+
+    @Test
+    fun `descripcion renovada usa una clave remota versionada`() {
+        assertEquals(
+            "about_description_v2",
+            MenuDadoAboutRemoteConfig.KEY_ABOUT_DESCRIPTION
+        )
+    }
 }

@@ -46,7 +46,7 @@ class MenuDadoAboutRemoteConfig(
     }
 
     companion object {
-        const val KEY_ABOUT_DESCRIPTION = "about_description"
+        const val KEY_ABOUT_DESCRIPTION = "about_description_v2"
         const val KEY_ABOUT_CREATED_BY = "about_created_by"
         const val KEY_ABOUT_CONTACT = "about_contact"
         private const val DEBUG_MINIMUM_FETCH_INTERVAL_SECONDS = 0L

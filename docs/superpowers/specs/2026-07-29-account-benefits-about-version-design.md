@@ -44,11 +44,11 @@ Se actualizarán también las variantes inglesa y francesa. El aviso de salud,
 la política de privacidad, la autoría y el contacto no cambian.
 
 Firebase Remote Config conserva prioridad sobre el texto local mediante
-`about_description`. La implementación actualizará el fallback incluido en la
-app. Si producción contiene un valor remoto no vacío, deberá publicarse el
-nuevo texto allí o vaciar el parámetro para mostrar el fallback localizado; la
-operación se verificará por separado y no se afirmará como realizada sin acceso
-confirmado al proyecto.
+`about_description_v2`. Esta clave versionada evita que el valor heredado de
+`about_description` reemplace el nuevo fallback localizado. Si se necesita
+sobrescribir la descripción de `1.3.0`, deberá publicarse el nuevo texto en
+`about_description_v2`; la operación se verificará por separado y no se
+afirmará como realizada sin acceso confirmado al proyecto.
 
 ## Versión
 

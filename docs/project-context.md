@@ -208,7 +208,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 
 9. Acerca de la app.
    - `Acerca de la app` se abre desde `Mi zona`.
-   - La descripción, el creador y el contacto visibles vienen de Firebase Remote Config mediante las variables string `about_description`, `about_created_by` y `about_contact`; si no existen o están vacías, la app usa textos locales de respaldo.
+   - La descripción, el creador y el contacto visibles vienen de Firebase Remote Config mediante las variables string `about_description_v2`, `about_created_by` y `about_contact`; si no existen o están vacías, la app usa textos locales de respaldo. La descripción se versionó en `1.3.0` para que un `about_description` antiguo no reemplace el nuevo fallback localizado.
    - La descripción local de respaldo explica la propuesta completa: ideas con IA adaptadas al perfil, menús guardados, elección con el dado, productos de la lista de mercado, acceso inicial sin registro y creación opcional de una cuenta para conservar los datos.
    - Muestra siempre un aviso de salud independiente de Remote Config indicando que MenuDado ofrece ideas informativas, no es un dispositivo médico y no diagnostica, trata, cura ni previene condiciones médicas; también recuerda consultar con un profesional sanitario para asesoramiento, diagnóstico o tratamiento.
    - Muestra un acceso a la política de privacidad pública `https://rhon1990.github.io/menuDado/privacy-policy/`.
@@ -238,7 +238,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - El respaldo compartido reutiliza Firestore y Remote Config existentes. No añade migración Room, Cloud Functions, embeddings, búsqueda vectorial, servicios nuevos ni llamadas adicionales a Gemini.
 - Remote Config:
   - La visibilidad de publicidad se controla con la variable booleana `ads_enabled`; solo si vale `true` se solicita consentimiento, se inicializa AdMob y se pueden mostrar formatos publicitarios habilitados. El valor por defecto local es `false`.
-  - El contenido de `Acerca de la app` se controla con las variables string `about_description`, `about_created_by` y `about_contact`; sus valores por defecto locales conservan la descripción completa de la propuesta de valor, el creador `Rhonal A. Delgado Padilla` y el contacto `rhonal.delgado@gmail.com`. Un `about_description` remoto no vacío prevalece sobre el fallback localizado.
+  - El contenido de `Acerca de la app` se controla con las variables string `about_description_v2`, `about_created_by` y `about_contact`; sus valores por defecto locales conservan la descripción completa de la propuesta de valor, el creador `Rhonal A. Delgado Padilla` y el contacto `rhonal.delgado@gmail.com`. Un `about_description_v2` remoto no vacío prevalece sobre el fallback localizado; la clave anterior `about_description` queda retirada.
   - `guest_limits_enabled` controla únicamente el límite diario de menús escritos manualmente por el invitado; no bloquea guardar una idea que la IA ya entregó. Por defecto local vale `true`.
   - `guest_ai_limits_enabled` controla el tramo gratuito propio del invitado (5 usos frente a los 10 de cada cuenta registrada); por defecto local vale `true`.
   - `rewarded_ai_enabled` controla la oferta de anuncio bonificado al agotar el tramo gratuito; por seguridad su valor por defecto local es `false` y la oferta también exige publicidad inicializada, consentimiento resuelto y un ID de bloque no vacío.
