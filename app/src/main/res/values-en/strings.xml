@@ -243,10 +243,10 @@
     <string name="ai_retry_wait_badge">Protected retry</string>
     <string name="ai_retry_ready_body">Close this notice and tap the AI option you wanted to use again.</string>
     <string name="ai_retry_wait_body">MenuDado will make only one attempt and block repeated taps while it waits. When the pause ends, this notice will change to say you can retry.</string>
-    <string name="onboarding_activation_title">Decide what to eat in under a minute</string>
-    <string name="onboarding_activation_body">Generate an idea with AI or let the dice choose from your saved menus.</string>
-    <string name="onboarding_create_first_menu">Create my first menu</string>
-    <string name="onboarding_explore">Explore on my own</string>
+    <string name="onboarding_activation_title">Decide what to make today</string>
+    <string name="onboarding_activation_body">Get a healthy AI-assisted idea, choose from your saved menus, and prepare your shopping list.</string>
+    <string name="onboarding_create_first_menu">Help me choose</string>
+    <string name="onboarding_explore">Explore the app</string>
     <string name="onboarding_no_registration">No sign-up</string>
     <string name="onboarding_data_control">Your data, under control</string>
     <string name="result_today">Today it is</string>

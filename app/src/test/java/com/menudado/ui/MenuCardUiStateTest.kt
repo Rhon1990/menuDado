@@ -1229,7 +1229,7 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `onboarding focuses on creating the first menu`() {
+    fun `onboarding v6 remains one activation page with branded hierarchy`() {
         val steps = onboardingSteps()
 
         assertEquals(1, steps.size)
@@ -1238,6 +1238,8 @@ class MenuCardUiStateTest {
         assertEquals(MenuDadoColors.ActionTerracotta, onboardingPrimaryActionColor())
         assertEquals(MenuDadoColors.Surface, onboardingContainerColor())
         assertEquals(24, onboardingContainerCornerRadiusDp())
+        assertEquals("create_first_menu", onboardingStartCta())
+        assertEquals("explore_without_onboarding", onboardingSkipCta())
     }
 
     @Test

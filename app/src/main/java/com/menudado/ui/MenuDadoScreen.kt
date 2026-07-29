@@ -560,11 +560,11 @@ fun MenuDadoScreen(
     if (state.showOnboarding) {
         OnboardingDialog(
             onSkip = {
-                viewModel.trackCtaTapped(ANALYTICS_SCREEN_ONBOARDING, ANALYTICS_CTA_SKIP_ONBOARDING)
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_ONBOARDING, onboardingSkipCta())
                 viewModel.skipOnboarding()
             },
             onFinish = {
-                viewModel.trackCtaTapped(ANALYTICS_SCREEN_ONBOARDING, ANALYTICS_CTA_START_ONBOARDING)
+                viewModel.trackCtaTapped(ANALYTICS_SCREEN_ONBOARDING, onboardingStartCta())
                 viewModel.completeOnboarding()
             }
         )
@@ -1842,6 +1842,11 @@ internal fun onboardingPrimaryActionColor(): Color = MenuDadoColors.ActionTerrac
 internal fun onboardingContainerColor(): Color = MenuDadoColors.Surface
 
 internal fun onboardingContainerCornerRadiusDp(): Int = 24
+
+internal fun onboardingStartCta(): String = "create_first_menu"
+
+internal fun onboardingSkipCta(): String = "explore_without_onboarding"
+
 private const val MENU_DADO_PRIVACY_POLICY_URL = "https://rhon1990.github.io/menuDado/privacy-policy/"
 private const val AI_DICE_BASE_CYCLE_MILLIS = 850.0
 private const val AI_DICE_DECELERATION_MILLIS = 6_000.0
@@ -7145,8 +7150,6 @@ private const val ANALYTICS_CTA_CONFIRM_DELETE_MENU = "confirm_delete_menu"
 private const val ANALYTICS_CTA_CANCEL_DELETE_MENU = "cancel_delete_menu"
 private const val ANALYTICS_CTA_CLOSE_AI_QUOTA = "close_ai_quota"
 private const val ANALYTICS_CTA_UNDERSTOOD = "understood"
-private const val ANALYTICS_CTA_SKIP_ONBOARDING = "explore_without_onboarding"
-private const val ANALYTICS_CTA_START_ONBOARDING = "create_first_menu"
 private const val ANALYTICS_CTA_MARKET_MENU_ADDED = "market_menu_added"
 private const val ANALYTICS_CTA_MARKET_MENU_REMOVED = "market_menu_removed"
 private const val ANALYTICS_CTA_MARKET_PRODUCT_CHECKED = "market_product_checked"
