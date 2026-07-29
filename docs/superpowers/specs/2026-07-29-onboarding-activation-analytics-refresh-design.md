@@ -122,7 +122,8 @@ Onboarding methods accept the content version and exposure type explicitly so
 the Firebase adapter and test fake cannot silently disagree.
 
 The Firebase implementation sanitizes closed strings with the existing helper
-and writes numeric version data as a number.
+and writes the content version as a categorical string so GA4 can expose it as
+an event-scoped custom dimension.
 
 ## Analytics Schema
 
