@@ -337,6 +337,16 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `beneficios de cuenta permiten desplazamiento con texto grande`() {
+        val modifierElementNames = myZoneBenefitsContentModifier(ScrollState(0))
+            .foldIn(emptyList<String>()) { names, element ->
+                names + element.javaClass.simpleName
+            }
+
+        assertTrue(modifierElementNames.any { "Scroll" in it })
+    }
+
+    @Test
     fun `mi zona mantiene una jerarquia visual calmada para captar usuarios`() {
         assertEquals(MenuDadoColors.ActionTerracotta, myZonePrimaryActionColor())
         assertEquals(MenuDadoColors.BrandGreen, myZoneSecondaryActionColor())

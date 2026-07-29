@@ -124,10 +124,10 @@
     <string name="about_contact">Contact</string>
     <string name="about_version">Version %1$s</string>
     <string name="my_zone_guest_title">Hello!</string>
-    <string name="my_zone_guest_body">Create your free account to protect what you save and enjoy more AI uses.</string>
+    <string name="my_zone_guest_body">Create your free account to protect what you save and get 10 free AI uses per day.</string>
     <string name="my_zone_benefits_title">Your account gives you more</string>
-    <string name="my_zone_guest_prompt">Register or sign in to save your menus</string>
-    <string name="my_zone_benefit_ai_uses">Double your free AI uses: 10 per day instead of 5.</string>
+    <string name="my_zone_guest_prompt">Create an account to recover your data if you reinstall the app</string>
+    <string name="my_zone_benefit_ai_uses">Your account includes 10 free AI uses per day.</string>
     <string name="my_zone_benefit_reinstall">Recover your menus and favorites if you reinstall the app.</string>
     <string name="my_zone_benefit_profile">Keep your food profile and preferences in your account.</string>
     <string name="my_zone_benefit_saved_content">Keep your analyzed menus and their shopping list items saved to your account.</string>

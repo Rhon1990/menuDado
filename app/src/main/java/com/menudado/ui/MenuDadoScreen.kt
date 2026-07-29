@@ -2126,7 +2126,10 @@ private fun MyZoneBenefitsDialog(onDismiss: () -> Unit) {
             )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = myZoneBenefitsContentModifier(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 myZoneAccountBenefitRes().forEach { benefitRes ->
                     MyZoneBenefit(text = stringResource(id = benefitRes))
                 }
@@ -2136,6 +2139,9 @@ private fun MyZoneBenefitsDialog(onDismiss: () -> Unit) {
         shape = RoundedCornerShape(MenuDadoUiTokens.CardRadius)
     )
 }
+
+internal fun myZoneBenefitsContentModifier(scrollState: ScrollState): Modifier =
+    Modifier.verticalScroll(scrollState)
 
 @StringRes
 internal fun myZoneAccountBenefitRes(): List<Int> = listOf(

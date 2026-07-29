@@ -124,10 +124,10 @@
     <string name="about_contact">Contact</string>
     <string name="about_version">Version %1$s</string>
     <string name="my_zone_guest_title">Bonjour !</string>
-    <string name="my_zone_guest_body">Créez gratuitement votre compte pour protéger ce que vous enregistrez et profiter de plus d’utilisations de l’IA.</string>
+    <string name="my_zone_guest_body">Créez gratuitement votre compte pour protéger ce que vous enregistrez et obtenir 10 utilisations gratuites de l’IA par jour.</string>
     <string name="my_zone_benefits_title">Votre compte vous offre plus</string>
-    <string name="my_zone_guest_prompt">Inscrivez-vous ou connectez-vous pour enregistrer vos menus</string>
-    <string name="my_zone_benefit_ai_uses">Doublez vos utilisations gratuites de l’IA : 10 par jour au lieu de 5.</string>
+    <string name="my_zone_guest_prompt">Créez un compte pour récupérer vos données si vous réinstallez l’app</string>
+    <string name="my_zone_benefit_ai_uses">Votre compte comprend 10 utilisations gratuites de l’IA par jour.</string>
     <string name="my_zone_benefit_reinstall">Retrouvez vos menus et favoris si vous réinstallez l’app.</string>
     <string name="my_zone_benefit_profile">Conservez votre profil alimentaire et vos préférences dans votre compte.</string>
     <string name="my_zone_benefit_saved_content">Gardez dans votre compte vos menus analysés et les produits de leur liste de courses.</string>

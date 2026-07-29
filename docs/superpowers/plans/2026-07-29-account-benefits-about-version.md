@@ -111,9 +111,10 @@ Expected: FAIL at Kotlin/resource compilation because
 Use exactly:
 
 ```xml
-<string name="my_zone_guest_body">Crea tu cuenta gratis para proteger lo que guardas y disfrutar de más usos de IA.</string>
+<string name="my_zone_guest_body">Crea tu cuenta gratis para proteger lo que guardas y disponer de 10 usos gratuitos de IA al día.</string>
 <string name="my_zone_benefits_title">Tu cuenta te da más</string>
-<string name="my_zone_benefit_ai_uses">Duplica tus usos gratuitos de IA: 10 al día en lugar de 5.</string>
+<string name="my_zone_guest_prompt">Crea una cuenta para recuperar tus datos si reinstalas la app</string>
+<string name="my_zone_benefit_ai_uses">Con tu cuenta tienes 10 usos gratuitos de IA al día.</string>
 <string name="my_zone_benefit_reinstall">Recupera tus menús y favoritos si reinstalas la app.</string>
 <string name="my_zone_benefit_profile">Conserva tu perfil alimentario y preferencias en tu cuenta.</string>
 <string name="my_zone_benefit_saved_content">Mantén guardados tus menús analizados y los productos de su lista de mercado.</string>
@@ -128,9 +129,10 @@ Remove the obsolete `my_zone_benefit_personalization`,
 Use exactly:
 
 ```xml
-<string name="my_zone_guest_body">Create your free account to protect what you save and enjoy more AI uses.</string>
+<string name="my_zone_guest_body">Create your free account to protect what you save and get 10 free AI uses per day.</string>
 <string name="my_zone_benefits_title">Your account gives you more</string>
-<string name="my_zone_benefit_ai_uses">Double your free AI uses: 10 per day instead of 5.</string>
+<string name="my_zone_guest_prompt">Create an account to recover your data if you reinstall the app</string>
+<string name="my_zone_benefit_ai_uses">Your account includes 10 free AI uses per day.</string>
 <string name="my_zone_benefit_reinstall">Recover your menus and favorites if you reinstall the app.</string>
 <string name="my_zone_benefit_profile">Keep your food profile and preferences in your account.</string>
 <string name="my_zone_benefit_saved_content">Keep your analyzed menus and their shopping list items saved to your account.</string>
@@ -141,9 +143,10 @@ Use exactly:
 Use exactly:
 
 ```xml
-<string name="my_zone_guest_body">Créez gratuitement votre compte pour protéger ce que vous enregistrez et profiter de plus d’utilisations de l’IA.</string>
+<string name="my_zone_guest_body">Créez gratuitement votre compte pour protéger ce que vous enregistrez et obtenir 10 utilisations gratuites de l’IA par jour.</string>
 <string name="my_zone_benefits_title">Votre compte vous offre plus</string>
-<string name="my_zone_benefit_ai_uses">Doublez vos utilisations gratuites de l’IA : 10 par jour au lieu de 5.</string>
+<string name="my_zone_guest_prompt">Créez un compte pour récupérer vos données si vous réinstallez l’app</string>
+<string name="my_zone_benefit_ai_uses">Votre compte comprend 10 utilisations gratuites de l’IA par jour.</string>
 <string name="my_zone_benefit_reinstall">Retrouvez vos menus et favoris si vous réinstallez l’app.</string>
 <string name="my_zone_benefit_profile">Conservez votre profil alimentaire et vos préférences dans votre compte.</string>
 <string name="my_zone_benefit_saved_content">Gardez dans votre compte vos menus analysés et les produits de leur liste de courses.</string>
@@ -161,6 +164,9 @@ internal fun myZoneAccountBenefitRes(): List<Int> = listOf(
     R.string.my_zone_benefit_saved_content
 )
 ```
+
+Apply `myZoneBenefitsContentModifier(rememberScrollState())` to the dialog
+column and define the helper as `Modifier.verticalScroll(scrollState)`.
 
 - [ ] **Step 7: Run the focused test and resource compilation**
 

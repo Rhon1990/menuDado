@@ -24,14 +24,17 @@ contratos actuales:
 Copy español aprobado:
 
 - Título: `Tu cuenta te da más`
-- Introducción: `Crea tu cuenta gratis para proteger lo que guardas y disfrutar de más usos de IA.`
-- Ventaja 1: `Duplica tus usos gratuitos de IA: 10 al día en lugar de 5.`
+- Introducción: `Crea tu cuenta gratis para proteger lo que guardas y disponer de 10 usos gratuitos de IA al día.`
+- Prompt: `Crea una cuenta para recuperar tus datos si reinstalas la app`
+- Ventaja 1: `Con tu cuenta tienes 10 usos gratuitos de IA al día.`
 - Ventaja 2: `Recupera tus menús y favoritos si reinstalas la app.`
 - Ventaja 3: `Conserva tu perfil alimentario y preferencias en tu cuenta.`
 - Ventaja 4: `Mantén guardados tus menús analizados y los productos de su lista de mercado.`
 
 Los textos se traducirán semánticamente a inglés y francés. La lista visible
-pasará de seis elementos redundantes a cuatro beneficios diferenciados.
+pasará de seis elementos redundantes a cuatro beneficios diferenciados. El
+modal permitirá desplazamiento vertical para conservar el acceso a todo el
+contenido con fuente grande, francés o pantallas de poca altura.
 
 ### Acerca de la app
 
@@ -88,6 +91,7 @@ desde `1.2.1 (13)`.
   valor remoto y reportar la publicación como estado externo independiente.
 - **El texto numérico puede quedar desactualizado si cambian los límites:**
   mantener la documentación y los recursos coordinados con
-  `AiDailyUsagePolicy`.
+  `AiDailyUsagePolicy`. No comparar el tramo de la cuenta con el del invitado,
+  porque `guest_ai_limits_enabled=false` concede 10 usos a ambos.
 - **Regresión de espacio en idiomas traducidos:** validar compilación y revisar
   las pantallas con contenido desplazable.

@@ -126,10 +126,10 @@
     <string name="about_contact_value" translatable="false">rhonal.delgado@gmail.com</string>
     <string name="about_version">Versión %1$s</string>
     <string name="my_zone_guest_title">¡Hola!</string>
-    <string name="my_zone_guest_body">Crea tu cuenta gratis para proteger lo que guardas y disfrutar de más usos de IA.</string>
+    <string name="my_zone_guest_body">Crea tu cuenta gratis para proteger lo que guardas y disponer de 10 usos gratuitos de IA al día.</string>
     <string name="my_zone_benefits_title">Tu cuenta te da más</string>
-    <string name="my_zone_guest_prompt">Regístrate o inicia sesión para guardar tus menús</string>
-    <string name="my_zone_benefit_ai_uses">Duplica tus usos gratuitos de IA: 10 al día en lugar de 5.</string>
+    <string name="my_zone_guest_prompt">Crea una cuenta para recuperar tus datos si reinstalas la app</string>
+    <string name="my_zone_benefit_ai_uses">Con tu cuenta tienes 10 usos gratuitos de IA al día.</string>
     <string name="my_zone_benefit_reinstall">Recupera tus menús y favoritos si reinstalas la app.</string>
     <string name="my_zone_benefit_profile">Conserva tu perfil alimentario y preferencias en tu cuenta.</string>
     <string name="my_zone_benefit_saved_content">Mantén guardados tus menús analizados y los productos de su lista de mercado.</string>
