@@ -60,19 +60,28 @@ fun DietaryProfile.compatibilityWith(
         }
         if (
             audience == MenuAudience.BABY &&
-            candidateText.containsAnyProhibitedFoodTerm(BABY_UNSAFE_PHRASES)
+            candidateText.containsAnyProhibitedFoodTerm(
+                terms = BABY_UNSAFE_PHRASES,
+                allowCompatibleContexts = false
+            )
         ) {
             add(DietaryProfileViolation.BABY_SAFETY)
         }
         if (
             audience == MenuAudience.CHILD &&
-            candidateText.containsAnyProhibitedFoodTerm(CHILD_UNSAFE_PHRASES)
+            candidateText.containsAnyProhibitedFoodTerm(
+                terms = CHILD_UNSAFE_PHRASES,
+                allowCompatibleContexts = false
+            )
         ) {
             add(DietaryProfileViolation.CHILD_SAFETY)
         }
         if (
             isPregnant &&
-            candidateText.containsAnyProhibitedFoodTerm(PREGNANCY_UNSAFE_PHRASES)
+            candidateText.containsAnyProhibitedFoodTerm(
+                terms = PREGNANCY_UNSAFE_PHRASES,
+                allowCompatibleContexts = false
+            )
         ) {
             add(DietaryProfileViolation.PREGNANCY_SAFETY)
         }
@@ -156,8 +165,15 @@ private fun String.normalizedForFoodMatch(): String =
 private fun String.containsAnyFoodTerm(terms: Set<String>): Boolean =
     terms.any(::containsFoodTerm)
 
-private fun String.containsAnyProhibitedFoodTerm(terms: Set<String>): Boolean =
-    terms.any(::containsProhibitedFoodTerm)
+private fun String.containsAnyProhibitedFoodTerm(
+    terms: Set<String>,
+    allowCompatibleContexts: Boolean = true
+): Boolean = terms.any { term ->
+    containsProhibitedFoodTerm(
+        term = term,
+        allowCompatibleContexts = allowCompatibleContexts
+    )
+}
 
 private fun String.containsProhibitedFoodTerm(
     term: String,

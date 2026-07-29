@@ -262,6 +262,20 @@ class DietaryProfileCompatibilityTest {
             .forEach { description ->
                 assertTrue(description, profile.accepts(generated(description)))
             }
+        listOf(MenuAudience.BABY, MenuAudience.CHILD).forEach { audience ->
+            assertFalse(
+                DietaryProfile().accepts(
+                    generated("Gluten-free beer"),
+                    audience
+                )
+            )
+        }
+        assertFalse(
+            DietaryProfile(isPregnant = true).accepts(
+                generated("Gluten-free beer"),
+                MenuAudience.ADULT
+            )
+        )
     }
 
     @Test
