@@ -172,6 +172,95 @@ class AiMenuHiveIdentityTest {
         assertTrue(baseKey.matches(Regex("[a-f0-9]{64}")))
     }
 
+    @Test
+    fun `scope key excludes dietary restrictions`() {
+        val unrestricted = DietaryProfile(ageRange = "18+ años")
+        val vegan = unrestricted.copy(isVegan = true)
+
+        assertNotEquals(
+            AiMenuHiveIdentity.eligibilityKey(
+                AppLanguage.SPANISH,
+                MealType.LUNCH,
+                MenuAudience.ADULT,
+                unrestricted
+            ),
+            AiMenuHiveIdentity.eligibilityKey(
+                AppLanguage.SPANISH,
+                MealType.LUNCH,
+                MenuAudience.ADULT,
+                vegan
+            )
+        )
+        assertEquals(
+            AiMenuHiveIdentity.scopeKey(
+                AppLanguage.SPANISH,
+                MealType.LUNCH,
+                MenuAudience.ADULT
+            ),
+            AiMenuHiveIdentity.scopeKey(
+                AppLanguage.SPANISH,
+                MealType.LUNCH,
+                MenuAudience.ADULT
+            )
+        )
+    }
+
+    @Test
+    fun `scope key keeps language meal and audience separated`() {
+        val adultLunch = AiMenuHiveIdentity.scopeKey(
+            AppLanguage.SPANISH,
+            MealType.LUNCH,
+            MenuAudience.ADULT
+        )
+
+        assertNotEquals(
+            adultLunch,
+            AiMenuHiveIdentity.scopeKey(
+                AppLanguage.ENGLISH,
+                MealType.LUNCH,
+                MenuAudience.ADULT
+            )
+        )
+        assertNotEquals(
+            adultLunch,
+            AiMenuHiveIdentity.scopeKey(
+                AppLanguage.SPANISH,
+                MealType.DINNER,
+                MenuAudience.ADULT
+            )
+        )
+        assertNotEquals(
+            adultLunch,
+            AiMenuHiveIdentity.scopeKey(
+                AppLanguage.SPANISH,
+                MealType.LUNCH,
+                MenuAudience.BABY
+            )
+        )
+    }
+
+    @Test
+    fun `scoped identity separates adult and baby documents`() {
+        val adult = AiMenuHiveIdentity.scoped(
+            AppLanguage.SPANISH,
+            MealType.LUNCH,
+            MenuAudience.ADULT,
+            "curry|chickpeas+spinach|stewed"
+        )
+        val baby = AiMenuHiveIdentity.scoped(
+            AppLanguage.SPANISH,
+            MealType.LUNCH,
+            MenuAudience.BABY,
+            "curry|chickpeas+spinach|stewed"
+        )
+
+        assertEquals(
+            requireNotNull(adult).canonicalKey,
+            requireNotNull(baby).canonicalKey
+        )
+        assertNotEquals(adult.semanticHash, baby.semanticHash)
+    }
+
     private fun identityFixtures(): List<IdentityFixture> {
         val resource = requireNotNull(
             javaClass.classLoader?.getResourceAsStream(

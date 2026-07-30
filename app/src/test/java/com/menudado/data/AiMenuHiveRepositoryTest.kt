@@ -16,7 +16,7 @@ import org.junit.Test
 
 class AiMenuHiveRepositoryTest {
     @Test
-    fun `live server candidate is preferred and query is capped at twelve`() = runTest {
+    fun `broad scope server candidate is preferred and query is capped at thirty six`() = runTest {
         val dataSource = RecordingAiMenuHiveDataSource(
             server = Result.success(listOf(sharedMenu("pasta|tomato|sauce")))
         )
@@ -26,7 +26,16 @@ class AiMenuHiveRepositoryTest {
 
         assertEquals("pasta|tomato|sauce", result?.generatedMenu?.deduplicationKey)
         assertEquals(AiMenuHiveLookupSource.SERVER, result?.source)
-        assertEquals(12L, dataSource.requests.single().limit)
+        assertEquals(AiMenuHiveQueryField.SCOPE, dataSource.requests.single().queryField)
+        assertEquals(
+            AiMenuHiveIdentity.scopeKey(
+                AppLanguage.SPANISH,
+                MealType.LUNCH,
+                MenuAudience.ADULT
+            ),
+            dataSource.requests.single().key
+        )
+        assertEquals(36L, dataSource.requests.single().limit)
     }
 
     @Test
@@ -86,6 +95,51 @@ class AiMenuHiveRepositoryTest {
         ).getOrThrow()
 
         assertNull(result)
+    }
+
+    @Test
+    fun `vegan recipe from broad adult scope is accepted by unrestricted adult`() = runTest {
+        val vegan = sharedMenu(
+            key = "curry|chickpeas+spinach|stewed",
+            description = "Garbanzos, espinacas, tomate y especias."
+        )
+        val repository = AiMenuHiveRepository(
+            RecordingAiMenuHiveDataSource(
+                server = Result.success(listOf(vegan))
+            ),
+            AiMenuHiveFeatureToggle(true)
+        ) { 0 }
+
+        val result = repository.findCompatibleMenu(
+            request(profile = DietaryProfile(ageRange = "18+ años"))
+        ).getOrThrow()
+
+        assertEquals(vegan.semanticHash, result?.semanticHash)
+    }
+
+    @Test
+    fun `legacy exact query runs only after broad scope has no safe candidate`() = runTest {
+        val legacy = sharedMenu("rice|vegetables|bowl")
+        val dataSource = RecordingAiMenuHiveDataSource(
+            response = { request ->
+                when (request.queryField) {
+                    AiMenuHiveQueryField.SCOPE -> Result.success(emptyList())
+                    AiMenuHiveQueryField.ELIGIBILITY -> Result.success(listOf(legacy))
+                }
+            }
+        )
+        val repository = AiMenuHiveRepository(
+            dataSource,
+            AiMenuHiveFeatureToggle(true)
+        ) { 0 }
+
+        val result = repository.findCompatibleMenu(request()).getOrThrow()
+
+        assertEquals(legacy.semanticHash, result?.semanticHash)
+        assertEquals(
+            listOf(AiMenuHiveQueryField.SCOPE, AiMenuHiveQueryField.ELIGIBILITY),
+            dataSource.requests.map(AiMenuHiveDataSourceRequest::queryField)
+        )
     }
 
     @Test
@@ -412,14 +466,15 @@ class AiMenuHiveRepositoryTest {
 
 private class RecordingAiMenuHiveDataSource(
     var server: Result<List<SharedAiMenu>> = Result.success(emptyList()),
-    var cache: Result<List<SharedAiMenu>> = Result.success(emptyList())
+    var cache: Result<List<SharedAiMenu>> = Result.success(emptyList()),
+    private val response: ((AiMenuHiveDataSourceRequest) -> Result<List<SharedAiMenu>>)? = null
 ) : AiMenuHiveDataSource {
     val requests = mutableListOf<AiMenuHiveDataSourceRequest>()
     val upserts = mutableListOf<SharedAiMenu>()
 
     override suspend fun fetch(request: AiMenuHiveDataSourceRequest): Result<List<SharedAiMenu>> {
         requests += request
-        return when (request.source) {
+        return response?.invoke(request) ?: when (request.source) {
             AiMenuHiveReadSource.SERVER -> server
             AiMenuHiveReadSource.CACHE -> cache
         }

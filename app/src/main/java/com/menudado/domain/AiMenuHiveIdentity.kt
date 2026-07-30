@@ -16,6 +16,8 @@ data class AiMenuConceptSignature(
 
 object AiMenuHiveIdentity {
     private const val PROFILE_SCHEMA_VERSION = 1
+    private const val SCOPE_SCHEMA_VERSION = 1
+    private const val SCOPED_IDENTITY_VERSION = 3
     private const val SIMILARITY_THRESHOLD = 0.80
     private val componentAliases = mapOf(
         "spaghetti" to "pasta",
@@ -194,6 +196,36 @@ object AiMenuHiveIdentity {
             profile.otherAvoidances.normalized()
         ).joinToString("|")
         return sha256(raw)
+    }
+
+    fun scopeKey(
+        language: AppLanguage,
+        mealType: MealType,
+        audience: MenuAudience
+    ): String {
+        val raw = listOf(
+            "v$SCOPE_SCHEMA_VERSION",
+            language.name,
+            mealType.name,
+            audience.name
+        ).joinToString("|")
+        return sha256(raw)
+    }
+
+    fun scoped(
+        language: AppLanguage,
+        mealType: MealType,
+        audience: MenuAudience,
+        rawKey: String?
+    ): AiMenuSemanticIdentity? {
+        val canonical = from(language, rawKey) ?: return null
+        val scope = scopeKey(language, mealType, audience)
+        return AiMenuSemanticIdentity(
+            canonicalKey = canonical.canonicalKey,
+            semanticHash = sha256(
+                "v$SCOPED_IDENTITY_VERSION|$scope|${canonical.canonicalKey}"
+            )
+        )
     }
 
     fun conceptSignature(rawKey: String?): AiMenuConceptSignature? {

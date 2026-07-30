@@ -1,6 +1,7 @@
 package com.menudado.backend
 
 import com.menudado.data.SharedAiMenu
+import com.menudado.data.AiMenuHiveQueryField
 import com.menudado.domain.AiMenuHiveIdentity
 import com.menudado.domain.AppLanguage
 import com.menudado.domain.CuisineInspiration
@@ -18,6 +19,15 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AiMenuHiveDataSourceTest {
+    @Test
+    fun `query fields map to the intended firestore fields`() {
+        assertEquals("scopeKey", AiMenuHiveQueryField.SCOPE.firestoreFieldName())
+        assertEquals(
+            "eligibilityKeys",
+            AiMenuHiveQueryField.ELIGIBILITY.firestoreFieldName()
+        )
+    }
+
     @Test
     fun `shared document excludes identity profile and local-only fields`() {
         val menu = sampleSharedAiMenu()

@@ -5,6 +5,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
 import com.menudado.data.AiMenuHiveDataSource
 import com.menudado.data.AiMenuHiveDataSourceRequest
+import com.menudado.data.AiMenuHiveQueryField
 import com.menudado.data.AiMenuHiveReadSource
 import com.menudado.data.SharedAiMenu
 import com.menudado.domain.AppLanguage
@@ -20,8 +21,14 @@ class FirebaseAiMenuHiveDataSource(
     override suspend fun fetch(
         request: AiMenuHiveDataSourceRequest
     ): Result<List<SharedAiMenu>> = runCatching {
-        firestore.collection(COLLECTION)
-            .whereArrayContains(FIELD_ELIGIBILITY_KEYS, request.eligibilityKey)
+        val collection = firestore.collection(COLLECTION)
+        val query = when (request.queryField) {
+            AiMenuHiveQueryField.SCOPE ->
+                collection.whereEqualTo(request.queryField.firestoreFieldName(), request.key)
+            AiMenuHiveQueryField.ELIGIBILITY ->
+                collection.whereArrayContains(request.queryField.firestoreFieldName(), request.key)
+        }
+        query
             .limit(request.limit)
             .get(
                 when (request.source) {
@@ -71,6 +78,11 @@ class FirebaseAiMenuHiveDataSource(
         const val FIELD_CREATED_AT = "createdAt"
         const val FIELD_UPDATED_AT = "updatedAt"
     }
+}
+
+internal fun AiMenuHiveQueryField.firestoreFieldName(): String = when (this) {
+    AiMenuHiveQueryField.SCOPE -> "scopeKey"
+    AiMenuHiveQueryField.ELIGIBILITY -> "eligibilityKeys"
 }
 
 internal object AiMenuHiveFirestoreMapper {

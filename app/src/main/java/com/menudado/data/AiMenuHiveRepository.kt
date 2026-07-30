@@ -13,6 +13,7 @@ import kotlin.random.Random
 
 enum class AiMenuHiveReadSource { SERVER, CACHE }
 enum class AiMenuHiveLookupSource { SERVER, CACHE }
+enum class AiMenuHiveQueryField { SCOPE, ELIGIBILITY }
 
 data class SharedAiMenu(
     val semanticHash: String,
@@ -20,13 +21,15 @@ data class SharedAiMenu(
     val language: AppLanguage,
     val generatedMenu: GeneratedMenu,
     val cuisineInspiration: CuisineInspiration?,
-    val eligibilityKeys: Set<String>
+    val eligibilityKeys: Set<String>,
+    val scopeKey: String? = null
 )
 
 data class AiMenuHiveDataSourceRequest(
-    val eligibilityKey: String,
+    val queryField: AiMenuHiveQueryField,
+    val key: String,
     val source: AiMenuHiveReadSource,
-    val limit: Long = AI_MENU_HIVE_QUERY_LIMIT
+    val limit: Long
 )
 
 interface AiMenuHiveDataSource {
@@ -86,37 +89,58 @@ class AiMenuHiveRepository(
         request: AiMenuHiveSearchRequest
     ): Result<AiMenuHiveCandidate?> {
         if (!featureToggle.isEnabled) return Result.success(null)
-        val eligibilityKey = AiMenuHiveIdentity.eligibilityKey(
-            request.language,
-            request.mealType,
-            request.audience,
-            request.profile
+        val scopeRequest = AiMenuHiveDataSourceRequest(
+            queryField = AiMenuHiveQueryField.SCOPE,
+            key = AiMenuHiveIdentity.scopeKey(
+                request.language,
+                request.mealType,
+                request.audience
+            ),
+            source = AiMenuHiveReadSource.SERVER,
+            limit = AI_MENU_HIVE_SCOPE_QUERY_LIMIT
         )
-        val baseRequest = AiMenuHiveDataSourceRequest(
-            eligibilityKey = eligibilityKey,
-            source = AiMenuHiveReadSource.SERVER
-        )
-        val server = dataSource.fetch(baseRequest)
-        val resolved = if (server.isSuccess) {
-            server.getOrThrow() to AiMenuHiveLookupSource.SERVER
-        } else {
-            val cache = dataSource.fetch(baseRequest.copy(source = AiMenuHiveReadSource.CACHE))
-            if (cache.isFailure) {
-                return Result.failure(requireNotNull(cache.exceptionOrNull()))
-            }
-            cache.getOrThrow() to AiMenuHiveLookupSource.CACHE
+        val scope = fetchWithCache(scopeRequest).getOrElse {
+            return Result.failure(it)
         }
-        val selection = selectCandidate(resolved.first, request) ?: return Result.success(null)
-        val selected = selection.menu
-        return Result.success(
-            AiMenuHiveCandidate(
-                generatedMenu = selected.generatedMenu,
-                cuisineInspiration = selected.cuisineInspiration,
-                semanticHash = selected.semanticHash,
-                source = resolved.second,
-                startsNewRotationCycle = selection.startsNewCycle
-            )
+        selectCandidate(scope.first, request)?.let { selection ->
+            return Result.success(selection.toCandidate(scope.second))
+        }
+
+        val legacyRequest = AiMenuHiveDataSourceRequest(
+            queryField = AiMenuHiveQueryField.ELIGIBILITY,
+            key = AiMenuHiveIdentity.eligibilityKey(
+                request.language,
+                request.mealType,
+                request.audience,
+                request.profile
+            ),
+            source = AiMenuHiveReadSource.SERVER,
+            limit = AI_MENU_HIVE_LEGACY_QUERY_LIMIT
         )
+        val legacy = fetchWithCache(legacyRequest).getOrElse {
+            return Result.failure(it)
+        }
+        val selection = selectCandidate(legacy.first, request)
+            ?: return Result.success(null)
+        return Result.success(selection.toCandidate(legacy.second))
+    }
+
+    private suspend fun fetchWithCache(
+        request: AiMenuHiveDataSourceRequest
+    ): Result<Pair<List<SharedAiMenu>, AiMenuHiveLookupSource>> {
+        val server = dataSource.fetch(
+            request.copy(source = AiMenuHiveReadSource.SERVER)
+        )
+        if (server.isSuccess) {
+            return Result.success(
+                server.getOrThrow() to AiMenuHiveLookupSource.SERVER
+            )
+        }
+        return dataSource.fetch(
+            request.copy(source = AiMenuHiveReadSource.CACHE)
+        ).map { menus ->
+            menus to AiMenuHiveLookupSource.CACHE
+        }
     }
 
     override suspend fun contribute(contribution: AiMenuHiveContribution): Result<Unit> {
@@ -212,7 +236,15 @@ private fun SharedAiMenu.canonicalized(): SharedAiMenu? {
 private data class HiveSelection(
     val menu: SharedAiMenu,
     val startsNewCycle: Boolean
-)
+) {
+    fun toCandidate(source: AiMenuHiveLookupSource) = AiMenuHiveCandidate(
+        generatedMenu = menu.generatedMenu,
+        cuisineInspiration = menu.cuisineInspiration,
+        semanticHash = menu.semanticHash,
+        source = source,
+        startsNewRotationCycle = startsNewCycle
+    )
+}
 
 private fun GeneratedMenu.searchableText(): String = buildList {
     add(name)
@@ -228,4 +260,5 @@ private fun String.containsAnyRequestedIngredient(input: String): Boolean {
     return requested.isNotEmpty() && requested.any(::contains)
 }
 
-internal const val AI_MENU_HIVE_QUERY_LIMIT = 12L
+internal const val AI_MENU_HIVE_SCOPE_QUERY_LIMIT = 36L
+internal const val AI_MENU_HIVE_LEGACY_QUERY_LIMIT = 12L
