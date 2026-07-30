@@ -17,6 +17,7 @@ import {
 const PROJECT_ID = "menudado-rules-test";
 const HASH = "a".repeat(64);
 const ELIGIBILITY_HASH = "b".repeat(64);
+const SCOPE_HASH = "c".repeat(64);
 let testEnv;
 
 before(async () => {
@@ -35,7 +36,7 @@ function validDocument() {
   const now = Timestamp.now();
   return {
     schemaVersion: 1,
-    identityVersion: 2,
+    identityVersion: 3,
     semanticHash: HASH,
     semanticKey: "pasta|tomato|sauce",
     language: "SPANISH",
@@ -55,6 +56,7 @@ function validDocument() {
       }
     ],
     eligibilityKeys: [ELIGIBILITY_HASH],
+    scopeKey: SCOPE_HASH,
     createdAt: now,
     updatedAt: now
   };
@@ -94,7 +96,7 @@ test("legacy identity cannot create a new hive document", async () => {
 });
 
 test("existing legacy document can only be upgraded to identity version two", async () => {
-  const { identityVersion, ...legacyDocument } = validDocument();
+  const { identityVersion, scopeKey, ...legacyDocument } = validDocument();
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(
       doc(context.firestore(), "sharedAiMenus", HASH),
@@ -106,6 +108,7 @@ test("existing legacy document can only be upgraded to identity version two", as
   await assertFails(
     updateDoc(doc(db, "sharedAiMenus", HASH), {
       identityVersion: 3,
+      scopeKey,
       updatedAt: Timestamp.now()
     })
   );
@@ -116,6 +119,58 @@ test("existing legacy document can only be upgraded to identity version two", as
       updatedAt: Timestamp.now()
     })
   );
+});
+
+test("new hive document requires identity version three and a valid scope", async () => {
+  const db = testEnv.authenticatedContext("user-a").firestore();
+  const { scopeKey, ...withoutScope } = validDocument();
+
+  await assertFails(setDoc(doc(db, "sharedAiMenus", HASH), withoutScope));
+  await assertFails(
+    setDoc(
+      doc(db, "sharedAiMenus", HASH),
+      { ...validDocument(), identityVersion: 2 }
+    )
+  );
+  await assertFails(
+    setDoc(
+      doc(db, "sharedAiMenus", HASH),
+      { ...validDocument(), scopeKey: "invalid" }
+    )
+  );
+});
+
+test("scope is immutable while eligibility can grow", async () => {
+  const db = testEnv.authenticatedContext("user-a").firestore();
+  await assertSucceeds(setDoc(doc(db, "sharedAiMenus", HASH), validDocument()));
+  await assertSucceeds(
+    updateDoc(doc(db, "sharedAiMenus", HASH), {
+      eligibilityKeys: [ELIGIBILITY_HASH, "d".repeat(64)],
+      updatedAt: Timestamp.now()
+    })
+  );
+  await assertFails(
+    updateDoc(doc(db, "sharedAiMenus", HASH), {
+      scopeKey: "e".repeat(64),
+      updatedAt: Timestamp.now()
+    })
+  );
+});
+
+test("authenticated user can read legacy version two document without scope", async () => {
+  const { scopeKey, ...legacyDocument } = {
+    ...validDocument(),
+    identityVersion: 2
+  };
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), "sharedAiMenus", HASH),
+      legacyDocument
+    );
+  });
+  const db = testEnv.authenticatedContext("user-a").firestore();
+
+  await assertSucceeds(getDoc(doc(db, "sharedAiMenus", HASH)));
 });
 
 test("recipe overwrite and delete are rejected", async () => {

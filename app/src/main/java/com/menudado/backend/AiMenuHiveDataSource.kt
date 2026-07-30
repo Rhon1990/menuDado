@@ -53,7 +53,7 @@ class FirebaseAiMenuHiveDataSource(
                 transaction.update(
                     reference,
                     mapOf(
-                        FIELD_IDENTITY_VERSION to 2,
+                        FIELD_IDENTITY_VERSION to 3,
                         FIELD_ELIGIBILITY_KEYS to FieldValue.arrayUnion(menu.eligibilityKeys.single()),
                         FIELD_UPDATED_AT to FieldValue.serverTimestamp()
                     )
@@ -90,7 +90,7 @@ internal object AiMenuHiveFirestoreMapper {
         val health = menu.generatedMenu.healthAnalysis
         return mapOf(
             "schemaVersion" to 1,
-            "identityVersion" to 2,
+            "identityVersion" to 3,
             "semanticHash" to menu.semanticHash,
             "semanticKey" to menu.semanticKey,
             "language" to menu.language.name,
@@ -109,7 +109,8 @@ internal object AiMenuHiveFirestoreMapper {
                 )
             },
             "cuisineInspiration" to menu.cuisineInspiration?.name,
-            "eligibilityKeys" to menu.eligibilityKeys.sorted()
+            "eligibilityKeys" to menu.eligibilityKeys.sorted(),
+            "scopeKey" to requireNotNull(menu.scopeKey)
         )
     }
 
@@ -119,7 +120,13 @@ internal object AiMenuHiveFirestoreMapper {
     ): SharedAiMenu? {
         if ((document["schemaVersion"] as? Number)?.toInt() != 1) return null
         val identityVersion = (document["identityVersion"] as? Number)?.toInt()
-        if (identityVersion != null && identityVersion != 2) return null
+        val scopeKey = (document["scopeKey"] as? String)
+            ?.takeIf { it.matches(SEMANTIC_HASH_REGEX) }
+        when (identityVersion) {
+            null, 2 -> Unit
+            3 -> if (scopeKey == null) return null
+            else -> return null
+        }
         val semanticHash = document["semanticHash"] as? String
         if (semanticHash != documentId || !semanticHash.matches(SEMANTIC_HASH_REGEX)) return null
         val semanticKey = (document["semanticKey"] as? String).nonBlankOrNull() ?: return null
@@ -157,7 +164,8 @@ internal object AiMenuHiveFirestoreMapper {
                 deduplicationKey = semanticKey
             ),
             cuisineInspiration = cuisine,
-            eligibilityKeys = eligibilityKeys
+            eligibilityKeys = eligibilityKeys,
+            scopeKey = scopeKey
         )
     }
 

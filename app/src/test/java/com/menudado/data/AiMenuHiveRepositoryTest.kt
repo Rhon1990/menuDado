@@ -389,6 +389,37 @@ class AiMenuHiveRepositoryTest {
         assertTrue(dataSource.upserts.isEmpty())
     }
 
+    @Test
+    fun `safe contribution stores v3 identity broad scope and legacy eligibility`() = runTest {
+        val dataSource = RecordingAiMenuHiveDataSource()
+        val repository = AiMenuHiveRepository(
+            dataSource,
+            AiMenuHiveFeatureToggle(true)
+        ) { 0 }
+
+        repository.contribute(contribution()).getOrThrow()
+
+        val stored = dataSource.upserts.single()
+        val expected = requireNotNull(
+            AiMenuHiveIdentity.scoped(
+                AppLanguage.SPANISH,
+                MealType.LUNCH,
+                MenuAudience.ADULT,
+                "pasta|tomato|sauce"
+            )
+        )
+        assertEquals(expected.semanticHash, stored.semanticHash)
+        assertEquals(
+            AiMenuHiveIdentity.scopeKey(
+                AppLanguage.SPANISH,
+                MealType.LUNCH,
+                MenuAudience.ADULT
+            ),
+            stored.scopeKey
+        )
+        assertEquals(1, stored.eligibilityKeys.size)
+    }
+
     private fun request(
         audience: MenuAudience = MenuAudience.ADULT,
         profile: DietaryProfile = DietaryProfile(ageRange = "18+ años"),

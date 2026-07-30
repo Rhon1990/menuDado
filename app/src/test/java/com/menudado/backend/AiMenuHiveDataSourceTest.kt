@@ -35,9 +35,10 @@ class AiMenuHiveDataSourceTest {
         val document = AiMenuHiveFirestoreMapper.toDocument(menu)
 
         assertEquals(1, document["schemaVersion"])
-        assertEquals(2, document["identityVersion"])
+        assertEquals(3, document["identityVersion"])
         assertEquals(menu.semanticHash, document["semanticHash"])
         assertEquals("SPANISH", document["language"])
+        assertEquals(menu.scopeKey, document["scopeKey"])
         assertEquals(1, (document["eligibilityKeys"] as List<*>).size)
         val firstProduct = (document["shoppingProducts"] as List<*>).first() as Map<*, *>
         assertEquals("Pasta integral", firstProduct["displayName"])
@@ -48,6 +49,21 @@ class AiMenuHiveDataSourceTest {
         assertFalse(document.containsKey("imageUri"))
         assertFalse(document.containsKey("mealType"))
         assertFalse(document.containsKey("audience"))
+    }
+
+    @Test
+    fun `legacy v2 document without scope remains readable`() {
+        val menu = sampleSharedAiMenu()
+        val document = AiMenuHiveFirestoreMapper.toDocument(menu) +
+            ("identityVersion" to 2) - "scopeKey"
+
+        val parsed = AiMenuHiveFirestoreMapper.fromDocument(
+            documentId = menu.semanticHash,
+            document = document
+        )
+
+        assertNotNull(parsed)
+        assertNull(parsed?.scopeKey)
     }
 
     @Test
@@ -74,7 +90,7 @@ class AiMenuHiveDataSourceTest {
         assertNull(
             AiMenuHiveFirestoreMapper.fromDocument(
                 documentId = menu.semanticHash,
-                document = document + ("identityVersion" to 3)
+                document = document + ("identityVersion" to 4)
             )
         )
     }
@@ -113,6 +129,11 @@ class AiMenuHiveDataSourceTest {
                     MenuAudience.ADULT,
                     profile
                 )
+            ),
+            scopeKey = AiMenuHiveIdentity.scopeKey(
+                AppLanguage.SPANISH,
+                MealType.LUNCH,
+                MenuAudience.ADULT
             )
         )
     }

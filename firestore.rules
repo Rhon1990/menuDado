@@ -10,6 +10,17 @@ service cloud.firestore {
       return value is string && value.matches('^[a-f0-9]{64}$');
     }
 
+    function isStoredV3HiveDocument() {
+      return resource.data.keys().hasAll(['identityVersion', 'scopeKey'])
+        && resource.data.identityVersion == 3;
+    }
+
+    function hasValidUpdatedIdentityVersion() {
+      return isStoredV3HiveDocument()
+        ? request.resource.data.identityVersion == 3
+        : request.resource.data.identityVersion == 2;
+    }
+
     function hasValidHiveShape(id) {
       return request.resource.data.keys().hasOnly([
           'schemaVersion', 'identityVersion',
@@ -17,10 +28,11 @@ service cloud.firestore {
           'name', 'description', 'notes',
           'calories', 'healthStatus', 'healthReason', 'healthSuggestion',
           'cuisineInspiration', 'shoppingProducts', 'eligibilityKeys',
+          'scopeKey',
           'createdAt', 'updatedAt'
         ])
         && request.resource.data.schemaVersion == 1
-        && request.resource.data.identityVersion == 2
+        && request.resource.data.identityVersion == 3
         && request.resource.data.semanticHash == id
         && isHash(request.resource.data.semanticHash)
         && request.resource.data.semanticKey is string
@@ -48,6 +60,8 @@ service cloud.firestore {
         && request.resource.data.eligibilityKeys is list
         && request.resource.data.eligibilityKeys.size() == 1
         && isHash(request.resource.data.eligibilityKeys[0])
+        && request.resource.data.scopeKey is string
+        && isHash(request.resource.data.scopeKey)
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp;
     }
@@ -62,7 +76,7 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['identityVersion', 'eligibilityKeys', 'updatedAt'])
-        && request.resource.data.identityVersion == 2
+        && hasValidUpdatedIdentityVersion()
         && request.resource.data.eligibilityKeys is list
         && request.resource.data.eligibilityKeys.size()
           >= resource.data.eligibilityKeys.size()

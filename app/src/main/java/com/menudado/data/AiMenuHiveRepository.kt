@@ -153,8 +153,10 @@ class AiMenuHiveRepository(
         ) {
             return Result.success(Unit)
         }
-        val identity = AiMenuHiveIdentity.from(
+        val identity = AiMenuHiveIdentity.scoped(
             contribution.language,
+            contribution.mealType,
+            contribution.audience,
             contribution.generatedMenu.deduplicationKey
         ) ?: return Result.success(Unit)
         return dataSource.upsert(
@@ -173,6 +175,11 @@ class AiMenuHiveRepository(
                         contribution.audience,
                         contribution.profile
                     )
+                ),
+                scopeKey = AiMenuHiveIdentity.scopeKey(
+                    contribution.language,
+                    contribution.mealType,
+                    contribution.audience
                 )
             )
         )
