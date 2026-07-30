@@ -320,6 +320,12 @@ class FirebaseMenuDadoAnalytics(
         }
     }
 
+    override fun trackAiMenuHiveContribution(result: String) {
+        logEvent(EVENT_AI_MENU_HIVE_CONTRIBUTION) {
+            putString(PARAM_STATUS, result.sanitized())
+        }
+    }
+
     override fun trackAiAnalysisStarted(scope: String, mealType: MealType?, menuCount: Int) {
         logEvent(EVENT_AI_ANALYSIS_STARTED) {
             putString(PARAM_SCOPE, scope)
@@ -436,6 +442,7 @@ class FirebaseMenuDadoAnalytics(
         const val EVENT_AI_MENU_GENERATION_FINISHED = "ai_menu_gen_finished"
         const val EVENT_AI_MENU_HIVE_FALLBACK_STARTED = "ai_menu_hive_fallback_started"
         const val EVENT_AI_MENU_HIVE_FALLBACK = "ai_menu_hive_fallback"
+        const val EVENT_AI_MENU_HIVE_CONTRIBUTION = "ai_menu_hive_contribution"
         const val EVENT_AI_ANALYSIS_STARTED = "ai_analysis_started"
         const val EVENT_AI_ANALYSIS_FINISHED = "ai_analysis_finished"
         const val EVENT_AI_DAILY_LIMIT_REACHED = "ai_daily_limit_reached"

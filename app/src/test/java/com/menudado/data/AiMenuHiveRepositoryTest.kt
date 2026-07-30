@@ -420,6 +420,61 @@ class AiMenuHiveRepositoryTest {
         assertEquals(1, stored.eligibilityKeys.size)
     }
 
+    @Test
+    fun `contribution reports saved disabled incompatible and invalid identity`() = runTest {
+        val enabled = AiMenuHiveRepository(
+            RecordingAiMenuHiveDataSource(),
+            AiMenuHiveFeatureToggle(true)
+        ) { 0 }
+        val disabled = AiMenuHiveRepository(
+            RecordingAiMenuHiveDataSource(),
+            AiMenuHiveFeatureToggle(false)
+        ) { 0 }
+        val incompatible = contribution().copy(
+            profile = DietaryProfile(isVegan = true),
+            generatedMenu = contribution().generatedMenu.copy(
+                name = "Pasta con queso",
+                description = "Pasta con queso y nata."
+            )
+        )
+        val invalidIdentity = contribution().copy(
+            generatedMenu = contribution().generatedMenu.copy(
+                deduplicationKey = "invalid"
+            )
+        )
+
+        assertEquals(
+            AiMenuHiveContributionOutcome.SAVED,
+            enabled.contribute(contribution()).getOrThrow()
+        )
+        assertEquals(
+            AiMenuHiveContributionOutcome.SKIPPED_DISABLED,
+            disabled.contribute(contribution()).getOrThrow()
+        )
+        assertEquals(
+            AiMenuHiveContributionOutcome.SKIPPED_INCOMPATIBLE,
+            enabled.contribute(incompatible).getOrThrow()
+        )
+        assertEquals(
+            AiMenuHiveContributionOutcome.SKIPPED_INVALID_IDENTITY,
+            enabled.contribute(invalidIdentity).getOrThrow()
+        )
+    }
+
+    @Test
+    fun `remote contribution failure remains a failure result`() = runTest {
+        val repository = AiMenuHiveRepository(
+            RecordingAiMenuHiveDataSource(
+                upsertResult = Result.failure(IllegalStateException("denied"))
+            ),
+            AiMenuHiveFeatureToggle(true)
+        ) { 0 }
+
+        val result = repository.contribute(contribution())
+
+        assertTrue(result.isFailure)
+    }
+
     private fun request(
         audience: MenuAudience = MenuAudience.ADULT,
         profile: DietaryProfile = DietaryProfile(ageRange = "18+ años"),
@@ -498,7 +553,8 @@ class AiMenuHiveRepositoryTest {
 private class RecordingAiMenuHiveDataSource(
     var server: Result<List<SharedAiMenu>> = Result.success(emptyList()),
     var cache: Result<List<SharedAiMenu>> = Result.success(emptyList()),
-    private val response: ((AiMenuHiveDataSourceRequest) -> Result<List<SharedAiMenu>>)? = null
+    private val response: ((AiMenuHiveDataSourceRequest) -> Result<List<SharedAiMenu>>)? = null,
+    private val upsertResult: Result<Unit> = Result.success(Unit)
 ) : AiMenuHiveDataSource {
     val requests = mutableListOf<AiMenuHiveDataSourceRequest>()
     val upserts = mutableListOf<SharedAiMenu>()
@@ -513,6 +569,6 @@ private class RecordingAiMenuHiveDataSource(
 
     override suspend fun upsert(menu: SharedAiMenu): Result<Unit> {
         upserts += menu
-        return Result.success(Unit)
+        return upsertResult
     }
 }

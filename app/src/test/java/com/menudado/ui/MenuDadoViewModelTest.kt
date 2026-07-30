@@ -12,6 +12,7 @@ import com.menudado.data.AiQuotaRetryState
 import com.menudado.data.AiRequestThrottleStore
 import com.menudado.data.AiMenuHiveCandidate
 import com.menudado.data.AiMenuHiveContribution
+import com.menudado.data.AiMenuHiveContributionOutcome
 import com.menudado.data.AiMenuHiveGateway
 import com.menudado.data.AiMenuHiveLookupSource
 import com.menudado.data.AiMenuHiveSearchRequest
@@ -958,7 +959,37 @@ class MenuDadoViewModelTest {
             "pasta|tomato|sauce",
             hive.contributions.single().generatedMenu.deduplicationKey
         )
+        assertEquals(
+            listOf("ai_menu_hive_contribution:saved"),
+            analytics.events.filter {
+                it.startsWith("ai_menu_hive_contribution:")
+            }
+        )
     }
+
+    @Test
+    fun `failed hive contribution keeps private save and records anonymous error`() =
+        runTest(dispatcher) {
+            analyzer.generatedMenu = sampleGeneratedMenu(
+                deduplicationKey = "pasta|tomato|sauce"
+            )
+            hive.contributionResult =
+                Result.failure(IllegalStateException("permission denied"))
+
+            viewModel.generateMenuIdea()
+            advanceUntilIdle()
+            viewModel.saveGeneratedMenuIdea()
+            advanceUntilIdle()
+
+            assertEquals(1, dao.saved.size)
+            assertEquals(
+                listOf("ai_menu_hive_contribution:error"),
+                analytics.events.filter {
+                    it.startsWith("ai_menu_hive_contribution:")
+                }
+            )
+            assertTrue(analytics.events.none { "permission denied" in it })
+        }
 
     @Test
     fun `profile change before generated save blocks persistence and hive contribution`() =
@@ -4081,6 +4112,8 @@ private fun sampleHiveCandidate(
 
 private class RecordingAiMenuHiveGateway : AiMenuHiveGateway {
     var searchResult: Result<AiMenuHiveCandidate?> = Result.success(null)
+    var contributionResult: Result<AiMenuHiveContributionOutcome> =
+        Result.success(AiMenuHiveContributionOutcome.SAVED)
     var searchDelayMillis: Long = 0L
     val searches = mutableListOf<AiMenuHiveSearchRequest>()
     val contributions = mutableListOf<AiMenuHiveContribution>()
@@ -4093,9 +4126,11 @@ private class RecordingAiMenuHiveGateway : AiMenuHiveGateway {
         return searchResult
     }
 
-    override suspend fun contribute(contribution: AiMenuHiveContribution): Result<Unit> {
+    override suspend fun contribute(
+        contribution: AiMenuHiveContribution
+    ): Result<AiMenuHiveContributionOutcome> {
         contributions += contribution
-        return Result.success(Unit)
+        return contributionResult
     }
 }
 
@@ -4512,6 +4547,10 @@ private class RecordingMenuDadoAnalytics : MenuDadoAnalytics {
             throw IllegalStateException("tracking failed")
         }
         events += "ai_menu_hive_fallback_started:${mealType.name}:$triggerFailureType"
+    }
+
+    override fun trackAiMenuHiveContribution(result: String) {
+        events += "ai_menu_hive_contribution:$result"
     }
 
     override fun trackAiAnalysisStarted(scope: String, mealType: MealType?, menuCount: Int) {

@@ -988,7 +988,15 @@ class MenuDadoViewModel(
             hasTrackedMenuFormStarted = false
             hiveContribution?.let { contribution ->
                 viewModelScope.launch {
-                    aiMenuHive.contribute(contribution)
+                    val result = aiMenuHive.contribute(contribution)
+                    runCatching {
+                        analytics.trackAiMenuHiveContribution(
+                            result = result.fold(
+                                onSuccess = { it.analyticsValue },
+                                onFailure = { HIVE_CONTRIBUTION_ERROR }
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -2804,6 +2812,7 @@ private const val HIVE_RESULT_HIT = "hit"
 private const val HIVE_RESULT_CACHE_HIT = "cache_hit"
 private const val HIVE_RESULT_MISS = "miss"
 private const val HIVE_RESULT_ERROR = "error"
+private const val HIVE_CONTRIBUTION_ERROR = "error"
 private fun AiQuotaLimitType.message(language: AppLanguage): String {
     return when (this) {
         AiQuotaLimitType.REQUESTS_PER_MINUTE -> language.aiRequestsPerMinuteMessage()

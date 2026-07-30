@@ -56,6 +56,13 @@ data class AiMenuHiveContribution(
     val cuisineInspiration: CuisineInspiration?
 )
 
+enum class AiMenuHiveContributionOutcome(val analyticsValue: String) {
+    SAVED("saved"),
+    SKIPPED_DISABLED("skipped_disabled"),
+    SKIPPED_INCOMPATIBLE("skipped_incompatible"),
+    SKIPPED_INVALID_IDENTITY("skipped_invalid_identity")
+}
+
 data class AiMenuHiveCandidate(
     val generatedMenu: GeneratedMenu,
     val cuisineInspiration: CuisineInspiration?,
@@ -66,7 +73,9 @@ data class AiMenuHiveCandidate(
 
 interface AiMenuHiveGateway {
     suspend fun findCompatibleMenu(request: AiMenuHiveSearchRequest): Result<AiMenuHiveCandidate?>
-    suspend fun contribute(contribution: AiMenuHiveContribution): Result<Unit>
+    suspend fun contribute(
+        contribution: AiMenuHiveContribution
+    ): Result<AiMenuHiveContributionOutcome>
 }
 
 object NoOpAiMenuHiveGateway : AiMenuHiveGateway {
@@ -74,8 +83,10 @@ object NoOpAiMenuHiveGateway : AiMenuHiveGateway {
         request: AiMenuHiveSearchRequest
     ): Result<AiMenuHiveCandidate?> = Result.success(null)
 
-    override suspend fun contribute(contribution: AiMenuHiveContribution): Result<Unit> =
-        Result.success(Unit)
+    override suspend fun contribute(
+        contribution: AiMenuHiveContribution
+    ): Result<AiMenuHiveContributionOutcome> =
+        Result.success(AiMenuHiveContributionOutcome.SKIPPED_DISABLED)
 }
 
 class AiMenuHiveFeatureToggle(@Volatile var isEnabled: Boolean)
@@ -143,22 +154,28 @@ class AiMenuHiveRepository(
         }
     }
 
-    override suspend fun contribute(contribution: AiMenuHiveContribution): Result<Unit> {
-        if (!featureToggle.isEnabled) return Result.success(Unit)
+    override suspend fun contribute(
+        contribution: AiMenuHiveContribution
+    ): Result<AiMenuHiveContributionOutcome> {
+        if (!featureToggle.isEnabled) {
+            return Result.success(AiMenuHiveContributionOutcome.SKIPPED_DISABLED)
+        }
         if (
             !contribution.profile.accepts(
                 menu = contribution.generatedMenu,
                 audience = contribution.audience
             )
         ) {
-            return Result.success(Unit)
+            return Result.success(AiMenuHiveContributionOutcome.SKIPPED_INCOMPATIBLE)
         }
         val identity = AiMenuHiveIdentity.scoped(
             contribution.language,
             contribution.mealType,
             contribution.audience,
             contribution.generatedMenu.deduplicationKey
-        ) ?: return Result.success(Unit)
+        ) ?: return Result.success(
+            AiMenuHiveContributionOutcome.SKIPPED_INVALID_IDENTITY
+        )
         return dataSource.upsert(
             SharedAiMenu(
                 semanticHash = identity.semanticHash,
@@ -182,7 +199,7 @@ class AiMenuHiveRepository(
                     contribution.audience
                 )
             )
-        )
+        ).map { AiMenuHiveContributionOutcome.SAVED }
     }
 
     private fun selectCandidate(

@@ -125,6 +125,8 @@ interface MenuDadoAnalytics {
         durationMillis: Long
     )
 
+    fun trackAiMenuHiveContribution(result: String)
+
     fun trackAiAnalysisStarted(scope: String, mealType: MealType?, menuCount: Int)
 
     fun trackAiAnalysisFinished(
@@ -253,6 +255,8 @@ object NoOpMenuDadoAnalytics : MenuDadoAnalytics {
         triggerFailureType: String,
         durationMillis: Long
     ) = Unit
+
+    override fun trackAiMenuHiveContribution(result: String) = Unit
 
     override fun trackAiAnalysisStarted(scope: String, mealType: MealType?, menuCount: Int) = Unit
 
