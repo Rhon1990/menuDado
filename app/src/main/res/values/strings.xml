@@ -285,5 +285,5 @@
     <string name="menu_catalog_need_full_profile">Todo mi perfil</string>
     <string name="menu_catalog_no_results_title">No encontramos menús</string>
     <string name="menu_catalog_no_results_body">Prueba con otra búsqueda o quita algún filtro.</string>
-    <string name="menu_catalog_clear_filters">Limpiar filtros</string>
+    <string name="menu_catalog_clear_filters">Limpiar búsqueda y filtros</string>
 </resources>

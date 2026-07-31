@@ -248,6 +248,25 @@ fun MenuDadoScreen(
     val destination = MenuDadoDestination.valueOf(selectedDestination)
     val audienceDetail = menuAudienceFromDetailRoute(audienceDetailRoute)
     val isFavoritesDetail = menuIsFavoritesDetailRoute(audienceDetailRoute)
+    var menuCatalogFilters by remember(audienceDetailRoute) {
+        mutableStateOf(menuCatalogFiltersForRouteEntry(audienceDetailRoute))
+    }
+    var isMenuCatalogFilterRequested by remember(audienceDetailRoute) {
+        mutableStateOf(false)
+    }
+    val currentCatalogScope = menuCatalogScope(audienceDetailRoute)
+    val cuisineSearchLabels = CuisineInspiration.entries.associateWith { inspiration ->
+        stringResource(id = cuisineInspirationLabelRes(inspiration))
+    }
+    val filteredCatalogMenus = currentCatalogScope?.let { scope ->
+        menuCatalogFilteredMenus(
+            menus = visibleMenus,
+            scope = scope,
+            filters = menuCatalogFilters,
+            dietaryProfiles = state.dietaryProfiles,
+            cuisineLabels = cuisineSearchLabels
+        )
+    }.orEmpty()
     val homeListState = rememberLazyListState()
     val profileListState = rememberLazyListState()
     val marketListState = rememberLazyListState()
@@ -351,6 +370,7 @@ fun MenuDadoScreen(
             message != null ||
             state.showOnboarding ||
             state.diceEmptyRecovery != null ||
+            isMenuCatalogFilterRequested ||
             isMarketManagementRequested ||
             authFormMode != null ||
             actionSheetMenuId != null ||
@@ -373,6 +393,9 @@ fun MenuDadoScreen(
             }
             state.diceEmptyRecovery != null -> {
                 viewModel.dismissDiceEmptyRecovery()
+            }
+            isMenuCatalogFilterRequested -> {
+                isMenuCatalogFilterRequested = false
             }
             isMarketManagementRequested -> {
                 isMarketManagementRequested = false
@@ -581,7 +604,8 @@ fun MenuDadoScreen(
 
     MarketManagementSheetHost(
         isRequested = isMarketManagementRequested,
-        isAnotherModalVisible = isHigherPriorityModalVisible,
+        isAnotherModalVisible = isHigherPriorityModalVisible ||
+            isMenuCatalogFilterRequested || pendingMarketClearAction != null,
         hasPurchasedProducts = state.marketProducts.any(
             MarketProduct::isPurchased
         ),
@@ -601,7 +625,8 @@ fun MenuDadoScreen(
     MarketClearConfirmationHost(
         action = pendingMarketClearAction,
         isAnotherModalVisible =
-            isHigherPriorityModalVisible || isMarketManagementRequested,
+            isHigherPriorityModalVisible || isMarketManagementRequested ||
+                isMenuCatalogFilterRequested,
         onConfirm = { action ->
             viewModel.trackCtaTapped(
                 ANALYTICS_SCREEN_MARKET,
@@ -621,6 +646,17 @@ fun MenuDadoScreen(
             )
             pendingMarketClearAction = null
         }
+    )
+
+    MenuCatalogFilterSheetHost(
+        isRequested = isMenuCatalogFilterRequested,
+        isAnotherModalVisible = isHigherPriorityModalVisible ||
+            isMarketManagementRequested || pendingMarketClearAction != null,
+        scope = currentCatalogScope,
+        filters = menuCatalogFilters,
+        dietaryProfiles = state.dietaryProfiles,
+        onFiltersChanged = { menuCatalogFilters = it },
+        onDismiss = { isMenuCatalogFilterRequested = false }
     )
 
     if (state.showOnboarding) {
@@ -873,7 +909,25 @@ fun MenuDadoScreen(
             item {
                 Header(
                     showBackButton = shouldShowHeaderBack,
-                    onBack = { onHeaderBack() }
+                    onBack = { onHeaderBack() },
+                    bottomContent = currentCatalogScope?.let {
+                        {
+                            MenuCatalogSearchBar(
+                                query = menuCatalogFilters.query,
+                                onQueryChanged = { query ->
+                                    menuCatalogFilters = menuCatalogFilters.copy(query = query)
+                                },
+                                activeFilterCount = menuCatalogActiveFilterCount(
+                                    menuCatalogFilters
+                                ),
+                                onOpenFilters = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    isMenuCatalogFilterRequested = true
+                                }
+                            )
+                        }
+                    }
                 )
             }
 
@@ -995,8 +1049,11 @@ fun MenuDadoScreen(
                     if (isFavoritesDetail) {
                         item {
                             FavoriteMenusDetailScreen(
-                                menus = visibleMenus,
+                                menus = filteredCatalogMenus,
                                 enabledAudiences = state.enabledAudiences,
+                                onClearFilters = {
+                                    menuCatalogFilters = defaultMenuCatalogFilters()
+                                },
                                 onOpenMenu = { menu ->
                                     viewModel.trackCtaTapped(
                                         ANALYTICS_SCREEN_AUDIENCE_DETAIL,
@@ -1025,7 +1082,10 @@ fun MenuDadoScreen(
                         item {
                             MenuAudienceDetailScreen(
                                 audience = audienceDetail,
-                                menus = visibleMenus,
+                                menus = filteredCatalogMenus,
+                                onClearFilters = {
+                                    menuCatalogFilters = defaultMenuCatalogFilters()
+                                },
                                 onOpenMenu = { menu ->
                                     viewModel.trackCtaTapped(ANALYTICS_SCREEN_AUDIENCE_DETAIL, ANALYTICS_CTA_OPEN_MENU)
                                     viewModel.trackMenuCardOpened(menu)
@@ -5038,6 +5098,7 @@ private fun MenuCarouselItem(
 private fun MenuAudienceDetailScreen(
     audience: MenuAudience,
     menus: List<FoodMenu>,
+    onClearFilters: () -> Unit,
     onOpenMenu: (FoodMenu) -> Unit,
     onOpenActions: (FoodMenu) -> Unit,
     onToggleFavorite: (FoodMenu) -> Unit
@@ -5068,13 +5129,17 @@ private fun MenuAudienceDetailScreen(
             )
         }
 
-        groups.forEach { group ->
-            MenuAudienceMealGroupSection(
-                group = group,
-                onOpenMenu = onOpenMenu,
-                onOpenActions = onOpenActions,
-                onToggleFavorite = onToggleFavorite
-            )
+        if (groups.isEmpty()) {
+            MenuCatalogEmptyState(onClearFilters = onClearFilters)
+        } else {
+            groups.forEach { group ->
+                MenuAudienceMealGroupSection(
+                    group = group,
+                    onOpenMenu = onOpenMenu,
+                    onOpenActions = onOpenActions,
+                    onToggleFavorite = onToggleFavorite
+                )
+            }
         }
     }
 }
@@ -5083,6 +5148,7 @@ private fun MenuAudienceDetailScreen(
 private fun FavoriteMenusDetailScreen(
     menus: List<FoodMenu>,
     enabledAudiences: List<MenuAudience>,
+    onClearFilters: () -> Unit,
     onOpenMenu: (FoodMenu) -> Unit,
     onOpenActions: (FoodMenu) -> Unit,
     onToggleFavorite: (FoodMenu) -> Unit
@@ -5133,26 +5199,70 @@ private fun FavoriteMenusDetailScreen(
             )
         }
 
-        favoriteMenus.chunked(2).forEach { rowMenus ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                rowMenus.forEach { menu ->
-                    MenuCarouselItem(
-                        menu = menu,
-                        onOpenMenu = { onOpenMenu(menu) },
-                        onOpenActions = { onOpenActions(menu) },
-                        onToggleFavorite = { onToggleFavorite(menu) },
-                        modifier = Modifier.weight(1f),
-                        showAudienceLabel = menuFavoriteDetailShowsAudienceLabel()
-                    )
-                }
-                if (rowMenus.size == 1) {
-                    Spacer(modifier = Modifier.weight(1f))
+        if (favoriteMenus.isEmpty()) {
+            MenuCatalogEmptyState(onClearFilters = onClearFilters)
+        } else {
+            favoriteMenus.chunked(2).forEach { rowMenus ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    rowMenus.forEach { menu ->
+                        MenuCarouselItem(
+                            menu = menu,
+                            onOpenMenu = { onOpenMenu(menu) },
+                            onOpenActions = { onOpenActions(menu) },
+                            onToggleFavorite = { onToggleFavorite(menu) },
+                            modifier = Modifier.weight(1f),
+                            showAudienceLabel = menuFavoriteDetailShowsAudienceLabel()
+                        )
+                    }
+                    if (rowMenus.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MenuCatalogEmptyState(onClearFilters: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(MenuDadoUiTokens.CardRadius))
+            .background(MenuDadoColors.SelectionGreen)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.menu_catalog_no_results_title),
+            color = MenuDadoColors.Ink,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = stringResource(R.string.menu_catalog_no_results_body),
+            color = MenuDadoColors.MutedInk,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+        Button(
+            onClick = onClearFilters,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MenuDadoColors.ActionTerracotta,
+                contentColor = Color.White
+            ),
+            shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
+        ) {
+            Text(
+                text = stringResource(R.string.menu_catalog_clear_filters),
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -6409,6 +6519,17 @@ internal fun menuAudienceDetailRouteAfterViewMore(audience: MenuAudience): Strin
 internal fun menuAudienceFromDetailRoute(route: String?): MenuAudience? {
     return route?.let { runCatching { MenuAudience.valueOf(it) }.getOrNull() }
 }
+
+internal fun menuCatalogScope(route: String?): MenuCatalogScope? = when {
+    menuIsFavoritesDetailRoute(route) -> MenuCatalogScope.Favorites
+    else -> menuAudienceFromDetailRoute(route)?.let(MenuCatalogScope::Audience)
+}
+
+internal fun menuCatalogFiltersForRouteEntry(
+    route: String?,
+    previous: MenuCatalogFilters = MenuCatalogFilters()
+): MenuCatalogFilters =
+    if (menuCatalogScope(route) == null) previous else defaultMenuCatalogFilters()
 
 internal fun menuShouldLeaveInactiveAudienceDetail(
     route: String?,

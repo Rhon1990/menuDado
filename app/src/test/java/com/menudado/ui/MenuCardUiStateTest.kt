@@ -886,6 +886,41 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `detail routes map to immutable catalog scopes`() {
+        assertEquals(
+            MenuCatalogScope.Audience(MenuAudience.ADULT),
+            menuCatalogScope(MenuAudience.ADULT.name)
+        )
+        assertEquals(
+            MenuCatalogScope.Favorites,
+            menuCatalogScope(menuFavoritesDetailRouteAfterViewMore())
+        )
+        assertNull(menuCatalogScope(null))
+    }
+
+    @Test
+    fun `every route entry resets transient catalog filters`() {
+        val previous = MenuCatalogFilters(
+            query = "arroz",
+            dietaryNeed = MenuCatalogDietaryNeed.VEGAN,
+            favoritesOnly = true,
+            healthyOnly = true
+        )
+
+        assertEquals(
+            MenuCatalogFilters(),
+            menuCatalogFiltersForRouteEntry(MenuAudience.ADULT.name, previous)
+        )
+        assertEquals(
+            MenuCatalogFilters(),
+            menuCatalogFiltersForRouteEntry(
+                menuFavoritesDetailRouteAfterViewMore(),
+                previous
+            )
+        )
+    }
+
+    @Test
     fun `cada destino principal conserva su propio estado de scroll`() {
         assertEquals(
             MenuListStateOwner.HOME,
