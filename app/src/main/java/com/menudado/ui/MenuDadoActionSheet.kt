@@ -49,6 +49,10 @@ internal fun menuDadoActionSheetHandleHeightDp(): Int = 5
 
 internal fun menuDadoActionSheetIconContainerDp(): Int = 42
 
+internal fun menuDadoActionSheetDismissesOnBackPress(): Boolean = true
+
+internal fun menuDadoActionSheetDismissesOnOutsideTap(): Boolean = true
+
 internal const val MENU_DADO_ACTION_SHEET_SCRIM_TEST_TAG =
     "menu_dado_action_sheet_scrim"
 
@@ -60,7 +64,12 @@ internal fun MenuDadoActionSheet(
 ) {
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = menuDadoActionSheetDismissesOnBackPress(),
+            dismissOnClickOutside =
+                menuDadoActionSheetDismissesOnOutsideTap()
+        )
     ) {
         Box(
             modifier = Modifier

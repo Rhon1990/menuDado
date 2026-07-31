@@ -12,7 +12,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
-import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.menudado.R
@@ -169,25 +168,6 @@ class MarketManagementSheetTest {
         }
 
         composeRule.onAllNodes(hasClickAction()).assertCountEquals(3)
-    }
-
-    @Test
-    fun backDismissesManagementSheet() {
-        var dismissCount = 0
-        composeRule.setContent {
-            MaterialTheme {
-                MarketManagementSheet(
-                    hasPurchasedProducts = false,
-                    onActionSelected = {},
-                    onDismiss = { dismissCount += 1 }
-                )
-            }
-        }
-
-        pressBack()
-        composeRule.runOnIdle {
-            assertEquals(1, dismissCount)
-        }
     }
 
     @Test

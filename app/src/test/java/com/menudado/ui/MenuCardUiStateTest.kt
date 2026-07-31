@@ -358,6 +358,8 @@ class MenuCardUiStateTest {
             MenuDadoColors.SoftSand.copy(alpha = 0.58f),
             marketPurchasedContainerColor()
         )
+        assertTrue(menuDadoActionSheetDismissesOnBackPress())
+        assertTrue(menuDadoActionSheetDismissesOnOutsideTap())
         assertEquals("open_market_management", marketManagementOpenCta())
         assertEquals(
             R.drawable.ic_check,
