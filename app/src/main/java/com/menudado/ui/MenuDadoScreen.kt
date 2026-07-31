@@ -2894,60 +2894,67 @@ private fun shareMenu(context: Context, menu: FoodMenu) {
 @Composable
 private fun Header(
     showBackButton: Boolean = false,
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    bottomContent: (@Composable () -> Unit)? = null
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(MenuDadoColors.HeaderGreen)
-            .statusBarsPadding()
-            .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(menuDadoHeaderBrandStartGapDp().dp)
     ) {
-        if (showBackButton) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.size(menuDadoHeaderBackButtonSizeDp().dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(menuDadoHeaderBrandStartGapDp().dp)
+        ) {
+            if (showBackButton) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.size(menuDadoHeaderBackButtonSizeDp().dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = menuDadoHeaderBackIconRes()),
+                        contentDescription = stringResource(id = menuDadoHeaderBackContentDescriptionRes()),
+                        tint = Color.White
+                    )
+                }
+            }
+            Image(
+                painter = painterResource(id = R.drawable.menu_dado_symbol),
+                contentDescription = stringResource(id = R.string.app_name),
+                modifier = Modifier.size(menuDadoHeaderSymbolSizeDp().dp),
+                contentScale = ContentScale.Fit
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = menuDadoHeaderBackIconRes()),
-                    contentDescription = stringResource(id = menuDadoHeaderBackContentDescriptionRes()),
-                    tint = Color.White
+                Image(
+                    painter = painterResource(id = R.drawable.menu_dado_wordmark),
+                    contentDescription = stringResource(id = R.string.app_name),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(menuDadoHeaderWordmarkHeightDp().dp)
+                        .offset(x = (-menuDadoWordmarkVisualStartInsetDp()).dp),
+                    alignment = Alignment.CenterStart,
+                    contentScale = ContentScale.Fit
+                )
+                Text(
+                    text = stringResource(id = R.string.header_subtitle),
+                    modifier = Modifier.offset(y = menuDadoHeaderSubtitleTopOffsetDp().dp),
+                    color = MenuDadoColors.Cream.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = menuDadoHeaderSubtitleFontSizeSp().sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
-        Image(
-            painter = painterResource(id = R.drawable.menu_dado_symbol),
-            contentDescription = stringResource(id = R.string.app_name),
-            modifier = Modifier.size(menuDadoHeaderSymbolSizeDp().dp),
-            contentScale = ContentScale.Fit
-        )
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.menu_dado_wordmark),
-                contentDescription = stringResource(id = R.string.app_name),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(menuDadoHeaderWordmarkHeightDp().dp)
-                    .offset(x = (-menuDadoWordmarkVisualStartInsetDp()).dp),
-                alignment = Alignment.CenterStart,
-                contentScale = ContentScale.Fit
-            )
-            Text(
-                text = stringResource(id = R.string.header_subtitle),
-                modifier = Modifier.offset(y = menuDadoHeaderSubtitleTopOffsetDp().dp),
-                color = MenuDadoColors.Cream.copy(alpha = 0.9f),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontSize = menuDadoHeaderSubtitleFontSizeSp().sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        bottomContent?.invoke()
     }
 }
 
