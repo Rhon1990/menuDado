@@ -125,6 +125,7 @@ class MarketClearConfirmationDialogTest {
                 MarketListSection(
                     products = products.value,
                     onPurchasedChanged = { _, _ -> },
+                    onPurchasedVisibilityChanged = {},
                     onManageRequested = {}
                 )
             }
@@ -151,6 +152,7 @@ class MarketClearConfirmationDialogTest {
     @Test
     fun purchasedHeaderExpandsWithoutRequestingManagement() {
         var manageRequests = 0
+        val purchasedVisibilityChanges = mutableListOf<Boolean>()
         composeRule.setContent {
             MaterialTheme {
                 MarketListSection(
@@ -163,6 +165,7 @@ class MarketClearConfirmationDialogTest {
                         )
                     ),
                     onPurchasedChanged = { _, _ -> },
+                    onPurchasedVisibilityChanged = purchasedVisibilityChanges::add,
                     onManageRequested = { manageRequests += 1 }
                 )
             }
@@ -173,8 +176,12 @@ class MarketClearConfirmationDialogTest {
             string(R.string.market_purchased)
         ).performClick()
         composeRule.onNodeWithText("Arroz especial").assertExists()
+        composeRule.onNodeWithText(
+            string(R.string.market_purchased)
+        ).performClick()
         composeRule.runOnIdle {
             assertEquals(0, manageRequests)
+            assertEquals(listOf(true, false), purchasedVisibilityChanges)
         }
     }
 }

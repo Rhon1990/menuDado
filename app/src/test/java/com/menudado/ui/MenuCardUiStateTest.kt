@@ -362,6 +362,15 @@ class MenuCardUiStateTest {
         assertTrue(menuDadoActionSheetDismissesOnOutsideTap())
         assertEquals("open_market_management", marketManagementOpenCta())
         assertEquals(
+            "expand_purchased_products",
+            marketPurchasedProductsVisibilityCta(isVisible = true)
+        )
+        assertEquals(
+            "collapse_purchased_products",
+            marketPurchasedProductsVisibilityCta(isVisible = false)
+        )
+        assertEquals("close_market_management", marketManagementCloseCta())
+        assertEquals(
             R.drawable.ic_check,
             MarketClearAction.PURCHASED.managementIconRes()
         )

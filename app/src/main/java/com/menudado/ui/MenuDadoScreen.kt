@@ -637,6 +637,10 @@ fun MenuDadoScreen(
             pendingMarketClearAction = action
         },
         onDismiss = {
+            viewModel.trackCtaTapped(
+                ANALYTICS_SCREEN_MARKET,
+                marketManagementCloseCta()
+            )
             isMarketManagementRequested = false
         }
     )
@@ -1008,6 +1012,12 @@ fun MenuDadoScreen(
                                     }
                                 )
                                 viewModel.setMarketProductPurchased(productKey, isPurchased)
+                            },
+                            onPurchasedVisibilityChanged = { isVisible ->
+                                viewModel.trackCtaTapped(
+                                    ANALYTICS_SCREEN_MARKET,
+                                    marketPurchasedProductsVisibilityCta(isVisible)
+                                )
                             },
                             onManageRequested = {
                                 viewModel.trackCtaTapped(
@@ -1710,6 +1720,7 @@ internal fun MarketClearConfirmationDialog(
 internal fun MarketListSection(
     products: List<MarketProduct>,
     onPurchasedChanged: (String, Boolean) -> Unit,
+    onPurchasedVisibilityChanged: (Boolean) -> Unit,
     onManageRequested: () -> Unit
 ) {
     val pendingProducts = products.filterNot(MarketProduct::isPurchased)
@@ -1792,7 +1803,11 @@ internal fun MarketListSection(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showPurchased = !showPurchased },
+                        .clickable {
+                            val isVisible = !showPurchased
+                            onPurchasedVisibilityChanged(isVisible)
+                            showPurchased = isVisible
+                        },
                     colors = CardDefaults.cardColors(
                         containerColor = marketPurchasedContainerColor()
                     ),

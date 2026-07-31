@@ -33,6 +33,11 @@ internal fun marketPurchasedContainerColor(): Color =
 
 internal fun marketManagementOpenCta(): String = "open_market_management"
 
+internal fun marketPurchasedProductsVisibilityCta(isVisible: Boolean): String =
+    if (isVisible) "expand_purchased_products" else "collapse_purchased_products"
+
+internal fun marketManagementCloseCta(): String = "close_market_management"
+
 @DrawableRes
 internal fun MarketClearAction.managementIconRes(): Int = when (this) {
     MarketClearAction.PURCHASED -> R.drawable.ic_check
