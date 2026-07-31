@@ -5317,7 +5317,7 @@ private fun MenuPhotoSourceDialog(
                                 .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
                                 .background(menuPhotoSourceContentColor().copy(alpha = 0.42f))
                         )
-                        MenuSheetCloseButton(
+                        MenuDadoSheetCloseButton(
                             onDismiss = onDismiss,
                             modifier = Modifier.align(Alignment.TopEnd)
                         )
@@ -5431,126 +5431,19 @@ private fun MenuActionsSheet(
         MenuActionSheetAction.DELETE to onDelete
     )
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+    MenuDadoActionSheet(
+        title = menu.name,
+        onDismiss = onDismiss
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(onClick = onDismiss)
-                .navigationBarsPadding(),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = {}),
-                colors = CardDefaults.cardColors(containerColor = menuActionSheetContainerColor()),
-                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
-                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(menuSheetCloseActionButtonSizeDp().dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .width(86.dp)
-                                .height(5.dp)
-                                .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
-                                .background(menuActionSheetContentColor().copy(alpha = 0.42f))
-                        )
-                        MenuSheetCloseButton(
-                            onDismiss = onDismiss,
-                            modifier = Modifier.align(Alignment.TopEnd)
-                        )
-                    }
-                    Text(
-                        text = menu.name,
-                        color = menuActionSheetContentColor(),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(menuActionSheetContentColor().copy(alpha = 0.22f))
-                    )
-                    menuActionSheetActions().forEach { action ->
-                        MenuActionSheetRow(
-                            action = action,
-                            onClick = callbacks.getValue(action)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MenuSheetCloseButton(
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    IconButton(
-        onClick = onDismiss,
-        modifier = modifier.size(menuSheetCloseActionButtonSizeDp().dp)
-    ) {
-        Icon(
-            painter = painterResource(id = menuSheetCloseActionIconRes()),
-            contentDescription = stringResource(id = menuSheetCloseActionContentDescriptionRes()),
-            modifier = Modifier.size(22.dp),
-            tint = menuSheetCloseActionIconTint()
-        )
-    }
-}
-
-@Composable
-private fun MenuActionSheetRow(
-    action: MenuActionSheetAction,
-    onClick: () -> Unit
-) {
-    val tint = menuActionSheetActionTint(action)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(menuActionSheetContentColor().copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = menuActionSheetActionIconRes(action)),
-                contentDescription = null,
-                modifier = Modifier.size(23.dp),
-                colorFilter = ColorFilter.tint(tint)
+        menuActionSheetActions().forEach { action ->
+            MenuDadoActionSheetRow(
+                iconRes = menuActionSheetActionIconRes(action),
+                title = stringResource(
+                    id = menuActionSheetActionLabelRes(action)
+                ),
+                onClick = callbacks.getValue(action)
             )
         }
-        Text(
-            text = stringResource(id = menuActionSheetActionLabelRes(action)),
-            color = tint,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold
-        )
     }
 }
 

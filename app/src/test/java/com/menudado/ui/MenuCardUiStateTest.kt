@@ -378,6 +378,15 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `shared action sheet keeps the established MenuDado tokens`() {
+        assertEquals(28, menuDadoActionSheetTopRadiusDp())
+        assertEquals(86, menuDadoActionSheetHandleWidthDp())
+        assertEquals(5, menuDadoActionSheetHandleHeightDp())
+        assertEquals(42, menuDadoActionSheetIconContainerDp())
+        assertEquals(48, menuSheetCloseActionButtonSizeDp())
+    }
+
+    @Test
     fun `desplegable compacto usa la superficie calida de MenuDado`() {
         assertEquals(MenuDadoColors.Surface, compactDropdownMenuContainerColor())
         assertEquals(MenuDadoColors.Ink, compactDropdownMenuContentColor())
