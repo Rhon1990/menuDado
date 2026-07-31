@@ -164,8 +164,9 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
    - La lista muestra únicamente el nombre del producto, sin cantidades ni unidades. Los nombres se normalizan para unir mayúsculas, tildes y espacios equivalentes sin mostrar duplicados.
    - Cada menú conserva sus productos aunque el usuario lo quite temporalmente de Mercado. Desde el detalle se puede incluir o excluir el menú sin borrarlo; un producto solo desaparece de la lista global cuando ningún otro menú activo lo aporta.
    - Los productos marcados se mueven a una sección plegable `Comprados`, desde donde se pueden restaurar o limpiar.
-   - Mercado muestra `Vaciar lista` en la cabecera cuando existen productos. La acción requiere confirmación, elimina pendientes y comprados de la lista activa, pero conserva los menús y sus productos para poder volver a incluirlos después.
+   - Mercado muestra `Vaciar lista` en la cabecera cuando existen productos. La acción requiere confirmación, elimina pendientes y comprados de la lista activa, pero conserva los menús y sus productos para poder volver a incluirlos después. La transacción ignora tombstones y menús `PENDING_DELETE`, por lo que nunca convierte una eliminación pendiente en una subida remota.
    - `Comprados` mantiene su sección plegable y muestra una papelera accesible junto al título cuando contiene productos. `Limpiar comprados` requiere confirmación y no afecta a los productos pendientes.
+   - Las confirmaciones de limpieza esperan si hay otro modal prioritario visible, evitando diálogos superpuestos sin perder la acción pendiente.
    - Los menús antiguos ya analizados pero sin productos muestran `Crear lista de mercado con IA`; esta acción consume una llamada de IA porque no se inventan productos localmente.
    - Room versión 11 guarda las contribuciones por menú y el estado comprado. Firestore sincroniza los productos dentro del documento del menú y los estados globales en `users/{uid}/marketProducts/{productKey}`.
    - La telemetría no debe enviar nombres de productos, claves de producto ni IDs de menús.

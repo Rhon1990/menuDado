@@ -308,6 +308,28 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `market clear confirmation waits while another modal has priority`() {
+        assertTrue(
+            shouldShowMarketClearConfirmation(
+                hasPendingAction = true,
+                isAnotherModalVisible = false
+            )
+        )
+        assertFalse(
+            shouldShowMarketClearConfirmation(
+                hasPendingAction = true,
+                isAnotherModalVisible = true
+            )
+        )
+        assertFalse(
+            shouldShowMarketClearConfirmation(
+                hasPendingAction = false,
+                isAnotherModalVisible = false
+            )
+        )
+    }
+
+    @Test
     fun `desplegable compacto usa la superficie calida de MenuDado`() {
         assertEquals(MenuDadoColors.Surface, compactDropdownMenuContainerColor())
         assertEquals(MenuDadoColors.Ink, compactDropdownMenuContentColor())

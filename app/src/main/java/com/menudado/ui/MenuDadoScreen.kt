@@ -292,6 +292,17 @@ fun MenuDadoScreen(
         hasGeneratedMenu = generatedDetailMenu != null,
         hasMessage = message != null
     )
+    val isAnotherModalVisible =
+        message != null ||
+            adsPrivacyOptionsMessage != null ||
+            state.showOnboarding ||
+            state.diceEmptyRecovery != null ||
+            isPhotoSourceDialogVisible ||
+            state.editingMenuId != null ||
+            pendingDeleteMenu != null ||
+            actionSheetMenu != null ||
+            selectedDetailMenu != null ||
+            generatedDetailMenu != null
     fun openMenuDetail(menuId: Long, fromRandomSelection: Boolean = false) {
         openedFromRandomSelection = fromRandomSelection
         selectedDetailMenuId = menuId
@@ -561,30 +572,37 @@ fun MenuDadoScreen(
         )
     }
 
-    pendingMarketClearAction?.let { action ->
-        MarketClearConfirmationDialog(
-            action = action,
-            onConfirm = {
-                viewModel.trackCtaTapped(
-                    ANALYTICS_SCREEN_MARKET,
-                    action.confirmCta()
-                )
-                pendingMarketClearAction = null
-                when (action) {
-                    MarketClearAction.ALL -> viewModel.clearAllMarketProducts()
-                    MarketClearAction.PURCHASED ->
-                        viewModel.clearPurchasedMarketProducts()
+    pendingMarketClearAction
+        ?.takeIf {
+            shouldShowMarketClearConfirmation(
+                hasPendingAction = true,
+                isAnotherModalVisible = isAnotherModalVisible
+            )
+        }
+        ?.let { action ->
+            MarketClearConfirmationDialog(
+                action = action,
+                onConfirm = {
+                    viewModel.trackCtaTapped(
+                        ANALYTICS_SCREEN_MARKET,
+                        action.confirmCta()
+                    )
+                    pendingMarketClearAction = null
+                    when (action) {
+                        MarketClearAction.ALL -> viewModel.clearAllMarketProducts()
+                        MarketClearAction.PURCHASED ->
+                            viewModel.clearPurchasedMarketProducts()
+                    }
+                },
+                onDismiss = {
+                    viewModel.trackCtaTapped(
+                        ANALYTICS_SCREEN_MARKET,
+                        action.cancelCta()
+                    )
+                    pendingMarketClearAction = null
                 }
-            },
-            onDismiss = {
-                viewModel.trackCtaTapped(
-                    ANALYTICS_SCREEN_MARKET,
-                    action.cancelCta()
-                )
-                pendingMarketClearAction = null
-            }
-        )
-    }
+            )
+        }
 
     if (state.showOnboarding) {
         OnboardingDialog(
@@ -1442,6 +1460,11 @@ internal fun shouldShowMarketClearAll(products: List<MarketProduct>): Boolean =
 internal fun shouldShowMarketClearPurchased(products: List<MarketProduct>): Boolean =
     products.any(MarketProduct::isPurchased)
 
+internal fun shouldShowMarketClearConfirmation(
+    hasPendingAction: Boolean,
+    isAnotherModalVisible: Boolean
+): Boolean = hasPendingAction && !isAnotherModalVisible
+
 internal fun marketClearActionIconRes(): Int = R.drawable.ic_delete
 
 @StringRes
@@ -1491,7 +1514,7 @@ internal fun MarketClearAction.cancelCta(): String = when (this) {
 }
 
 @Composable
-private fun MarketClearConfirmationDialog(
+internal fun MarketClearConfirmationDialog(
     action: MarketClearAction,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit

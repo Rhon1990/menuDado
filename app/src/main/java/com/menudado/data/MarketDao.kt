@@ -30,19 +30,72 @@ interface MarketDao {
     @Query("SELECT * FROM market_product_states WHERE productKey = :productKey LIMIT 1")
     suspend fun getProductState(productKey: String): MarketProductStateEntity?
 
-    @Query("SELECT DISTINCT menuId FROM menu_shopping_products WHERE productKey IN (:productKeys) AND isActive = 1")
+    @Query(
+        """
+        SELECT DISTINCT products.menuId
+        FROM menu_shopping_products AS products
+        INNER JOIN menus ON menus.id = products.menuId
+        WHERE products.productKey IN (:productKeys)
+            AND products.isActive = 1
+            AND menus.deletedAt IS NULL
+            AND menus.remoteSyncState != 'PENDING_DELETE'
+        """
+    )
     suspend fun getActiveMenuIdsForProducts(productKeys: List<String>): List<Long>
 
-    @Query("UPDATE menu_shopping_products SET isActive = 0 WHERE productKey IN (:productKeys)")
+    @Query(
+        """
+        UPDATE menu_shopping_products
+        SET isActive = 0
+        WHERE productKey IN (:productKeys)
+            AND menuId IN (
+                SELECT id
+                FROM menus
+                WHERE deletedAt IS NULL
+                    AND remoteSyncState != 'PENDING_DELETE'
+            )
+        """
+    )
     suspend fun deactivateProducts(productKeys: List<String>): Int
 
-    @Query("SELECT DISTINCT menuId FROM menu_shopping_products WHERE isActive = 1")
+    @Query(
+        """
+        SELECT DISTINCT products.menuId
+        FROM menu_shopping_products AS products
+        INNER JOIN menus ON menus.id = products.menuId
+        WHERE products.isActive = 1
+            AND menus.deletedAt IS NULL
+            AND menus.remoteSyncState != 'PENDING_DELETE'
+        """
+    )
     suspend fun getActiveMarketMenuIds(): List<Long>
 
-    @Query("UPDATE menu_shopping_products SET isActive = 0 WHERE isActive = 1")
+    @Query(
+        """
+        UPDATE menu_shopping_products
+        SET isActive = 0
+        WHERE isActive = 1
+            AND menuId IN (
+                SELECT id
+                FROM menus
+                WHERE deletedAt IS NULL
+                    AND remoteSyncState != 'PENDING_DELETE'
+            )
+        """
+    )
     suspend fun deactivateAllMarketProducts(): Int
 
-    @Query("UPDATE menus SET remoteSyncState = 'PENDING_UPSERT', remoteSyncToken = NULL, updatedAt = :updatedAt WHERE id IN (:menuIds)")
+    @Query(
+        """
+        UPDATE menus
+        SET remoteSyncState = 'PENDING_UPSERT',
+            remoteSyncToken = NULL,
+            updatedAt = :updatedAt
+        WHERE id IN (:menuIds)
+            AND deletedAt IS NULL
+            AND remoteSyncState != 'PENDING_DELETE'
+        """
+    )
     suspend fun markMenusPendingUpsert(menuIds: List<Long>, updatedAt: Long): Int
 
     @Query("DELETE FROM menu_shopping_products WHERE menuId = :menuId")
