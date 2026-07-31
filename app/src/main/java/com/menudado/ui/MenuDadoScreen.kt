@@ -675,6 +675,12 @@ fun MenuDadoScreen(
         filters = menuCatalogFilters,
         dietaryProfiles = state.dietaryProfiles,
         onFiltersChanged = { menuCatalogFilters = it },
+        onInteraction = { interaction ->
+            viewModel.trackCtaTapped(
+                MENU_CATALOG_ANALYTICS_SCREEN,
+                interaction.analyticsAction.cta
+            )
+        },
         onDismiss = { isMenuCatalogFilterRequested = false }
     )
 
@@ -934,12 +940,32 @@ fun MenuDadoScreen(
                             MenuCatalogSearchBar(
                                 query = menuCatalogFilters.query,
                                 onQueryChanged = { query ->
+                                    menuCatalogSearchTransitionCta(
+                                        menuCatalogFilters.query,
+                                        query
+                                    )?.let {
+                                        viewModel.trackCtaTapped(
+                                            MENU_CATALOG_ANALYTICS_SCREEN,
+                                            it
+                                        )
+                                    }
                                     menuCatalogFilters = menuCatalogFilters.copy(query = query)
+                                },
+                                onClearSearch = {
+                                    viewModel.trackCtaTapped(
+                                        MENU_CATALOG_ANALYTICS_SCREEN,
+                                        MenuCatalogAnalyticsAction.CLEAR_SEARCH.cta
+                                    )
+                                    menuCatalogFilters = menuCatalogFilters.copy(query = "")
                                 },
                                 activeFilterCount = menuCatalogActiveFilterCount(
                                     menuCatalogFilters
                                 ),
                                 onOpenFilters = {
+                                    viewModel.trackCtaTapped(
+                                        MENU_CATALOG_ANALYTICS_SCREEN,
+                                        MenuCatalogAnalyticsAction.OPEN_FILTERS.cta
+                                    )
                                     focusManager.clearFocus()
                                     keyboardController?.hide()
                                     isMenuCatalogFilterRequested = true
@@ -1071,6 +1097,10 @@ fun MenuDadoScreen(
                                 menus = filteredCatalogMenus,
                                 enabledAudiences = state.enabledAudiences,
                                 onClearFilters = {
+                                    viewModel.trackCtaTapped(
+                                        MENU_CATALOG_ANALYTICS_SCREEN,
+                                        MenuCatalogAnalyticsAction.CLEAR_SEARCH_AND_FILTERS.cta
+                                    )
                                     menuCatalogFilters = defaultMenuCatalogFilters()
                                 },
                                 onOpenMenu = { menu ->
@@ -1103,6 +1133,10 @@ fun MenuDadoScreen(
                                 audience = audienceDetail,
                                 menus = filteredCatalogMenus,
                                 onClearFilters = {
+                                    viewModel.trackCtaTapped(
+                                        MENU_CATALOG_ANALYTICS_SCREEN,
+                                        MenuCatalogAnalyticsAction.CLEAR_SEARCH_AND_FILTERS.cta
+                                    )
                                     menuCatalogFilters = defaultMenuCatalogFilters()
                                 },
                                 onOpenMenu = { menu ->

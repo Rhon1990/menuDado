@@ -29,6 +29,7 @@ internal fun MenuCatalogFilterSheet(
     filters: MenuCatalogFilters,
     dietaryProfiles: Map<MenuAudience, DietaryProfile>,
     onFiltersChanged: (MenuCatalogFilters) -> Unit,
+    onInteraction: (MenuCatalogFilterInteraction) -> Unit,
     onDismiss: () -> Unit
 ) {
     var page by remember { mutableStateOf(MenuCatalogFilterPage.ROOT) }
@@ -53,11 +54,13 @@ internal fun MenuCatalogFilterSheet(
                 filters = filters,
                 onOpenAudience = { page = MenuCatalogFilterPage.AUDIENCE },
                 onOpenNeed = { page = MenuCatalogFilterPage.NEED },
-                onFiltersChanged = onFiltersChanged
+                onFiltersChanged = onFiltersChanged,
+                onInteraction = onInteraction
             )
             MenuCatalogFilterPage.AUDIENCE -> MenuCatalogAudienceOptions(
                 selected = filters.favoriteAudience,
                 onSelected = { audience ->
+                    onInteraction(MenuCatalogFilterInteraction.AUDIENCE_SELECTED)
                     onFiltersChanged(
                         menuCatalogFiltersAfterFavoriteAudienceSelected(filters, audience)
                     )
@@ -69,6 +72,7 @@ internal fun MenuCatalogFilterSheet(
                 filters = filters,
                 dietaryProfiles = dietaryProfiles,
                 onSelected = { need ->
+                    onInteraction(MenuCatalogFilterInteraction.DIETARY_NEED_SELECTED)
                     onFiltersChanged(filters.copy(dietaryNeed = need))
                     page = MenuCatalogFilterPage.ROOT
                 }
@@ -83,7 +87,8 @@ private fun ColumnScope.MenuCatalogFilterRoot(
     filters: MenuCatalogFilters,
     onOpenAudience: () -> Unit,
     onOpenNeed: () -> Unit,
-    onFiltersChanged: (MenuCatalogFilters) -> Unit
+    onFiltersChanged: (MenuCatalogFilters) -> Unit,
+    onInteraction: (MenuCatalogFilterInteraction) -> Unit
 ) {
     if (scope == MenuCatalogScope.Favorites) {
         MenuDadoActionSheetRow(
@@ -106,6 +111,7 @@ private fun ColumnScope.MenuCatalogFilterRoot(
             iconRes = R.drawable.ic_favorite_border,
             title = stringResource(R.string.menu_catalog_filter_favorites),
             onClick = {
+                onInteraction(MenuCatalogFilterInteraction.FAVORITES_ONLY_TOGGLED)
                 onFiltersChanged(filters.copy(favoritesOnly = !filters.favoritesOnly))
             },
             trailingContent = {
@@ -117,6 +123,7 @@ private fun ColumnScope.MenuCatalogFilterRoot(
         iconRes = R.drawable.ic_check,
         title = stringResource(R.string.menu_catalog_filter_healthy),
         onClick = {
+            onInteraction(MenuCatalogFilterInteraction.HEALTHY_ONLY_TOGGLED)
             onFiltersChanged(filters.copy(healthyOnly = !filters.healthyOnly))
         },
         trailingContent = {
@@ -216,6 +223,7 @@ internal fun MenuCatalogFilterSheetHost(
     filters: MenuCatalogFilters,
     dietaryProfiles: Map<MenuAudience, DietaryProfile>,
     onFiltersChanged: (MenuCatalogFilters) -> Unit,
+    onInteraction: (MenuCatalogFilterInteraction) -> Unit,
     onDismiss: () -> Unit
 ) {
     if (isRequested && !isAnotherModalVisible && scope != null) {
@@ -224,6 +232,7 @@ internal fun MenuCatalogFilterSheetHost(
             filters = filters,
             dietaryProfiles = dietaryProfiles,
             onFiltersChanged = onFiltersChanged,
+            onInteraction = onInteraction,
             onDismiss = onDismiss
         )
     }

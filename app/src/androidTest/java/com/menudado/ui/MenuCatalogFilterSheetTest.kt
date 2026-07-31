@@ -30,6 +30,7 @@ class MenuCatalogFilterSheetTest {
                     filters = MenuCatalogFilters(),
                     dietaryProfiles = profiles(),
                     onFiltersChanged = {},
+                    onInteraction = {},
                     onDismiss = {}
                 )
             }
@@ -45,6 +46,7 @@ class MenuCatalogFilterSheetTest {
     @Test
     fun favoritesScopeCanSelectAudienceWithoutOfferingFavoriteAgain() {
         var changed: MenuCatalogFilters? = null
+        val interactions = mutableListOf<MenuCatalogFilterInteraction>()
         composeRule.setContent {
             MaterialTheme {
                 MenuCatalogFilterSheet(
@@ -52,6 +54,7 @@ class MenuCatalogFilterSheetTest {
                     filters = MenuCatalogFilters(),
                     dietaryProfiles = profiles(),
                     onFiltersChanged = { changed = it },
+                    onInteraction = { interactions += it },
                     onDismiss = {}
                 )
             }
@@ -68,6 +71,10 @@ class MenuCatalogFilterSheetTest {
 
         composeRule.runOnIdle {
             assertEquals(MenuAudience.ADULT, changed?.favoriteAudience)
+            assertEquals(
+                listOf(MenuCatalogFilterInteraction.AUDIENCE_SELECTED),
+                interactions
+            )
         }
     }
 
@@ -80,6 +87,7 @@ class MenuCatalogFilterSheetTest {
                     filters = MenuCatalogFilters(),
                     dietaryProfiles = profiles(),
                     onFiltersChanged = {},
+                    onInteraction = {},
                     onDismiss = {}
                 )
             }
@@ -90,6 +98,39 @@ class MenuCatalogFilterSheetTest {
             .assert(hasNoClickAction())
         composeRule.onNodeWithText(string(R.string.menu_catalog_need_allergies))
             .assert(hasNoClickAction())
+    }
+
+    @Test
+    fun selectingRootFiltersReportsInteractionsInSelectionOrder() {
+        val interactions = mutableListOf<MenuCatalogFilterInteraction>()
+        composeRule.setContent {
+            MaterialTheme {
+                MenuCatalogFilterSheet(
+                    scope = MenuCatalogScope.Audience(MenuAudience.ADULT),
+                    filters = MenuCatalogFilters(),
+                    dietaryProfiles = profiles(),
+                    onFiltersChanged = {},
+                    onInteraction = { interactions += it },
+                    onDismiss = {}
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(string(R.string.menu_catalog_filter_favorites)).performClick()
+        composeRule.onNodeWithText(string(R.string.menu_catalog_filter_healthy)).performClick()
+        composeRule.onNodeWithText(string(R.string.menu_catalog_filter_need)).performClick()
+        composeRule.onNodeWithText(string(R.string.menu_catalog_need_vegan)).performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(
+                listOf(
+                    MenuCatalogFilterInteraction.FAVORITES_ONLY_TOGGLED,
+                    MenuCatalogFilterInteraction.HEALTHY_ONLY_TOGGLED,
+                    MenuCatalogFilterInteraction.DIETARY_NEED_SELECTED
+                ),
+                interactions
+            )
+        }
     }
 
     private fun profiles(): Map<MenuAudience, DietaryProfile> =

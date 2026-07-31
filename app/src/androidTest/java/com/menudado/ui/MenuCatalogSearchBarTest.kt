@@ -26,12 +26,17 @@ class MenuCatalogSearchBarTest {
     @Test
     fun searchCanBeClearedAndActiveFilterButtonCanBeOpened() {
         var query by mutableStateOf("")
+        var clearClicks = 0
         var filterClicks = 0
         composeRule.setContent {
             MaterialTheme {
                 MenuCatalogSearchBar(
                     query = query,
                     onQueryChanged = { query = it },
+                    onClearSearch = {
+                        clearClicks += 1
+                        query = ""
+                    },
                     activeFilterCount = 2,
                     onOpenFilters = { filterClicks += 1 }
                 )
@@ -49,6 +54,7 @@ class MenuCatalogSearchBarTest {
 
         composeRule.runOnIdle {
             assertEquals("", query)
+            assertEquals(1, clearClicks)
             assertEquals(1, filterClicks)
         }
     }
@@ -60,6 +66,7 @@ class MenuCatalogSearchBarTest {
                 MenuCatalogSearchBar(
                     query = "",
                     onQueryChanged = {},
+                    onClearSearch = {},
                     activeFilterCount = 0,
                     onOpenFilters = {}
                 )
@@ -76,6 +83,7 @@ class MenuCatalogSearchBarTest {
                 MenuCatalogSearchBar(
                     query = "",
                     onQueryChanged = {},
+                    onClearSearch = {},
                     activeFilterCount = 2,
                     onOpenFilters = {}
                 )

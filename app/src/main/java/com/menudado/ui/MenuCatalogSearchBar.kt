@@ -71,6 +71,7 @@ internal fun menuCatalogFilterButtonVisualStyle() = MenuCatalogFilterButtonVisua
 internal fun MenuCatalogSearchBar(
     query: String,
     onQueryChanged: (String) -> Unit,
+    onClearSearch: () -> Unit,
     activeFilterCount: Int,
     onOpenFilters: () -> Unit
 ) {
@@ -129,7 +130,7 @@ internal fun MenuCatalogSearchBar(
                     }
                     if (query.isNotEmpty()) {
                         IconButton(
-                            onClick = { onQueryChanged("") },
+                            onClick = onClearSearch,
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
