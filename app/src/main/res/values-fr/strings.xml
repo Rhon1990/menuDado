@@ -222,6 +222,7 @@
     <string name="ai_generation_hive_title">Recherche d’une idée compatible</string>
     <string name="ai_generation_hive_message">Nous cherchons une autre idée adaptée à votre profil.</string>
     <string name="generated_menu_detail_title">Idée générée par l’IA</string>
+    <string name="generated_menu_detail_title_neutral">Idée générée</string>
     <string name="generated_cuisine_badge">Cuisine %1$s</string>
     <string name="cuisine_mediterranean">méditerranéenne</string>
     <string name="cuisine_italian">italienne</string>

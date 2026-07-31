@@ -887,6 +887,7 @@ fun MenuDadoScreen(
             GeneratedMenuDetailDialog(
                 menu = menu,
                 cuisineInspiration = state.generatedCuisineInspiration,
+                origin = state.generatedOrigin,
                 isGenerating = state.isGeneratingMenu,
                 isAiPaused = aiGenerationIsPaused(
                     aiRetryAtMillis = state.aiRetryAtMillis,
@@ -5977,6 +5978,13 @@ internal fun generatedMenuContainerColor(): Color = MenuDadoColors.Surface
 
 internal fun generatedMenuContainerCornerRadiusDp(): Int = menuDetailContainerCornerRadiusDp()
 
+internal fun generatedMenuDetailTitleRes(origin: GeneratedMenuOrigin?): Int =
+    if (origin == GeneratedMenuOrigin.LIVE_AI) {
+        R.string.generated_menu_detail_title
+    } else {
+        R.string.generated_menu_detail_title_neutral
+    }
+
 @Composable
 private fun ShoppingProductsPreview(products: List<String>) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -6000,6 +6008,7 @@ private fun ShoppingProductsPreview(products: List<String>) {
 private fun GeneratedMenuDetailDialog(
     menu: FoodMenu,
     cuisineInspiration: CuisineInspiration?,
+    origin: GeneratedMenuOrigin?,
     isGenerating: Boolean,
     isAiPaused: Boolean,
     limitState: AiGenerationLimitState,
@@ -6067,7 +6076,7 @@ private fun GeneratedMenuDetailDialog(
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Text(
-                        text = stringResource(id = R.string.generated_menu_detail_title),
+                        text = stringResource(id = generatedMenuDetailTitleRes(origin)),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black,
                         color = MenuDadoColors.DeepGreen

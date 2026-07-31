@@ -21,6 +21,8 @@ class AiCreationMicrocopyTest {
                 "form_base_ingredients" to "¿Qué tienes en casa? (Opcional)",
                 "form_base_ingredients_placeholder" to "Ej. tomate, arroz o pollo",
                 "dice_roll_ai_with_count" to "Ayúdame a elegir (%1\$d)",
+                "generated_menu_detail_title" to "Idea generada con IA",
+                "generated_menu_detail_title_neutral" to "Idea generada",
                 "dietary_other_label" to "Alimentos a evitar o indicaciones",
                 "dietary_other_placeholder" to "Ej: sin picante, sin champiñones",
                 "dietary_other_supporting_text" to
@@ -45,6 +47,8 @@ class AiCreationMicrocopyTest {
                 "form_base_ingredients" to "What do you have at home? (Optional)",
                 "form_base_ingredients_placeholder" to "E.g. tomato, rice or chicken",
                 "dice_roll_ai_with_count" to "Help me choose (%1\$d)",
+                "generated_menu_detail_title" to "AI-generated idea",
+                "generated_menu_detail_title_neutral" to "Generated idea",
                 "dietary_other_label" to "Foods to avoid or guidance",
                 "dietary_other_placeholder" to "E.g. no spicy food, no mushrooms",
                 "dietary_other_supporting_text" to
@@ -69,6 +73,8 @@ class AiCreationMicrocopyTest {
                 "form_base_ingredients" to "Qu’avez-vous à la maison ? (Facultatif)",
                 "form_base_ingredients_placeholder" to "Ex. tomate, riz ou poulet",
                 "dice_roll_ai_with_count" to "Aidez-moi à choisir (%1\$d)",
+                "generated_menu_detail_title" to "Idée générée par l’IA",
+                "generated_menu_detail_title_neutral" to "Idée générée",
                 "dietary_other_label" to "Aliments à éviter ou indications",
                 "dietary_other_placeholder" to "Ex. sans épices, sans champignons",
                 "dietary_other_supporting_text" to

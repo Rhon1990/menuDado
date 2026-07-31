@@ -1454,6 +1454,22 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `generated detail title distinguishes Gemini from hive without exposing fallback`() {
+        assertEquals(
+            R.string.generated_menu_detail_title,
+            generatedMenuDetailTitleRes(GeneratedMenuOrigin.LIVE_AI)
+        )
+        assertEquals(
+            R.string.generated_menu_detail_title_neutral,
+            generatedMenuDetailTitleRes(GeneratedMenuOrigin.HIVE_FALLBACK)
+        )
+        assertEquals(
+            R.string.generated_menu_detail_title_neutral,
+            generatedMenuDetailTitleRes(null)
+        )
+    }
+
+    @Test
     fun `saved and generated details share the same corner radius`() {
         assertEquals(28, menuDetailContainerCornerRadiusDp())
         assertEquals(menuDetailContainerCornerRadiusDp(), generatedMenuContainerCornerRadiusDp())
