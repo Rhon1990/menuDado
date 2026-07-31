@@ -1,12 +1,16 @@
 package com.menudado.ui
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.menudado.R
+import com.menudado.domain.MarketProduct
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -61,6 +65,89 @@ class MarketClearConfirmationDialogTest {
             assertEquals(1, confirmed)
             assertEquals(0, dismissed)
         }
+    }
+
+    @Test
+    fun purchasedVariantConfirmsAndBackDismisses() {
+        var confirmed = 0
+        var dismissed = 0
+        composeRule.setContent {
+            MaterialTheme {
+                MarketClearConfirmationDialog(
+                    action = MarketClearAction.PURCHASED,
+                    onConfirm = { confirmed += 1 },
+                    onDismiss = { dismissed += 1 }
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(
+            string(R.string.market_clear_purchased_confirm_action)
+        ).performClick()
+        pressBack()
+
+        composeRule.runOnIdle {
+            assertEquals(1, confirmed)
+            assertEquals(1, dismissed)
+        }
+    }
+
+    @Test
+    fun hostWaitsUntilHigherPriorityModalIsGone() {
+        val isAnotherModalVisible = mutableStateOf(true)
+        composeRule.setContent {
+            MaterialTheme {
+                MarketClearConfirmationHost(
+                    action = MarketClearAction.ALL,
+                    isAnotherModalVisible = isAnotherModalVisible.value,
+                    onConfirm = {},
+                    onDismiss = {}
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(
+            string(R.string.market_clear_all_confirm_title)
+        ).assertDoesNotExist()
+        composeRule.runOnIdle {
+            isAnotherModalVisible.value = false
+        }
+        composeRule.onNodeWithText(
+            string(R.string.market_clear_all_confirm_title)
+        ).assertExists()
+    }
+
+    @Test
+    fun purchasedTrashDoesNotExpandPurchasedProducts() {
+        var clearRequests = 0
+        composeRule.setContent {
+            MaterialTheme {
+                MarketListSection(
+                    products = listOf(
+                        MarketProduct(
+                            key = "arroz",
+                            displayName = "Arroz especial",
+                            sourceMenuIds = setOf(1L),
+                            isPurchased = true
+                        )
+                    ),
+                    onPurchasedChanged = { _, _ -> },
+                    onClearAllRequested = {},
+                    onClearPurchasedRequested = { clearRequests += 1 }
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription(
+            string(R.string.market_clear_purchased)
+        ).performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(1, clearRequests)
+        }
+        composeRule.onNodeWithText("Arroz especial").assertDoesNotExist()
+        composeRule.onNodeWithText(string(R.string.market_purchased)).performClick()
+        composeRule.onNodeWithText("Arroz especial").assertExists()
     }
 }
 
