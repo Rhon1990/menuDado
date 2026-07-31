@@ -137,6 +137,8 @@ data class MenuDadoUiState(
     val audienceAgeRanges: Map<MenuAudience, String> = MenuAudience.entries.associateWith { it.defaultAgeRange },
     val dietaryProfileAudience: MenuAudience = MenuAudience.ADULT,
     val dietaryProfile: DietaryProfile = DietaryProfile(),
+    val dietaryProfiles: Map<MenuAudience, DietaryProfile> =
+        MenuAudience.entries.associateWith { DietaryProfile() },
     val showOnboarding: Boolean = false,
     val showGeneratedMenuDetail: Boolean = false,
     val diceEmptyRecovery: DiceEmptyRecovery? = null
@@ -498,6 +500,7 @@ class MenuDadoViewModel(
             it.copy(
                 dietaryProfileAudience = audience,
                 dietaryProfile = dietaryProfileStore.getProfile(audience),
+                dietaryProfiles = loadDietaryProfiles(),
                 enabledAudiences = loadEnabledAudiences(),
                 audienceAgeRanges = loadAudienceAgeRanges()
             )
@@ -517,6 +520,7 @@ class MenuDadoViewModel(
         _uiState.update {
             it.copy(
                 dietaryProfile = updated,
+                dietaryProfiles = loadDietaryProfiles(),
                 audienceAgeRanges = loadAudienceAgeRanges()
             ).withAudienceVisibilityState(
                 enabledAudiences = enabledAudiences,
@@ -1705,6 +1709,7 @@ class MenuDadoViewModel(
         _uiState.update {
             it.copy(
                 dietaryProfile = dietaryProfileStore.getProfile(it.dietaryProfileAudience),
+                dietaryProfiles = loadDietaryProfiles(),
                 audienceAgeRanges = loadAudienceAgeRanges()
             ).withAudienceVisibilityState(
                 enabledAudiences = enabledAudiences,
@@ -1741,6 +1746,7 @@ class MenuDadoViewModel(
         _uiState.update {
             it.copy(
                 dietaryProfile = updated,
+                dietaryProfiles = loadDietaryProfiles(),
                 audienceAgeRanges = loadAudienceAgeRanges()
             ).withAudienceVisibilityState(
                 enabledAudiences = enabledAudiences,
@@ -1767,6 +1773,9 @@ class MenuDadoViewModel(
             dietaryProfileStore.getProfile(audience).isEnabled
         }
     }
+
+    private fun loadDietaryProfiles(): Map<MenuAudience, DietaryProfile> =
+        MenuAudience.entries.associateWith(dietaryProfileStore::getProfile)
 
     private fun loadAudienceAgeRanges(): Map<MenuAudience, String> {
         return MenuAudience.entries.associateWith { audience ->

@@ -2579,6 +2579,37 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `ui state exposes dietary profiles independently by audience`() = runTest(dispatcher) {
+        dietaryProfileStore.saveProfile(
+            DietaryProfile(isEnabled = true, isVegan = true),
+            MenuAudience.CHILD
+        )
+
+        viewModel.refreshDietaryProfile()
+
+        assertTrue(
+            viewModel.uiState.value.dietaryProfiles
+                .getValue(MenuAudience.CHILD).isVegan
+        )
+        assertFalse(
+            viewModel.uiState.value.dietaryProfiles
+                .getValue(MenuAudience.ADULT).isVegan
+        )
+    }
+
+    @Test
+    fun `editing a dietary profile refreshes the audience profile map`() = runTest(dispatcher) {
+        viewModel.setDietaryProfileAudience(MenuAudience.ADULT)
+
+        viewModel.setDietaryProfilePregnant(true)
+
+        assertTrue(
+            viewModel.uiState.value.dietaryProfiles
+                .getValue(MenuAudience.ADULT).isPregnant
+        )
+    }
+
+    @Test
     fun `only adult audience is enabled by default`() = runTest(dispatcher) {
         assertEquals(
             listOf(MenuAudience.ADULT),
