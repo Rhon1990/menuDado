@@ -66,6 +66,10 @@
     <string name="market_purchased">Purchased</string>
     <string name="market_clear_purchased">Clear purchased</string>
     <string name="market_clear_all">Clear list</string>
+    <string name="market_manage_list">Manage list</string>
+    <string name="market_manage_clear_purchased_description">Keeps the products you still have pending.</string>
+    <string name="market_manage_clear_all_label">Clear the entire list</string>
+    <string name="market_manage_clear_all_description">Removes every product without deleting your menus.</string>
     <string name="market_clear_all_confirm_title">Clear the list?</string>
     <string name="market_clear_all_confirm_body">We’ll remove every product from Market. Your menus will stay saved, and you can include them again whenever you want.</string>
     <string name="market_clear_all_confirm_action">Yes, clear list</string>

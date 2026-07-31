@@ -330,6 +330,54 @@ class MenuCardUiStateTest {
     }
 
     @Test
+    fun `market management exposes only actions that can change the list`() {
+        assertEquals(
+            listOf(MarketClearAction.ALL),
+            marketManagementActions(hasPurchasedProducts = false)
+        )
+        assertEquals(
+            listOf(MarketClearAction.PURCHASED, MarketClearAction.ALL),
+            marketManagementActions(hasPurchasedProducts = true)
+        )
+    }
+
+    @Test
+    fun `market management reuses MenuDado action sheet styling`() {
+        assertEquals(R.drawable.ic_more_vertical, marketManagementIconRes())
+        assertEquals(
+            R.string.market_manage_list,
+            marketManagementContentDescriptionRes()
+        )
+        assertEquals(48, marketManagementTouchTargetDp())
+        assertEquals(
+            MenuDadoColors.HeaderGreen,
+            marketManagementContainerColor()
+        )
+        assertEquals(Color.White, marketManagementContentColor())
+        assertEquals(
+            MenuDadoColors.SoftSand.copy(alpha = 0.58f),
+            marketPurchasedContainerColor()
+        )
+        assertEquals("open_market_management", marketManagementOpenCta())
+        assertEquals(
+            R.drawable.ic_check,
+            MarketClearAction.PURCHASED.managementIconRes()
+        )
+        assertEquals(
+            R.drawable.ic_delete,
+            MarketClearAction.ALL.managementIconRes()
+        )
+        assertEquals(
+            R.string.market_manage_clear_purchased_description,
+            MarketClearAction.PURCHASED.managementDescriptionRes()
+        )
+        assertEquals(
+            R.string.market_manage_clear_all_label,
+            MarketClearAction.ALL.managementLabelRes()
+        )
+    }
+
+    @Test
     fun `desplegable compacto usa la superficie calida de MenuDado`() {
         assertEquals(MenuDadoColors.Surface, compactDropdownMenuContainerColor())
         assertEquals(MenuDadoColors.Ink, compactDropdownMenuContentColor())

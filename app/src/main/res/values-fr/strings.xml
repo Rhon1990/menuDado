@@ -66,6 +66,10 @@
     <string name="market_purchased">Achetés</string>
     <string name="market_clear_purchased">Effacer les achats</string>
     <string name="market_clear_all">Vider la liste</string>
+    <string name="market_manage_list">Gérer la liste</string>
+    <string name="market_manage_clear_purchased_description">Conserve les produits qu’il vous reste à acheter.</string>
+    <string name="market_manage_clear_all_label">Vider toute la liste</string>
+    <string name="market_manage_clear_all_description">Retire tous les produits sans supprimer vos menus.</string>
     <string name="market_clear_all_confirm_title">Vider la liste ?</string>
     <string name="market_clear_all_confirm_body">Nous retirerons tous les produits de la liste de courses. Vos menus resteront enregistrés et vous pourrez les ajouter à nouveau quand vous le souhaitez.</string>
     <string name="market_clear_all_confirm_action">Oui, vider la liste</string>
