@@ -1243,20 +1243,6 @@ class MenuDadoViewModel(
             }
             return null
         }
-        val shouldCallProvider = currentProviderAiUsedCount(currentPacificDateKey()) <
-            AI_PROVIDER_DAILY_HARD_LIMIT
-        if (shouldCallProvider) {
-            val activeRetryAtMillis = activeAiRetryAtMillis()
-            if (activeRetryAtMillis != null) {
-                showActiveAiRetryNotice(activeRetryAtMillis)
-                return null
-            }
-            val activeRequestThrottleAtMillis = activeAiRequestThrottleAtMillis()
-            if (activeRequestThrottleAtMillis != null) {
-                showAiRequestThrottleNotice(activeRequestThrottleAtMillis)
-                return null
-            }
-        }
         return ValidatedGenerationRequest(state, mealType, audience, profile)
     }
 
@@ -1272,8 +1258,10 @@ class MenuDadoViewModel(
         val avoidIdeas = state.buildAvoidIdeas(mealType, audience)
         val cuisineInspiration = cuisineRotation.current(mealType, audience)
         analytics.trackAiMenuGenerationStarted(mealType, avoidIdeas.size)
-        val shouldCallProvider = currentProviderAiUsedCount(currentPacificDateKey()) <
+        val hasProviderDailyCapacity = currentProviderAiUsedCount(currentPacificDateKey()) <
             AI_PROVIDER_DAILY_HARD_LIMIT
+        val isProviderRecoveryActive = hasProviderDailyCapacity && activeAiRetryAtMillis() != null
+        val shouldCallProvider = hasProviderDailyCapacity && !isProviderRecoveryActive
         if (shouldCallProvider) {
             startAiRequestThrottle()
         }
@@ -1310,7 +1298,11 @@ class MenuDadoViewModel(
                 if (!shouldCallProvider) {
                     searchHiveFallback(
                         request = request,
-                        triggerFailureType = AI_FAILURE_QUOTA_DAILY,
+                        triggerFailureType = if (isProviderRecoveryActive) {
+                            AI_FAILURE_QUOTA
+                        } else {
+                            AI_FAILURE_QUOTA_DAILY
+                        },
                         failureNotice = null
                     )
                     return@launch

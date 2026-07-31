@@ -1178,7 +1178,7 @@ class MenuCardUiStateTest {
 
     @Test
     fun `pausa del proveedor no bloquea el dado cuando la generacion usa colmena`() {
-        assertTrue(
+        assertFalse(
             aiGenerationIsPaused(
                 aiRetryAtMillis = 123L,
                 isAiProviderAvailableToday = true

@@ -888,7 +888,10 @@ fun MenuDadoScreen(
                 menu = menu,
                 cuisineInspiration = state.generatedCuisineInspiration,
                 isGenerating = state.isGeneratingMenu,
-                isAiPaused = state.aiRetryAtMillis != null,
+                isAiPaused = aiGenerationIsPaused(
+                    aiRetryAtMillis = state.aiRetryAtMillis,
+                    isAiProviderAvailableToday = state.isAiProviderAvailableToday
+                ),
                 limitState = state.aiGenerationLimitState,
                 aiUsesRemainingToday = state.aiGenerationUsesRemainingToday,
                 addToMarketList = state.addGeneratedMenuToMarketList,
@@ -2124,8 +2127,11 @@ internal fun aiDiceActionEnabled(
 
 internal fun aiGenerationIsPaused(
     aiRetryAtMillis: Long?,
-    isAiProviderAvailableToday: Boolean
-): Boolean = aiRetryAtMillis != null && isAiProviderAvailableToday
+    isAiProviderAvailableToday: Boolean,
+    canUseHiveFallback: Boolean = true
+): Boolean = aiRetryAtMillis != null &&
+    isAiProviderAvailableToday &&
+    !canUseHiveFallback
 
 internal fun generatedMenuCanTryAnother(
     isGenerating: Boolean,

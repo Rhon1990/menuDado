@@ -283,6 +283,26 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `active provider recovery routes an entitled generation directly to hive`() = runTest(dispatcher) {
+        aiQuotaRetryStore.storedRetryAtMillis = Long.MAX_VALUE
+        hive.searchResult = Result.success(sampleHiveCandidate())
+
+        viewModel.generateMenuIdea()
+        advanceUntilIdle()
+
+        assertEquals(0, analyzer.generateCalls)
+        assertEquals(1, hive.searches.size)
+        assertEquals(
+            1,
+            analytics.events.count {
+                it == "ai_menu_hive_fallback_started:BREAKFAST:quota"
+            }
+        )
+        assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
+        assertEquals(9, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+    }
+
+    @Test
     fun `provider cap blocks a new rewarded offer after free uses are exhausted`() =
         runTest(dispatcher) {
             scopedAiUsageStore.seed(
@@ -2428,40 +2448,35 @@ class MenuDadoViewModelTest {
     }
 
     @Test
-    fun `generate menu idea waits locally before another real IA request`() = runTest(dispatcher) {
-        var nowMillis = 100_000L
-        viewModel = MenuDadoViewModel(
-            repository = MenuRepository(dao, analyzer),
-            analytics = analytics,
-            clockMillisProvider = { nowMillis },
-            aiQuotaRetryStore = aiQuotaRetryStore,
-            aiRequestThrottleStore = aiRequestThrottleStore,
-            aiDailyUsageStore = aiDailyUsageStore,
-            scopedAiUsageStore = scopedAiUsageStore,
-            dietaryProfileStore = dietaryProfileStore,
-            onboardingStore = onboardingStore
-        )
-        viewModel.setFormMealType(MealType.BREAKFAST)
-        viewModel.setFormAudience(MenuAudience.ADULT)
-        aiRequestThrottleStore.storedLastRequestAtMillis = 99_500L
+    fun `completed fast generation does not block an immediate second provider request`() =
+        runTest(dispatcher) {
+            viewModel = MenuDadoViewModel(
+                repository = MenuRepository(dao, analyzer),
+                analytics = analytics,
+                clockMillisProvider = { 100_000L },
+                aiQuotaRetryStore = aiQuotaRetryStore,
+                aiRequestThrottleStore = aiRequestThrottleStore,
+                aiDailyUsageStore = aiDailyUsageStore,
+                scopedAiUsageStore = scopedAiUsageStore,
+                dietaryProfileStore = dietaryProfileStore,
+                onboardingStore = onboardingStore
+            )
+            viewModel.setFormMealType(MealType.BREAKFAST)
+            viewModel.setFormAudience(MenuAudience.ADULT)
 
-        viewModel.generateMenuIdea()
-        advanceUntilIdle()
+            viewModel.generateMenuIdea()
+            advanceUntilIdle()
+            viewModel.discardGeneratedMenuIdea()
+            analyzer.generatedMenu = sampleGeneratedMenu(name = "Segunda idea")
 
-        assertEquals(0, analyzer.generateCalls)
-        assertEquals(10, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals(100_500L, viewModel.uiState.value.aiRetryAtMillis)
-        assertNull(viewModel.uiState.value.message)
-        assertFalse(viewModel.uiState.value.isAiRetryNoticeVisible)
+            viewModel.generateMenuIdea()
+            advanceUntilIdle()
 
-        nowMillis = 100_500L
-        viewModel.generateMenuIdea()
-        advanceUntilIdle()
-
-        assertEquals(1, analyzer.generateCalls)
-        assertEquals(9, viewModel.uiState.value.aiUsesRemainingToday)
-        assertEquals(100_500L, aiRequestThrottleStore.storedLastRequestAtMillis)
-    }
+            assertEquals(2, analyzer.generateCalls)
+            assertEquals(8, viewModel.uiState.value.aiGenerationUsesRemainingToday)
+            assertEquals("Segunda idea", viewModel.uiState.value.name)
+            assertFalse(viewModel.uiState.value.isAiRequestThrottlePause)
+        }
 
     @Test
     fun `generate menu idea can be requested again after a completed response exceeds local anti double tap pause`() = runTest(dispatcher) {
@@ -3075,40 +3090,44 @@ class MenuDadoViewModelTest {
     }
 
     @Test
-    fun `generate menu idea does not call IA again while quota retry is active`() = runTest(dispatcher) {
-        var nowMillis = 100_000L
-        viewModel = MenuDadoViewModel(
-            repository = MenuRepository(dao, analyzer),
-            clockMillisProvider = { nowMillis },
-            aiQuotaRetryStore = aiQuotaRetryStore
-        )
-        viewModel.setFormMealType(MealType.BREAKFAST)
-        viewModel.setFormAudience(MenuAudience.ADULT)
-        analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 57s.")
+    fun `active quota retry routes next generation to hive without another provider call`() =
+        runTest(dispatcher) {
+            var nowMillis = 100_000L
+            viewModel = MenuDadoViewModel(
+                repository = MenuRepository(dao, analyzer),
+                clockMillisProvider = { nowMillis },
+                aiQuotaRetryStore = aiQuotaRetryStore,
+                aiMenuHive = hive
+            )
+            viewModel.setFormMealType(MealType.BREAKFAST)
+            viewModel.setFormAudience(MenuAudience.ADULT)
+            analyzer.generateFailure = IllegalStateException("Quota exceeded. Please retry in 57s.")
 
-        viewModel.generateMenuIdea()
-        advanceUntilIdle()
-        viewModel.clearMessage()
-        nowMillis = 120_000L
-        viewModel.generateMenuIdea()
-        advanceUntilIdle()
+            viewModel.generateMenuIdea()
+            advanceUntilIdle()
+            viewModel.clearMessage()
+            nowMillis = 120_000L
+            hive.searchResult = Result.success(sampleHiveCandidate())
+            viewModel.generateMenuIdea()
+            advanceUntilIdle()
 
-        assertEquals(1, analyzer.generateCalls)
-        assertEquals(
-            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
-            viewModel.uiState.value.message
-        )
-        assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
-    }
+            assertEquals(1, analyzer.generateCalls)
+            assertEquals(2, hive.searches.size)
+            assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
+            assertNull(viewModel.uiState.value.message)
+            assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
+        }
 
     @Test
-    fun `generate menu idea does not call IA while persisted quota retry is active`() = runTest(dispatcher) {
+    fun `persisted quota retry routes generation to hive`() = runTest(dispatcher) {
         var nowMillis = 120_000L
         aiQuotaRetryStore.storedRetryAtMillis = 159_000L
+        hive.searchResult = Result.success(sampleHiveCandidate())
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             clockMillisProvider = { nowMillis },
-            aiQuotaRetryStore = aiQuotaRetryStore
+            aiQuotaRetryStore = aiQuotaRetryStore,
+            aiMenuHive = hive
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -3117,23 +3136,24 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
-        assertEquals(
-            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
-            viewModel.uiState.value.message
-        )
+        assertEquals(1, hive.searches.size)
+        assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
+        assertNull(viewModel.uiState.value.message)
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
     }
 
     @Test
-    fun `persisted quota retry takes precedence over local request pause`() = runTest(dispatcher) {
+    fun `persisted quota retry takes precedence over local throttle and uses hive`() = runTest(dispatcher) {
         var nowMillis = 120_000L
         aiQuotaRetryStore.storedRetryAtMillis = 159_000L
         aiRequestThrottleStore.storedLastRequestAtMillis = 110_000L
+        hive.searchResult = Result.success(sampleHiveCandidate())
         viewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             clockMillisProvider = { nowMillis },
             aiQuotaRetryStore = aiQuotaRetryStore,
-            aiRequestThrottleStore = aiRequestThrottleStore
+            aiRequestThrottleStore = aiRequestThrottleStore,
+            aiMenuHive = hive
         )
         viewModel.setFormMealType(MealType.BREAKFAST)
         viewModel.setFormAudience(MenuAudience.ADULT)
@@ -3145,11 +3165,10 @@ class MenuDadoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(0, analyzer.generateCalls)
+        assertEquals(1, hive.searches.size)
         assertEquals(159_000L, viewModel.uiState.value.aiRetryAtMillis)
-        assertEquals(
-            "La IA está con mucha demanda. Inténtalo nuevamente más tarde.",
-            viewModel.uiState.value.message
-        )
+        assertEquals(GeneratedMenuOrigin.HIVE_FALLBACK, viewModel.uiState.value.generatedOrigin)
+        assertNull(viewModel.uiState.value.message)
     }
 
     @Test
