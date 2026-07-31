@@ -7,6 +7,7 @@ import com.menudado.domain.FoodMenu
 import com.menudado.domain.CuisineInspiration
 import com.menudado.domain.HealthAnalysis
 import com.menudado.domain.HealthStatus
+import com.menudado.domain.MarketProduct
 import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
 import com.menudado.ui.theme.MenuDadoColors
@@ -242,6 +243,68 @@ class MenuCardUiStateTest {
     @Test
     fun `barra inferior de navegacion usa fondo calido`() {
         assertEquals(MenuDadoColors.Background, menuDadoNavigationBarScrimColor())
+    }
+
+    @Test
+    fun `market clear actions are visible only when they can remove products`() {
+        val pending = MarketProduct(
+            key = "tomate",
+            displayName = "Tomate",
+            sourceMenuIds = setOf(1L),
+            isPurchased = false
+        )
+        val purchased = MarketProduct(
+            key = "arroz",
+            displayName = "Arroz",
+            sourceMenuIds = setOf(2L),
+            isPurchased = true
+        )
+
+        assertFalse(shouldShowMarketClearAll(emptyList()))
+        assertTrue(shouldShowMarketClearAll(listOf(pending)))
+        assertFalse(shouldShowMarketClearPurchased(listOf(pending)))
+        assertTrue(shouldShowMarketClearPurchased(listOf(purchased)))
+    }
+
+    @Test
+    fun `market clear dialogs use safe copy and accessible delete actions`() {
+        assertEquals(R.drawable.ic_delete, marketClearActionIconRes())
+        assertEquals(R.string.market_clear_all, marketClearAllLabelRes())
+        assertEquals(
+            R.string.market_clear_purchased,
+            marketClearPurchasedContentDescriptionRes()
+        )
+        assertEquals(
+            R.string.market_clear_all_confirm_title,
+            MarketClearAction.ALL.titleRes()
+        )
+        assertEquals(
+            R.string.market_clear_purchased_confirm_title,
+            MarketClearAction.PURCHASED.titleRes()
+        )
+        assertEquals(
+            R.string.market_clear_all_confirm_body,
+            MarketClearAction.ALL.bodyRes()
+        )
+        assertEquals(
+            R.string.market_clear_purchased_confirm_action,
+            MarketClearAction.PURCHASED.confirmRes()
+        )
+        assertEquals(MenuDadoColors.Tomato, marketClearDestructiveColor())
+        assertEquals(MenuDadoColors.BrandGreen, marketClearSafeActionColor())
+        assertEquals(48, marketClearIconTouchTargetDp())
+        assertEquals(
+            "open_market_clear_all_confirmation",
+            MarketClearAction.ALL.openCta()
+        )
+        assertEquals(
+            "market_purchased_cleared",
+            MarketClearAction.PURCHASED.confirmCta()
+        )
+        assertEquals(
+            "cancel_market_clear_purchased",
+            MarketClearAction.PURCHASED.cancelCta()
+        )
     }
 
     @Test

@@ -65,6 +65,14 @@
     <string name="market_empty_body">Générez un menu avec l’IA ou analysez-en un que vous avez écrit pour créer ses produits.</string>
     <string name="market_purchased">Achetés</string>
     <string name="market_clear_purchased">Effacer les achats</string>
+    <string name="market_clear_all">Vider la liste</string>
+    <string name="market_clear_all_confirm_title">Vider la liste ?</string>
+    <string name="market_clear_all_confirm_body">Nous retirerons tous les produits de la liste de courses. Vos menus resteront enregistrés et vous pourrez les ajouter à nouveau quand vous le souhaitez.</string>
+    <string name="market_clear_all_confirm_action">Oui, vider la liste</string>
+    <string name="market_clear_purchased_confirm_title">Effacer les produits achetés ?</string>
+    <string name="market_clear_purchased_confirm_body">Les produits restants seront conservés dans votre liste.</string>
+    <string name="market_clear_purchased_confirm_action">Oui, effacer</string>
+    <string name="market_keep_shopping">Continuer mes courses</string>
     <string name="market_products_title">Produits pour ce menu</string>
     <string name="market_include_menu">Inclure ce menu dans les courses</string>
     <string name="market_add_on_save">Ajouter à la liste de courses lors de l’enregistrement</string>

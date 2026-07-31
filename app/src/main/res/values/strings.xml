@@ -65,6 +65,14 @@
     <string name="market_empty_body">Genera un menú con IA o analiza uno escrito por ti para crear sus productos.</string>
     <string name="market_purchased">Comprados</string>
     <string name="market_clear_purchased">Limpiar comprados</string>
+    <string name="market_clear_all">Vaciar lista</string>
+    <string name="market_clear_all_confirm_title">¿Vaciar la lista?</string>
+    <string name="market_clear_all_confirm_body">Quitaremos todos los productos de Mercado. Tus menús seguirán guardados y podrás volver a incluirlos cuando quieras.</string>
+    <string name="market_clear_all_confirm_action">Sí, vaciar lista</string>
+    <string name="market_clear_purchased_confirm_title">¿Limpiar los comprados?</string>
+    <string name="market_clear_purchased_confirm_body">Los productos pendientes seguirán en tu lista.</string>
+    <string name="market_clear_purchased_confirm_action">Sí, limpiar</string>
+    <string name="market_keep_shopping">Seguir comprando</string>
     <string name="market_products_title">Productos para este menú</string>
     <string name="market_include_menu">Incluir este menú en Mercado</string>
     <string name="market_add_on_save">Añadir a la lista de mercado al guardar</string>

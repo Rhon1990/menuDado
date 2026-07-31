@@ -65,6 +65,14 @@
     <string name="market_empty_body">Generate a menu with AI or analyze one you wrote to create its products.</string>
     <string name="market_purchased">Purchased</string>
     <string name="market_clear_purchased">Clear purchased</string>
+    <string name="market_clear_all">Clear list</string>
+    <string name="market_clear_all_confirm_title">Clear the list?</string>
+    <string name="market_clear_all_confirm_body">We’ll remove every product from Market. Your menus will stay saved, and you can include them again whenever you want.</string>
+    <string name="market_clear_all_confirm_action">Yes, clear list</string>
+    <string name="market_clear_purchased_confirm_title">Clear purchased products?</string>
+    <string name="market_clear_purchased_confirm_body">Pending products will stay on your list.</string>
+    <string name="market_clear_purchased_confirm_action">Yes, clear</string>
+    <string name="market_keep_shopping">Keep shopping</string>
     <string name="market_products_title">Products for this menu</string>
     <string name="market_include_menu">Include this menu in Market</string>
     <string name="market_add_on_save">Add to the shopping list when saving</string>

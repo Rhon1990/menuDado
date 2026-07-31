@@ -231,6 +231,9 @@ fun MenuDadoScreen(
     var selectedDetailMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var openedFromRandomSelection by rememberSaveable { mutableStateOf(false) }
     var pendingDeleteMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingMarketClearAction by rememberSaveable {
+        mutableStateOf<MarketClearAction?>(null)
+    }
     var actionSheetMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var photoPickerMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var isPhotoSourceDialogVisible by rememberSaveable { mutableStateOf(false) }
@@ -558,6 +561,31 @@ fun MenuDadoScreen(
         )
     }
 
+    pendingMarketClearAction?.let { action ->
+        MarketClearConfirmationDialog(
+            action = action,
+            onConfirm = {
+                viewModel.trackCtaTapped(
+                    ANALYTICS_SCREEN_MARKET,
+                    action.confirmCta()
+                )
+                pendingMarketClearAction = null
+                when (action) {
+                    MarketClearAction.ALL -> viewModel.clearAllMarketProducts()
+                    MarketClearAction.PURCHASED ->
+                        viewModel.clearPurchasedMarketProducts()
+                }
+            },
+            onDismiss = {
+                viewModel.trackCtaTapped(
+                    ANALYTICS_SCREEN_MARKET,
+                    action.cancelCta()
+                )
+                pendingMarketClearAction = null
+            }
+        )
+    }
+
     if (state.showOnboarding) {
         OnboardingDialog(
             onSkip = {
@@ -845,12 +873,21 @@ fun MenuDadoScreen(
                                 )
                                 viewModel.setMarketProductPurchased(productKey, isPurchased)
                             },
-                            onClearPurchased = {
+                            onClearAllRequested = {
+                                val action = MarketClearAction.ALL
                                 viewModel.trackCtaTapped(
                                     ANALYTICS_SCREEN_MARKET,
-                                    ANALYTICS_CTA_MARKET_PURCHASED_CLEARED
+                                    action.openCta()
                                 )
-                                viewModel.clearPurchasedMarketProducts()
+                                pendingMarketClearAction = action
+                            },
+                            onClearPurchasedRequested = {
+                                val action = MarketClearAction.PURCHASED
+                                viewModel.trackCtaTapped(
+                                    ANALYTICS_SCREEN_MARKET,
+                                    action.openCta()
+                                )
+                                pendingMarketClearAction = action
                             }
                         )
                     }
@@ -1394,11 +1431,118 @@ private fun MenuDadoBottomNavigation(
     }
 }
 
+internal enum class MarketClearAction {
+    ALL,
+    PURCHASED
+}
+
+internal fun shouldShowMarketClearAll(products: List<MarketProduct>): Boolean =
+    products.isNotEmpty()
+
+internal fun shouldShowMarketClearPurchased(products: List<MarketProduct>): Boolean =
+    products.any(MarketProduct::isPurchased)
+
+internal fun marketClearActionIconRes(): Int = R.drawable.ic_delete
+
+@StringRes
+internal fun marketClearAllLabelRes(): Int = R.string.market_clear_all
+
+@StringRes
+internal fun marketClearPurchasedContentDescriptionRes(): Int =
+    R.string.market_clear_purchased
+
+internal fun marketClearDestructiveColor(): Color = MenuDadoColors.Tomato
+
+internal fun marketClearSafeActionColor(): Color = MenuDadoColors.BrandGreen
+
+internal fun marketClearIconTouchTargetDp(): Int = 48
+
+@StringRes
+internal fun MarketClearAction.titleRes(): Int = when (this) {
+    MarketClearAction.ALL -> R.string.market_clear_all_confirm_title
+    MarketClearAction.PURCHASED -> R.string.market_clear_purchased_confirm_title
+}
+
+@StringRes
+internal fun MarketClearAction.bodyRes(): Int = when (this) {
+    MarketClearAction.ALL -> R.string.market_clear_all_confirm_body
+    MarketClearAction.PURCHASED -> R.string.market_clear_purchased_confirm_body
+}
+
+@StringRes
+internal fun MarketClearAction.confirmRes(): Int = when (this) {
+    MarketClearAction.ALL -> R.string.market_clear_all_confirm_action
+    MarketClearAction.PURCHASED -> R.string.market_clear_purchased_confirm_action
+}
+
+internal fun MarketClearAction.openCta(): String = when (this) {
+    MarketClearAction.ALL -> "open_market_clear_all_confirmation"
+    MarketClearAction.PURCHASED -> "open_market_clear_purchased_confirmation"
+}
+
+internal fun MarketClearAction.confirmCta(): String = when (this) {
+    MarketClearAction.ALL -> "confirm_market_clear_all"
+    MarketClearAction.PURCHASED -> ANALYTICS_CTA_MARKET_PURCHASED_CLEARED
+}
+
+internal fun MarketClearAction.cancelCta(): String = when (this) {
+    MarketClearAction.ALL -> "cancel_market_clear_all"
+    MarketClearAction.PURCHASED -> "cancel_market_clear_purchased"
+}
+
+@Composable
+private fun MarketClearConfirmationDialog(
+    action: MarketClearAction,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = marketClearSafeActionColor()
+                )
+            ) {
+                Text(
+                    text = stringResource(id = R.string.market_keep_shopping),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onConfirm) {
+                Text(
+                    text = stringResource(id = action.confirmRes()),
+                    color = marketClearDestructiveColor(),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        title = {
+            Text(
+                text = stringResource(id = action.titleRes()),
+                color = MenuDadoColors.Ink,
+                fontWeight = FontWeight.Black
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(id = action.bodyRes()),
+                color = MenuDadoColors.Ink
+            )
+        },
+        containerColor = MenuDadoColors.Surface
+    )
+}
+
 @Composable
 private fun MarketListSection(
     products: List<MarketProduct>,
     onPurchasedChanged: (String, Boolean) -> Unit,
-    onClearPurchased: () -> Unit
+    onClearAllRequested: () -> Unit,
+    onClearPurchasedRequested: () -> Unit
 ) {
     val pendingProducts = products.filterNot(MarketProduct::isPurchased)
     val purchasedProducts = products.filter(MarketProduct::isPurchased)
@@ -1408,12 +1552,35 @@ private fun MarketListSection(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text(
-            text = stringResource(id = R.string.market_title),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Black,
-            color = MenuDadoColors.DeepGreen
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(id = R.string.market_title),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Black,
+                color = MenuDadoColors.DeepGreen
+            )
+            if (shouldShowMarketClearAll(products)) {
+                TextButton(onClick = onClearAllRequested) {
+                    Icon(
+                        painter = painterResource(id = marketClearActionIconRes()),
+                        contentDescription = null,
+                        tint = marketClearDestructiveColor()
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(id = marketClearAllLabelRes()),
+                        color = marketClearDestructiveColor(),
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
         Text(
             text = stringResource(id = R.string.market_subtitle),
             style = MaterialTheme.typography.bodyMedium,
@@ -1461,12 +1628,34 @@ private fun MarketListSection(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = stringResource(id = R.string.market_purchased),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MenuDadoColors.DeepGreen
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.market_purchased),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MenuDadoColors.DeepGreen
+                        )
+                        if (shouldShowMarketClearPurchased(products)) {
+                            IconButton(
+                                onClick = onClearPurchasedRequested,
+                                modifier = Modifier.size(
+                                    marketClearIconTouchTargetDp().dp
+                                )
+                            ) {
+                                Icon(
+                                    painter = painterResource(
+                                        id = marketClearActionIconRes()
+                                    ),
+                                    contentDescription = stringResource(
+                                        id = marketClearPurchasedContentDescriptionRes()
+                                    ),
+                                    tint = marketClearDestructiveColor()
+                                )
+                            }
+                        }
+                    }
                     Icon(
                         painter = painterResource(
                             id = if (showPurchased) R.drawable.ic_expand_less else R.drawable.ic_expand_more
@@ -1480,16 +1669,6 @@ private fun MarketListSection(
                         MarketProductRow(
                             product = product,
                             onPurchasedChanged = onPurchasedChanged
-                        )
-                    }
-                    TextButton(
-                        onClick = onClearPurchased,
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.market_clear_purchased),
-                            color = MenuDadoColors.Tomato,
-                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
