@@ -290,6 +290,38 @@ class DietaryProfileCompatibilityTest {
         )
     }
 
+    @Test
+    fun `saved menu compatibility checks recipe notes and products`() {
+        val profile = DietaryProfile(
+            isVegan = true,
+            hasAllergies = true,
+            allergens = setOf(DietaryAllergen.SESAME)
+        )
+        val menu = FoodMenu(
+            name = "Bowl vegetal",
+            mealType = MealType.LUNCH,
+            description = "Arroz y verduras",
+            notes = "Terminar con queso",
+            shoppingProducts = listOf(
+                requireNotNull(ShoppingProduct.fromAi("Sésamo"))
+            )
+        )
+
+        assertFalse(profile.accepts(menu))
+    }
+
+    @Test
+    fun `saved menu compatibility uses its audience by default`() {
+        val menu = FoodMenu(
+            name = "Yogur con miel",
+            mealType = MealType.BREAKFAST,
+            audience = MenuAudience.BABY,
+            description = "Miel y yogur"
+        )
+
+        assertFalse(DietaryProfile().accepts(menu))
+    }
+
     private fun generated(description: String) = GeneratedMenu(
         name = "Idea",
         description = description,

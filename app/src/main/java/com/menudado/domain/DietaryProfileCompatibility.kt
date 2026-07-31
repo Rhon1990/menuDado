@@ -94,6 +94,25 @@ fun DietaryProfile.accepts(
     audience: MenuAudience = MenuAudience.ADULT
 ): Boolean = compatibilityWith(menu, audience).isCompatible
 
+fun DietaryProfile.compatibilityWith(
+    menu: FoodMenu,
+    audience: MenuAudience = menu.audience
+): DietaryProfileCompatibility = compatibilityWith(
+    menu = GeneratedMenu(
+        name = menu.name,
+        description = menu.description,
+        notes = menu.notes,
+        calories = menu.healthAnalysis?.calories ?: menu.calories ?: 0,
+        shoppingProducts = menu.shoppingProducts
+    ),
+    audience = audience
+)
+
+fun DietaryProfile.accepts(
+    menu: FoodMenu,
+    audience: MenuAudience = menu.audience
+): Boolean = compatibilityWith(menu, audience).isCompatible
+
 private fun GeneratedMenu.searchableText(): String = buildList {
     add(name)
     add(description)
