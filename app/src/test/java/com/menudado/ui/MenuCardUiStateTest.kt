@@ -1426,7 +1426,7 @@ class MenuCardUiStateTest {
     }
 
     @Test
-    fun `onboarding v6 remains one activation page with branded hierarchy`() {
+    fun `onboarding v7 remains one activation page with branded hierarchy`() {
         val steps = onboardingSteps()
 
         assertEquals(1, steps.size)

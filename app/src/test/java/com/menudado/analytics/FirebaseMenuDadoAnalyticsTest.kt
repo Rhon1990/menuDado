@@ -7,6 +7,6 @@ class FirebaseMenuDadoAnalyticsTest {
 
     @Test
     fun `onboarding version uses an alphanumeric app dimension value`() {
-        assertEquals("v6", onboardingVersionDimensionValue(6))
+        assertEquals("v7", onboardingVersionDimensionValue(7))
     }
 }

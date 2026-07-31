@@ -255,7 +255,7 @@
     <string name="ai_retry_ready_body">Fermez cet avis et touchez de nouveau Aidez-moi à choisir. Nous conserverons vos préférences pour chercher une idée qui vous corresponde.</string>
     <string name="ai_retry_wait_body">Lorsque la pause sera terminée, cet avis vous l’indiquera. Vos préférences resteront disponibles afin que vous puissiez réessayer sereinement.</string>
     <string name="onboarding_activation_title">Décidez quoi préparer aujourd’hui</string>
-    <string name="onboarding_activation_body">Obtenez une idée saine avec l’IA, choisissez parmi vos menus enregistrés et préparez votre liste de courses.</string>
+    <string name="onboarding_activation_body">Obtenez une idée saine avec l’IA, retrouvez vos menus enregistrés grâce à la recherche et aux filtres, puis préparez votre liste de courses.</string>
     <string name="onboarding_create_first_menu">Aidez-moi à choisir</string>
     <string name="onboarding_explore">Explorer l’application</string>
     <string name="onboarding_no_registration">Sans inscription</string>

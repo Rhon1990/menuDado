@@ -255,7 +255,7 @@
     <string name="ai_retry_ready_body">Close this notice and tap Help me choose again. We’ll keep your preferences to look for an idea that fits you.</string>
     <string name="ai_retry_wait_body">When the pause is over, this notice will let you know. Your preferences will still be here so you can try again with peace of mind.</string>
     <string name="onboarding_activation_title">Decide what to make today</string>
-    <string name="onboarding_activation_body">Get a healthy AI-assisted idea, choose from your saved menus, and prepare your shopping list.</string>
+    <string name="onboarding_activation_body">Get a healthy AI-assisted idea, find your saved menus with search and filters, and prepare your shopping list.</string>
     <string name="onboarding_create_first_menu">Help me choose</string>
     <string name="onboarding_explore">Explore the app</string>
     <string name="onboarding_no_registration">No sign-up</string>

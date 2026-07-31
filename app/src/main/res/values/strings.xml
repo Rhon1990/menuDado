@@ -257,7 +257,7 @@
     <string name="ai_retry_ready_body">Cierra este aviso y vuelve a tocar Ayúdame a elegir. Mantendremos tus preferencias para buscar una idea que encaje contigo.</string>
     <string name="ai_retry_wait_body">Cuando termine la pausa, este aviso te lo dirá. Tus preferencias seguirán aquí para que puedas volver a intentarlo con tranquilidad.</string>
     <string name="onboarding_activation_title">Decide qué preparar hoy</string>
-    <string name="onboarding_activation_body">Recibe una idea saludable con IA, elige entre tus menús guardados y prepara tu lista de mercado.</string>
+    <string name="onboarding_activation_body">Recibe una idea saludable con IA, encuentra tus menús guardados con búsqueda y filtros y prepara tu lista de mercado.</string>
     <string name="onboarding_create_first_menu">Ayúdame a elegir</string>
     <string name="onboarding_explore">Explorar la app</string>
     <string name="onboarding_no_registration">Sin registro</string>

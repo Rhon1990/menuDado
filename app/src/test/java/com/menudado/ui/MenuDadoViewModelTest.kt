@@ -1572,11 +1572,11 @@ class MenuDadoViewModelTest {
         )
 
         assertEquals(true, firstRunViewModel.uiState.value.showOnboarding)
-        assertEquals(listOf("onboarding_shown:6:new_install"), analytics.events)
+        assertEquals(listOf("onboarding_shown:7:new_install"), analytics.events)
     }
 
     @Test
-    fun `completed onboarding version six is not shown or tracked`() = runTest(dispatcher) {
+    fun `completed onboarding version seven is not shown or tracked`() = runTest(dispatcher) {
         analytics.events.clear()
 
         val completedViewModel = MenuDadoViewModel(
@@ -1586,7 +1586,7 @@ class MenuDadoViewModelTest {
             aiDailyUsageStore = aiDailyUsageStore,
             scopedAiUsageStore = scopedAiUsageStore,
             dietaryProfileStore = dietaryProfileStore,
-            onboardingStore = FakeOnboardingStore(completed = true, completedVersion = 6)
+            onboardingStore = FakeOnboardingStore(completed = true, completedVersion = 7)
         )
 
         assertEquals(false, completedViewModel.uiState.value.showOnboarding)
@@ -1596,7 +1596,7 @@ class MenuDadoViewModelTest {
     @Test
     fun `shows onboarding again when stored completion is from older content version`() = runTest(dispatcher) {
         analytics.events.clear()
-        val previousContentStore = FakeOnboardingStore(completed = true, completedVersion = 5)
+        val previousContentStore = FakeOnboardingStore(completed = true, completedVersion = 6)
         val updatedViewModel = MenuDadoViewModel(
             repository = MenuRepository(dao, analyzer),
             analytics = analytics,
@@ -1608,16 +1608,16 @@ class MenuDadoViewModelTest {
         )
 
         assertEquals(true, updatedViewModel.uiState.value.showOnboarding)
-        assertEquals(listOf("onboarding_shown:6:upgrade"), analytics.events)
+        assertEquals(listOf("onboarding_shown:7:upgrade"), analytics.events)
 
         updatedViewModel.completeOnboarding()
 
         assertEquals(false, updatedViewModel.uiState.value.showOnboarding)
-        assertEquals(6, previousContentStore.completedVersion)
+        assertEquals(7, previousContentStore.completedVersion)
         assertEquals(
             listOf(
-                "onboarding_shown:6:upgrade",
-                "onboarding_completed:start:6:upgrade"
+                "onboarding_shown:7:upgrade",
+                "onboarding_completed:start:7:upgrade"
             ),
             analytics.events
         )
@@ -1642,7 +1642,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(false, viewModel.uiState.value.showOnboarding)
         assertEquals(true, onboardingStore.completed)
-        assertEquals(listOf("onboarding_completed:start:6:new_install"), analytics.events)
+        assertEquals(listOf("onboarding_completed:start:7:new_install"), analytics.events)
     }
 
     @Test
@@ -1664,7 +1664,7 @@ class MenuDadoViewModelTest {
 
         assertEquals(false, viewModel.uiState.value.showOnboarding)
         assertEquals(true, onboardingStore.completed)
-        assertEquals(listOf("onboarding_completed:skip:6:new_install"), analytics.events)
+        assertEquals(listOf("onboarding_completed:skip:7:new_install"), analytics.events)
     }
 
     @Test
