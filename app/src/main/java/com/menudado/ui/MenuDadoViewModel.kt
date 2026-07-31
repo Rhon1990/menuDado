@@ -630,7 +630,23 @@ class MenuDadoViewModel(
 
     fun clearPurchasedMarketProducts() {
         viewModelScope.launch {
-            repository.clearPurchasedMarketProducts()
+            runCatching { repository.clearPurchasedMarketProducts() }
+                .onFailure {
+                    _uiState.update { state ->
+                        state.copy(message = currentLanguage().marketUpdateFailureMessage())
+                    }
+                }
+        }
+    }
+
+    fun clearAllMarketProducts() {
+        viewModelScope.launch {
+            runCatching { repository.clearAllMarketProducts() }
+                .onFailure {
+                    _uiState.update { state ->
+                        state.copy(message = currentLanguage().marketUpdateFailureMessage())
+                    }
+                }
         }
     }
 
@@ -2566,6 +2582,16 @@ private fun AppLanguage.noPendingMenusMessage(): String {
         AppLanguage.ENGLISH -> "You do not have pending menus to analyze."
         AppLanguage.FRENCH -> "Vous n'avez aucun menu en attente d'analyse."
         AppLanguage.SPANISH -> "No tienes menús pendientes por analizar."
+    }
+}
+
+internal fun AppLanguage.marketUpdateFailureMessage(): String {
+    return when (this) {
+        AppLanguage.ENGLISH -> "We couldn't update your Market list. Try again."
+        AppLanguage.FRENCH ->
+            "Nous n’avons pas pu mettre à jour votre liste de courses. Réessayez."
+        AppLanguage.SPANISH ->
+            "No pudimos actualizar tu lista de Mercado. Inténtalo de nuevo."
     }
 }
 

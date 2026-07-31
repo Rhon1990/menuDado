@@ -32,6 +32,7 @@ import com.menudado.data.RemoteSyncState
 import com.menudado.data.RewardedAiCreditLedger
 import com.menudado.data.RewardedAiCreditStore
 import com.menudado.data.PROVIDER_AI_USAGE_SCOPE
+import com.menudado.data.RecordingMarketDao
 import com.menudado.data.ScopedAiUsageStore
 import com.menudado.data.accountAiUsageScope
 import com.menudado.data.toEntity
@@ -1888,6 +1889,68 @@ class MenuDadoViewModelTest {
 
         assertFalse(viewModel.uiState.value.addGeneratedMenuToMarketList)
     }
+
+    @Test
+    fun `market update failure message is localized`() {
+        assertEquals(
+            "No pudimos actualizar tu lista de Mercado. Inténtalo de nuevo.",
+            AppLanguage.SPANISH.marketUpdateFailureMessage()
+        )
+        assertEquals(
+            "We couldn't update your Market list. Try again.",
+            AppLanguage.ENGLISH.marketUpdateFailureMessage()
+        )
+        assertEquals(
+            "Nous n’avons pas pu mettre à jour votre liste de courses. Réessayez.",
+            AppLanguage.FRENCH.marketUpdateFailureMessage()
+        )
+    }
+
+    @Test
+    fun `clear all market products delegates once to repository data operation`() =
+        runTest(dispatcher) {
+            val marketDao = RecordingMarketDao(
+                activeMenuIds = listOf(1L),
+                activeProductCount = 2
+            )
+            val freshViewModel = MenuDadoViewModel(
+                repository = MenuRepository(
+                    menuDao = dao,
+                    healthAnalyzer = analyzer,
+                    marketDao = marketDao
+                )
+            )
+
+            freshViewModel.clearAllMarketProducts()
+            advanceUntilIdle()
+
+            assertEquals(1, marketDao.deactivateAllCalls)
+        }
+
+    @Test
+    fun `clear all market failure exposes localized retry`() =
+        runTest(dispatcher) {
+            val marketDao = RecordingMarketDao(
+                activeMenuIds = listOf(1L),
+                activeProductCount = 1,
+                throwOnDeactivateAll = true
+            )
+            val freshViewModel = MenuDadoViewModel(
+                repository = MenuRepository(
+                    menuDao = dao,
+                    healthAnalyzer = analyzer,
+                    marketDao = marketDao
+                )
+            )
+
+            freshViewModel.clearAllMarketProducts()
+            advanceUntilIdle()
+
+            assertEquals(
+                "No pudimos actualizar tu lista de Mercado. Inténtalo de nuevo.",
+                freshViewModel.uiState.value.message
+            )
+        }
 
     @Test
     fun `save generated menu stores included IA analysis without analyzing again`() = runTest(dispatcher) {
