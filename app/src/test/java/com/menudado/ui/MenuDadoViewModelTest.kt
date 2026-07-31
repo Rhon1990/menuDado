@@ -1270,6 +1270,22 @@ class MenuDadoViewModelTest {
     }
 
     @Test
+    fun `saving menu keeps last selected audience when several are active`() =
+        runTest(dispatcher) {
+            viewModel.setDietaryProfileAudience(MenuAudience.CHILD)
+            viewModel.setDietaryProfileAudienceEnabled(true)
+            viewModel.setFormAudience(MenuAudience.CHILD)
+            viewModel.updateName("Tostadas")
+            viewModel.updateDescription("Pan, tomate y aguacate")
+
+            viewModel.saveMenu()
+            advanceUntilIdle()
+
+            assertEquals(MenuAudience.CHILD, viewModel.uiState.value.formAudience)
+            assertEquals(MenuAudience.CHILD, formAudienceSelectionStore.storedAudience)
+        }
+
+    @Test
     fun `guest cannot save more than five manual menus per day when limits are enabled`() = runTest(dispatcher) {
         guestUsageStore.state = GuestDailyUsageState(
             dateKey = "2026-06-11",

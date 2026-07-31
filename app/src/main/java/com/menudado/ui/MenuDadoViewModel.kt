@@ -2038,7 +2038,7 @@ class MenuDadoViewModel(
                 generatedSemanticHash = null,
                 showGeneratedMenuDetail = false,
                 formMealType = suggestedMealTypeForDeviceTime(clockMillisProvider()),
-                formAudience = null.selectedOrSingleDefault(loadEnabledAudiences())
+                formAudience = it.formAudience.selectedOrSingleDefault(loadEnabledAudiences())
             )
         }
     }
