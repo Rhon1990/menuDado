@@ -1,12 +1,14 @@
 package com.menudado.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -20,12 +22,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.menudado.R
@@ -34,6 +41,32 @@ import com.menudado.ui.theme.MenuDadoUiTokens
 
 internal const val MENU_CATALOG_SEARCH_FIELD_TEST_TAG = "menu_catalog_search_field"
 
+internal data class MenuCatalogFilterButtonVisualStyle(
+    val containerColor: Color,
+    val borderColor: Color,
+    val iconColor: Color,
+    val borderWidth: Dp,
+    val badgeSize: Dp,
+    val badgeHorizontalOffset: Dp,
+    val badgeVerticalOffset: Dp,
+    val badgeFontSize: TextUnit,
+    val badgeLineHeight: TextUnit,
+    val includeFontPadding: Boolean
+)
+
+internal fun menuCatalogFilterButtonVisualStyle() = MenuCatalogFilterButtonVisualStyle(
+    containerColor = MenuDadoColors.Cream.copy(alpha = 0.12f),
+    borderColor = MenuDadoColors.Cream.copy(alpha = 0.82f),
+    iconColor = MenuDadoColors.Cream,
+    borderWidth = 1.dp,
+    badgeSize = 20.dp,
+    badgeHorizontalOffset = 4.dp,
+    badgeVerticalOffset = (-4).dp,
+    badgeFontSize = 11.sp,
+    badgeLineHeight = 11.sp,
+    includeFontPadding = false
+)
+
 @Composable
 internal fun MenuCatalogSearchBar(
     query: String,
@@ -41,6 +74,8 @@ internal fun MenuCatalogSearchBar(
     activeFilterCount: Int,
     onOpenFilters: () -> Unit
 ) {
+    val filterStyle = menuCatalogFilterButtonVisualStyle()
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -115,7 +150,12 @@ internal fun MenuCatalogSearchBar(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
-                    .background(MenuDadoColors.SelectionGreen)
+                    .border(
+                        width = filterStyle.borderWidth,
+                        color = filterStyle.borderColor,
+                        shape = RoundedCornerShape(MenuDadoUiTokens.ControlRadius)
+                    )
+                    .background(filterStyle.containerColor)
                     .clickable(onClick = onOpenFilters),
                 contentAlignment = Alignment.Center
             ) {
@@ -130,24 +170,34 @@ internal fun MenuCatalogSearchBar(
                         stringResource(R.string.menu_catalog_open_filters)
                     },
                     modifier = Modifier.size(24.dp),
-                    tint = MenuDadoColors.HeaderGreen
+                    tint = filterStyle.iconColor
                 )
             }
             if (activeFilterCount > 0) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .size(18.dp)
+                        .offset(
+                            x = filterStyle.badgeHorizontalOffset,
+                            y = filterStyle.badgeVerticalOffset
+                        )
+                        .size(filterStyle.badgeSize)
                         .clip(CircleShape)
                         .background(MenuDadoColors.ActionTerracotta),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = activeFilterCount.toString(),
-                        color = MenuDadoColors.Cream,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Black,
-                        textAlign = TextAlign.Center
+                        style = TextStyle(
+                            color = MenuDadoColors.Cream,
+                            fontSize = filterStyle.badgeFontSize,
+                            lineHeight = filterStyle.badgeLineHeight,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Center,
+                            platformStyle = PlatformTextStyle(
+                                includeFontPadding = filterStyle.includeFontPadding
+                            )
+                        )
                     )
                 }
             }
