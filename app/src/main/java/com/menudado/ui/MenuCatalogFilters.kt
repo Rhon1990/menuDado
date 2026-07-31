@@ -105,7 +105,7 @@ internal fun menuCatalogDietaryNeedEnabled(
         MenuCatalogDietaryNeed.PREGNANCY -> audiences == listOf(MenuAudience.ADULT)
         MenuCatalogDietaryNeed.ALLERGIES -> audiences.any { audience ->
             profiles[audience]?.let { profile ->
-                profile.hasAllergies && profile.allergens.isNotEmpty()
+                profile.isEnabled && profile.hasAllergies && profile.allergens.isNotEmpty()
             } == true
         }
         MenuCatalogDietaryNeed.FULL_PROFILE -> audiences.any { audience ->

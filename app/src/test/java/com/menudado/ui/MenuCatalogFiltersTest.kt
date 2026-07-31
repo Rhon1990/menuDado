@@ -184,6 +184,26 @@ class MenuCatalogFiltersTest {
     }
 
     @Test
+    fun `allergy need ignores configured allergens from disabled audiences`() {
+        val profiles = profiles().toMutableMap().apply {
+            this[MenuAudience.CHILD] = DietaryProfile(
+                isEnabled = false,
+                hasAllergies = true,
+                allergens = setOf(DietaryAllergen.EGG)
+            )
+        }
+
+        assertFalse(
+            menuCatalogDietaryNeedEnabled(
+                need = MenuCatalogDietaryNeed.ALLERGIES,
+                scope = MenuCatalogScope.Favorites,
+                favoriteAudience = null,
+                profiles = profiles
+            )
+        )
+    }
+
+    @Test
     fun `favorites audience change clears pregnancy outside adult`() {
         val current = MenuCatalogFilters(
             favoriteAudience = MenuAudience.ADULT,
