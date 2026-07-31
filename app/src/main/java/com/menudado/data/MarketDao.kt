@@ -36,6 +36,12 @@ interface MarketDao {
     @Query("UPDATE menu_shopping_products SET isActive = 0 WHERE productKey IN (:productKeys)")
     suspend fun deactivateProducts(productKeys: List<String>): Int
 
+    @Query("SELECT DISTINCT menuId FROM menu_shopping_products WHERE isActive = 1")
+    suspend fun getActiveMarketMenuIds(): List<Long>
+
+    @Query("UPDATE menu_shopping_products SET isActive = 0 WHERE isActive = 1")
+    suspend fun deactivateAllMarketProducts(): Int
+
     @Query("UPDATE menus SET remoteSyncState = 'PENDING_UPSERT', remoteSyncToken = NULL, updatedAt = :updatedAt WHERE id IN (:menuIds)")
     suspend fun markMenusPendingUpsert(menuIds: List<Long>, updatedAt: Long): Int
 
@@ -152,5 +158,35 @@ interface MarketDao {
             clearProductStates()
         }
         return purchasedStates.size
+    }
+
+    @Transaction
+    suspend fun clearAllMarketProductsLocally(
+        updatedAt: Long,
+        shouldSyncRemote: Boolean,
+        remoteSyncToken: String?
+    ): Int {
+        val affectedMenuIds = getActiveMarketMenuIds()
+        val deactivatedCount = deactivateAllMarketProducts()
+        val purchasedStates = getPurchasedProductStates()
+        if (shouldSyncRemote) {
+            val token = requireNotNull(remoteSyncToken)
+            purchasedStates.forEach { state ->
+                upsertProductState(
+                    state.copy(
+                        isPurchased = false,
+                        updatedAt = updatedAt,
+                        remoteSyncState = RemoteSyncState.PENDING_UPSERT.name,
+                        remoteSyncToken = token
+                    )
+                )
+            }
+            if (affectedMenuIds.isNotEmpty()) {
+                markMenusPendingUpsert(affectedMenuIds, updatedAt)
+            }
+        } else {
+            clearProductStates()
+        }
+        return deactivatedCount + purchasedStates.size
     }
 }

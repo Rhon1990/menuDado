@@ -281,6 +281,24 @@ class MenuRepository(
         }
     }
 
+    suspend fun clearAllMarketProducts() {
+        val dao = marketDao ?: return
+        val updatedAt = maxOf(
+            clockMillisProvider(),
+            dao.getPurchasedProductStates().maxOfOrNull(MarketProductStateEntity::updatedAt)
+                ?.plus(1L)
+                ?: Long.MIN_VALUE
+        )
+        val clearedCount = dao.clearAllMarketProductsLocally(
+            updatedAt = updatedAt,
+            shouldSyncRemote = remoteDataSource != null,
+            remoteSyncToken = remoteDataSource?.let { syncTokenProvider() }
+        )
+        if (clearedCount > 0 && remoteDataSource != null) {
+            syncPendingMenus()
+        }
+    }
+
     suspend fun analyze(menu: FoodMenu, language: AppLanguage): Result<MenuAiDetails> {
         return healthAnalyzer.analyze(menu, language)
     }
