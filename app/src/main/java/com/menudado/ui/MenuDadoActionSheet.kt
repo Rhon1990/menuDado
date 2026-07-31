@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.pointerInput
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.menudado.R
 import com.menudado.ui.theme.MenuDadoUiTokens
 
 internal fun menuDadoActionSheetTopRadiusDp(): Int = 28
@@ -60,6 +62,7 @@ internal const val MENU_DADO_ACTION_SHEET_SCRIM_TEST_TAG =
 internal fun MenuDadoActionSheet(
     title: String,
     onDismiss: () -> Unit,
+    onBack: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Dialog(
@@ -131,6 +134,21 @@ internal fun MenuDadoActionSheet(
                             onDismiss = onDismiss,
                             modifier = Modifier.align(Alignment.TopEnd)
                         )
+                        onBack?.let { backAction ->
+                            IconButton(
+                                onClick = backAction,
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .size(menuSheetCloseActionButtonSizeDp().dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_arrow_back),
+                                    contentDescription = stringResource(R.string.common_back),
+                                    modifier = Modifier.size(22.dp),
+                                    tint = menuActionSheetContentColor()
+                                )
+                            }
+                        }
                     }
                     Text(
                         text = title,
@@ -161,14 +179,17 @@ internal fun MenuDadoActionSheetRow(
     iconRes: Int,
     title: String,
     description: String? = null,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    trailingContent: (@Composable () -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 48.dp)
+            .alpha(if (enabled) 1f else 0.42f)
             .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -212,6 +233,7 @@ internal fun MenuDadoActionSheetRow(
                 )
             }
         }
+        trailingContent?.invoke()
     }
 }
 
