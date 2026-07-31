@@ -2,7 +2,9 @@ package com.menudado.ui
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import com.menudado.R
 import com.menudado.ui.theme.MenuDadoColors
 
@@ -49,4 +51,44 @@ internal fun MarketClearAction.managementDescriptionRes(): Int = when (this) {
         R.string.market_manage_clear_purchased_description
     MarketClearAction.ALL ->
         R.string.market_manage_clear_all_description
+}
+
+@Composable
+internal fun MarketManagementSheet(
+    hasPurchasedProducts: Boolean,
+    onActionSelected: (MarketClearAction) -> Unit,
+    onDismiss: () -> Unit
+) {
+    MenuDadoActionSheet(
+        title = stringResource(id = R.string.market_manage_list),
+        onDismiss = onDismiss
+    ) {
+        marketManagementActions(hasPurchasedProducts).forEach { action ->
+            MenuDadoActionSheetRow(
+                iconRes = action.managementIconRes(),
+                title = stringResource(id = action.managementLabelRes()),
+                description = stringResource(
+                    id = action.managementDescriptionRes()
+                ),
+                onClick = { onActionSelected(action) }
+            )
+        }
+    }
+}
+
+@Composable
+internal fun MarketManagementSheetHost(
+    isRequested: Boolean,
+    isAnotherModalVisible: Boolean,
+    hasPurchasedProducts: Boolean,
+    onActionSelected: (MarketClearAction) -> Unit,
+    onDismiss: () -> Unit
+) {
+    if (isRequested && !isAnotherModalVisible) {
+        MarketManagementSheet(
+            hasPurchasedProducts = hasPurchasedProducts,
+            onActionSelected = onActionSelected,
+            onDismiss = onDismiss
+        )
+    }
 }
