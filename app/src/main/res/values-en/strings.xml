@@ -266,4 +266,22 @@
     <string name="result_notes">Notes</string>
     <string name="calories_approx">%1$d kcal approx.</string>
     <string name="calories_short">%1$d kcal</string>
+    <string name="menu_catalog_search_hint">Search dish or ingredient</string>
+    <string name="menu_catalog_clear_search">Clear search</string>
+    <string name="menu_catalog_open_filters">Open filters</string>
+    <string name="menu_catalog_open_filters_active">Open filters, %1$d active</string>
+    <string name="menu_catalog_filters_title">Filter menus</string>
+    <string name="menu_catalog_filter_audience">Who it is for</string>
+    <string name="menu_catalog_filter_need">Dietary need</string>
+    <string name="menu_catalog_filter_favorites">Favorites only</string>
+    <string name="menu_catalog_filter_healthy">Healthy only</string>
+    <string name="menu_catalog_audience_all">All</string>
+    <string name="menu_catalog_need_none">No profile filter</string>
+    <string name="menu_catalog_need_pregnancy">Pregnancy</string>
+    <string name="menu_catalog_need_vegan">Vegan</string>
+    <string name="menu_catalog_need_allergies">My allergies</string>
+    <string name="menu_catalog_need_full_profile">My full profile</string>
+    <string name="menu_catalog_no_results_title">No menus found</string>
+    <string name="menu_catalog_no_results_body">Try another search or remove a filter.</string>
+    <string name="menu_catalog_clear_filters">Clear filters</string>
 </resources>
