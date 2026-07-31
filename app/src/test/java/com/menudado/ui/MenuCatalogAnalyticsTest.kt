@@ -44,8 +44,13 @@ class MenuCatalogAnalyticsTest {
             MenuCatalogAnalyticsAction.SEARCH_STARTED.cta,
             menuCatalogSearchTransitionCta(previousQuery = "", newQuery = "ensalada"),
         )
+        assertEquals(
+            MenuCatalogAnalyticsAction.SEARCH_STARTED.cta,
+            menuCatalogSearchTransitionCta(previousQuery = "   ", newQuery = "tomate"),
+        )
         assertNull(menuCatalogSearchTransitionCta(previousQuery = "sopa", newQuery = "ensalada"))
         assertNull(menuCatalogSearchTransitionCta(previousQuery = "sopa", newQuery = ""))
         assertNull(menuCatalogSearchTransitionCta(previousQuery = "", newQuery = ""))
+        assertNull(menuCatalogSearchTransitionCta(previousQuery = "", newQuery = "   "))
     }
 }
