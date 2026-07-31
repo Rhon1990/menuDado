@@ -35,6 +35,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -189,7 +191,13 @@ internal fun MenuDadoActionSheetRow(
             .defaultMinSize(minHeight = 48.dp)
             .alpha(if (enabled) 1f else 0.42f)
             .clip(RoundedCornerShape(MenuDadoUiTokens.ControlRadius))
-            .clickable(enabled = enabled, onClick = onClick)
+            .then(
+                if (enabled) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier.semantics { disabled() }
+                }
+            )
             .padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically
