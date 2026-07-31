@@ -3,6 +3,7 @@ package com.menudado.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +49,9 @@ internal fun menuDadoActionSheetHandleHeightDp(): Int = 5
 
 internal fun menuDadoActionSheetIconContainerDp(): Int = 42
 
+internal const val MENU_DADO_ACTION_SHEET_SCRIM_TEST_TAG =
+    "menu_dado_action_sheet_scrim"
+
 @Composable
 internal fun MenuDadoActionSheet(
     title: String,
@@ -59,14 +65,23 @@ internal fun MenuDadoActionSheet(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clickable(onClick = onDismiss)
                 .navigationBarsPadding(),
             contentAlignment = Alignment.BottomCenter
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag(MENU_DADO_ACTION_SHEET_SCRIM_TEST_TAG)
+                    .pointerInput(onDismiss) {
+                        detectTapGestures(onTap = { onDismiss() })
+                    }
+            )
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = {}),
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = {})
+                    },
                 colors = CardDefaults.cardColors(
                     containerColor = menuActionSheetContainerColor()
                 ),
@@ -183,7 +198,7 @@ internal fun MenuDadoActionSheetRow(
                     color = menuActionSheetContentColor()
                         .copy(alpha = 0.72f),
                     style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
