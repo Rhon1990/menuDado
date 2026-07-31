@@ -255,16 +255,35 @@ fun MenuDadoScreen(
         mutableStateOf(false)
     }
     val currentCatalogScope = menuCatalogScope(audienceDetailRoute)
-    val cuisineSearchLabels = CuisineInspiration.entries.associateWith { inspiration ->
-        stringResource(id = cuisineInspirationLabelRes(inspiration))
-    }
+    val menuCatalogSearchLabels = MenuCatalogSearchLabels(
+        cuisineLabels = CuisineInspiration.entries.associateWith { inspiration ->
+            stringResource(
+                id = generatedCuisineBadgeFormatRes(),
+                stringResource(id = cuisineInspirationLabelRes(inspiration))
+            )
+        },
+        mealTypeLabels = MealType.entries.associateWith { mealType ->
+            stringResource(id = mealTypeLabelRes(mealType))
+        },
+        audienceLabels = MenuAudience.entries.associateWith { audience ->
+            stringResource(id = menuAudienceLabelRes(audience))
+        },
+        healthStatusLabels = HealthStatus.entries.associateWith { status ->
+            stringResource(id = healthStatusLabelRes(status))
+        },
+        calorieLabels = visibleMenus.mapNotNull(::menuVisibleCalories)
+            .distinct()
+            .associateWith { calories ->
+                stringResource(id = R.string.calories_short, calories)
+            }
+    )
     val filteredCatalogMenus = currentCatalogScope?.let { scope ->
         menuCatalogFilteredMenus(
             menus = visibleMenus,
             scope = scope,
             filters = menuCatalogFilters,
             dietaryProfiles = state.dietaryProfiles,
-            cuisineLabels = cuisineSearchLabels
+            searchLabels = menuCatalogSearchLabels
         )
     }.orEmpty()
     val homeListState = rememberLazyListState()

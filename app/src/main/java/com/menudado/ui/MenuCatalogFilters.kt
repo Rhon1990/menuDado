@@ -5,6 +5,7 @@ import com.menudado.domain.DietaryProfile
 import com.menudado.domain.DietaryProfileViolation
 import com.menudado.domain.FoodMenu
 import com.menudado.domain.HealthStatus
+import com.menudado.domain.MealType
 import com.menudado.domain.MenuAudience
 import com.menudado.domain.compatibilityWith
 import java.text.Normalizer
@@ -29,6 +30,14 @@ internal data class MenuCatalogFilters(
     val dietaryNeed: MenuCatalogDietaryNeed = MenuCatalogDietaryNeed.NONE,
     val favoritesOnly: Boolean = false,
     val healthyOnly: Boolean = false
+)
+
+internal data class MenuCatalogSearchLabels(
+    val cuisineLabels: Map<CuisineInspiration, String> = emptyMap(),
+    val mealTypeLabels: Map<MealType, String> = emptyMap(),
+    val audienceLabels: Map<MenuAudience, String> = emptyMap(),
+    val healthStatusLabels: Map<HealthStatus, String> = emptyMap(),
+    val calorieLabels: Map<Int, String> = emptyMap()
 )
 
 internal fun defaultMenuCatalogFilters(): MenuCatalogFilters = MenuCatalogFilters()
@@ -61,7 +70,7 @@ internal fun menuCatalogFilteredMenus(
     scope: MenuCatalogScope,
     filters: MenuCatalogFilters,
     dietaryProfiles: Map<MenuAudience, DietaryProfile>,
-    cuisineLabels: Map<CuisineInspiration, String>
+    searchLabels: MenuCatalogSearchLabels
 ): List<FoodMenu> {
     val scopedMenus = when (scope) {
         is MenuCatalogScope.Audience -> menus
@@ -78,7 +87,10 @@ internal fun menuCatalogFilteredMenus(
 
     return scopedMenus.filter { menu ->
         (normalizedQuery.isBlank() ||
-            menu.catalogSearchText(cuisineLabels).contains(normalizedQuery)) &&
+            menu.catalogSearchText(
+                labels = searchLabels,
+                includeAudience = scope is MenuCatalogScope.Favorites
+            ).contains(normalizedQuery)) &&
             (scope !is MenuCatalogScope.Favorites ||
                 filters.favoriteAudience == null ||
                 menu.audience == filters.favoriteAudience) &&
@@ -117,12 +129,23 @@ internal fun menuCatalogDietaryNeedEnabled(
 }
 
 private fun FoodMenu.catalogSearchText(
-    cuisineLabels: Map<CuisineInspiration, String>
+    labels: MenuCatalogSearchLabels,
+    includeAudience: Boolean
 ): String = buildList {
     add(name)
     add(description)
     add(notes)
-    cuisineInspiration?.let { add(cuisineLabels[it].orEmpty()) }
+    cuisineInspiration?.let { add(labels.cuisineLabels[it].orEmpty()) }
+    add(labels.mealTypeLabels[mealType].orEmpty())
+    if (includeAudience) add(labels.audienceLabels[audience].orEmpty())
+    add(
+        labels.healthStatusLabels[
+            healthAnalysis?.status ?: HealthStatus.UNKNOWN
+        ].orEmpty()
+    )
+    if (healthAnalysis != null) {
+        calories?.let { add(labels.calorieLabels[it].orEmpty()) }
+    }
     addAll(shoppingProducts.map { it.displayName })
 }.joinToString(separator = " ").normalizedCatalogText()
 

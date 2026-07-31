@@ -54,7 +54,7 @@ class MenuCatalogFiltersTest {
             scope = MenuCatalogScope.Audience(MenuAudience.ADULT),
             filters = MenuCatalogFilters(query = childMenu.name),
             dietaryProfiles = profiles(),
-            cuisineLabels = emptyMap()
+            searchLabels = MenuCatalogSearchLabels()
         )
 
         assertTrue(result.isEmpty())
@@ -67,7 +67,7 @@ class MenuCatalogFiltersTest {
             scope = MenuCatalogScope.Favorites,
             filters = MenuCatalogFilters(favoriteAudience = MenuAudience.BABY),
             dietaryProfiles = profiles(),
-            cuisineLabels = emptyMap()
+            searchLabels = MenuCatalogSearchLabels()
         )
 
         assertTrue(result.isEmpty())
@@ -93,7 +93,11 @@ class MenuCatalogFiltersTest {
 
     @Test
     fun `search is accent insensitive across every supported saved field`() {
-        val labels = mapOf(CuisineInspiration.MEDITERRANEAN to "Cocina mediterránea")
+        val labels = MenuCatalogSearchLabels(
+            cuisineLabels = mapOf(
+                CuisineInspiration.MEDITERRANEAN to "Cocina mediterránea"
+            )
+        )
 
         listOf("tostada", "mediterranea", "templada", "aguacate").forEach { query ->
             val result = menuCatalogFilteredMenus(
@@ -101,11 +105,87 @@ class MenuCatalogFiltersTest {
                 scope = MenuCatalogScope.Audience(MenuAudience.ADULT),
                 filters = MenuCatalogFilters(query = query.uppercase()),
                 dietaryProfiles = profiles(),
-                cuisineLabels = labels
+                searchLabels = labels
             )
 
             assertEquals(query, listOf(adultMenu), result)
         }
+    }
+
+    @Test
+    fun `search matches every localized text visible on analyzed cards`() {
+        val analyzed = adultMenu.copy(
+            healthAnalysis = healthyAnalysis(),
+            calories = 450
+        )
+        val localizedCases = listOf(
+            searchLabels() to listOf("cocina", "desayuno", "saludable", "450", "kcal"),
+            searchLabels(
+                cuisine = "Mediterranean cuisine",
+                mealType = "Breakfast",
+                audience = "Adult",
+                healthStatus = "Healthy",
+                unknownStatus = "Not analyzed"
+            ) to listOf("cuisine", "breakfast", "healthy", "450"),
+            searchLabels(
+                cuisine = "Cuisine méditerranéenne",
+                mealType = "Petit-déjeuner",
+                audience = "Adulte",
+                healthStatus = "Sain",
+                unknownStatus = "Non analysé"
+            ) to listOf("cuisine", "petit-dejeuner", "sain", "450")
+        )
+
+        localizedCases.forEach { (labels, queries) ->
+            queries.forEach { query ->
+                assertEquals(
+                    "$query with $labels",
+                    listOf(analyzed),
+                    filterByQuery(analyzed, query, labels)
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `search matches each health status shown on cards`() {
+        val labels = searchLabels().copy(
+            healthStatusLabels = mapOf(
+                HealthStatus.HEALTHY to "Saludable",
+                HealthStatus.IMPROVABLE to "Intermedio",
+                HealthStatus.UNHEALTHY to "No saludable",
+                HealthStatus.UNKNOWN to "Sin analizar"
+            )
+        )
+
+        labels.healthStatusLabels.forEach { (status, label) ->
+            val menu = adultMenu.copy(
+                healthAnalysis = status.takeUnless { it == HealthStatus.UNKNOWN }
+                    ?.let { HealthAnalysis(it, "", "") }
+            )
+
+            assertEquals(label, listOf(menu), filterByQuery(menu, label, labels))
+        }
+    }
+
+    @Test
+    fun `search matches unknown status shown on unanalyzed card but not hidden calories`() {
+        val unanalyzed = adultMenu.copy(calories = 450)
+        val labels = searchLabels()
+
+        assertEquals(listOf(unanalyzed), filterByQuery(unanalyzed, "sin analizar", labels))
+        assertTrue(filterByQuery(unanalyzed, "450", labels).isEmpty())
+    }
+
+    @Test
+    fun `audience label is searchable only where favorites cards show it`() {
+        val labels = searchLabels()
+
+        assertEquals(
+            listOf(adultMenu),
+            filterByQuery(adultMenu, "adulto", labels, MenuCatalogScope.Favorites)
+        )
+        assertTrue(filterByQuery(adultMenu, "adulto", labels).isEmpty())
     }
 
     @Test
@@ -160,7 +240,7 @@ class MenuCatalogFiltersTest {
             scope = MenuCatalogScope.Favorites,
             filters = MenuCatalogFilters(healthyOnly = true),
             dietaryProfiles = profiles(),
-            cuisineLabels = emptyMap()
+            searchLabels = MenuCatalogSearchLabels()
         )
 
         assertEquals(listOf(newerHealthy, olderHealthy), result)
@@ -266,7 +346,38 @@ class MenuCatalogFiltersTest {
         scope = MenuCatalogScope.Audience(MenuAudience.ADULT),
         filters = MenuCatalogFilters(dietaryNeed = need),
         dietaryProfiles = profiles,
-        cuisineLabels = emptyMap()
+        searchLabels = MenuCatalogSearchLabels()
+    )
+
+    private fun filterByQuery(
+        menu: FoodMenu,
+        query: String,
+        labels: MenuCatalogSearchLabels,
+        scope: MenuCatalogScope = MenuCatalogScope.Audience(MenuAudience.ADULT)
+    ): List<FoodMenu> = menuCatalogFilteredMenus(
+        menus = listOf(menu),
+        scope = scope,
+        filters = MenuCatalogFilters(query = query),
+        dietaryProfiles = profiles(),
+        searchLabels = labels
+    )
+
+    private fun searchLabels(
+        cuisine: String = "Cocina mediterránea",
+        mealType: String = "Desayuno",
+        audience: String = "Adulto",
+        healthStatus: String = "Saludable",
+        unknownStatus: String = "Sin analizar",
+        calories: String = "450 kcal"
+    ) = MenuCatalogSearchLabels(
+        cuisineLabels = mapOf(CuisineInspiration.MEDITERRANEAN to cuisine),
+        mealTypeLabels = mapOf(MealType.BREAKFAST to mealType),
+        audienceLabels = mapOf(MenuAudience.ADULT to audience),
+        healthStatusLabels = mapOf(
+            HealthStatus.HEALTHY to healthStatus,
+            HealthStatus.UNKNOWN to unknownStatus
+        ),
+        calorieLabels = mapOf(450 to calories)
     )
 
     private fun profiles(): Map<MenuAudience, DietaryProfile> =
