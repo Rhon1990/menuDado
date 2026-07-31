@@ -45,7 +45,7 @@ class MenuDadoAboutRemoteConfigTest {
     @Test
     fun `descripcion renovada usa una clave remota versionada`() {
         assertEquals(
-            "about_description_v2",
+            "about_description_v3",
             MenuDadoAboutRemoteConfig.KEY_ABOUT_DESCRIPTION
         )
     }

@@ -129,7 +129,7 @@
     <string name="app_update_downloaded_body">La mise à jour a été téléchargée. Installez-la pour redémarrer MenuDado avec la nouvelle version.</string>
     <string name="app_update_downloaded_reminder_body">La nouvelle version est prête. Installez-la lorsque vous souhaitez redémarrer MenuDado.</string>
     <string name="app_update_install_action">Installer</string>
-    <string name="about_reason">MenuDado a été créé pour répondre à une question du quotidien : que préparer aujourd’hui ? L’app génère des idées avec l’IA adaptées à votre profil, enregistre vos menus, laisse le dé vous aider à choisir et regroupe les produits dans votre liste de courses. Vous pouvez commencer sans vous inscrire et créer gratuitement un compte pour conserver vos données.</string>
+    <string name="about_reason">MenuDado a été créé pour répondre à une question du quotidien : que préparer aujourd’hui ? L’app génère des idées avec l’IA adaptées à votre profil, enregistre vos menus, vous aide à les retrouver grâce à la recherche et aux filtres, laisse le dé vous aider à choisir et regroupe les produits dans votre liste de courses. Vous pouvez commencer sans vous inscrire et créer gratuitement un compte pour conserver vos données.</string>
     <string name="about_health_disclaimer_title">Avis de santé</string>
     <string name="about_health_disclaimer_body">MenuDado fournit des idées de repas à titre informatif. Ce n’est pas un dispositif médical et l’app ne diagnostique, ne traite, ne guérit ni ne prévient aucune condition médicale. Consultez un professionnel de santé pour tout conseil, diagnostic ou traitement médical.</string>
     <string name="about_privacy_policy">Politique de confidentialité</string>

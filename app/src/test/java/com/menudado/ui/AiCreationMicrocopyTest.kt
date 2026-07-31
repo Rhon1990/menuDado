@@ -32,7 +32,9 @@ class AiCreationMicrocopyTest {
                 "ai_retry_ready_body" to
                     "Cierra este aviso y vuelve a tocar Ayúdame a elegir. Mantendremos tus preferencias para buscar una idea que encaje contigo.",
                 "ai_retry_wait_body" to
-                    "Cuando termine la pausa, este aviso te lo dirá. Tus preferencias seguirán aquí para que puedas volver a intentarlo con tranquilidad."
+                    "Cuando termine la pausa, este aviso te lo dirá. Tus preferencias seguirán aquí para que puedas volver a intentarlo con tranquilidad.",
+                "about_reason" to
+                    "MenuDado nació para resolver una pregunta cotidiana: ¿qué preparo hoy? Genera ideas con IA adaptadas a tu perfil, guarda tus menús, encuéntralos mediante búsqueda y filtros, deja que el dado te ayude a elegir y reúne los productos en tu lista de mercado. Puedes empezar sin registrarte y crear una cuenta gratis para conservar tus datos."
             ),
             "values-en" to mapOf(
                 "home_today_title" to "Not sure what to make today?",
@@ -52,7 +54,9 @@ class AiCreationMicrocopyTest {
                 "ai_retry_ready_body" to
                     "Close this notice and tap Help me choose again. We’ll keep your preferences to look for an idea that fits you.",
                 "ai_retry_wait_body" to
-                    "When the pause is over, this notice will let you know. Your preferences will still be here so you can try again with peace of mind."
+                    "When the pause is over, this notice will let you know. Your preferences will still be here so you can try again with peace of mind.",
+                "about_reason" to
+                    "MenuDado was created to answer an everyday question: what should I make today? It generates AI ideas tailored to your profile, saves your menus, helps you find them with search and filters, lets the dice help you choose, and gathers the items in your shopping list. You can start without registering and create a free account to keep your data."
             ),
             "values-fr" to mapOf(
                 "home_today_title" to "Vous ne savez pas quoi préparer aujourd’hui ?",
@@ -72,7 +76,9 @@ class AiCreationMicrocopyTest {
                 "ai_retry_ready_body" to
                     "Fermez cet avis et touchez de nouveau Aidez-moi à choisir. Nous conserverons vos préférences pour chercher une idée qui vous corresponde.",
                 "ai_retry_wait_body" to
-                    "Lorsque la pause sera terminée, cet avis vous l’indiquera. Vos préférences resteront disponibles afin que vous puissiez réessayer sereinement."
+                    "Lorsque la pause sera terminée, cet avis vous l’indiquera. Vos préférences resteront disponibles afin que vous puissiez réessayer sereinement.",
+                "about_reason" to
+                    "MenuDado a été créé pour répondre à une question du quotidien : que préparer aujourd’hui ? L’app génère des idées avec l’IA adaptées à votre profil, enregistre vos menus, vous aide à les retrouver grâce à la recherche et aux filtres, laisse le dé vous aider à choisir et regroupe les produits dans votre liste de courses. Vous pouvez commencer sans vous inscrire et créer gratuitement un compte pour conserver vos données."
             )
         )
 
