@@ -118,8 +118,39 @@ class MarketClearConfirmationDialogTest {
     }
 
     @Test
-    fun purchasedTrashDoesNotExpandPurchasedProducts() {
-        var clearRequests = 0
+    fun marketHeaderOffersManagementOnlyWhenProductsExist() {
+        val products = mutableStateOf(emptyList<MarketProduct>())
+        composeRule.setContent {
+            MaterialTheme {
+                MarketListSection(
+                    products = products.value,
+                    onPurchasedChanged = { _, _ -> },
+                    onManageRequested = {}
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription(
+            string(R.string.market_manage_list)
+        ).assertDoesNotExist()
+        composeRule.runOnIdle {
+            products.value = listOf(
+                MarketProduct(
+                    key = "arroz",
+                    displayName = "Arroz",
+                    sourceMenuIds = setOf(1L),
+                    isPurchased = false
+                )
+            )
+        }
+        composeRule.onNodeWithContentDescription(
+            string(R.string.market_manage_list)
+        ).assertExists()
+    }
+
+    @Test
+    fun purchasedHeaderExpandsWithoutRequestingManagement() {
+        var manageRequests = 0
         composeRule.setContent {
             MaterialTheme {
                 MarketListSection(
@@ -132,22 +163,19 @@ class MarketClearConfirmationDialogTest {
                         )
                     ),
                     onPurchasedChanged = { _, _ -> },
-                    onClearAllRequested = {},
-                    onClearPurchasedRequested = { clearRequests += 1 }
+                    onManageRequested = { manageRequests += 1 }
                 )
             }
         }
 
-        composeRule.onNodeWithContentDescription(
-            string(R.string.market_clear_purchased)
-        ).performClick()
-
-        composeRule.runOnIdle {
-            assertEquals(1, clearRequests)
-        }
         composeRule.onNodeWithText("Arroz especial").assertDoesNotExist()
-        composeRule.onNodeWithText(string(R.string.market_purchased)).performClick()
+        composeRule.onNodeWithText(
+            string(R.string.market_purchased)
+        ).performClick()
         composeRule.onNodeWithText("Arroz especial").assertExists()
+        composeRule.runOnIdle {
+            assertEquals(0, manageRequests)
+        }
     }
 }
 
