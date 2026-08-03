@@ -40,7 +40,7 @@ android {
         applicationId = "com.menudado"
         minSdk = 23
         targetSdk = 36
-        versionCode = 14
+        versionCode = 15
         versionName = "1.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
