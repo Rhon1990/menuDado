@@ -10,6 +10,28 @@
 
 ---
 
+### Task 0: Restaurar la línea base verde aprobada
+
+**Files:**
+- Modify: `app/src/test/java/com/menudado/ui/MenuCardUiStateTest.kt:1578`
+- Modify: `docs/superpowers/plans/2026-08-18-project-context-refresh.md`
+
+- [ ] **Step 1: Confirmar el fallo RED existente**
+
+Ejecutar el test `acerca de la app muestra motivo creador y version` y confirmar que falla porque `BuildConfig.VERSION_CODE` esperado es `14` pero el valor actual es `15`.
+
+- [ ] **Step 2: Aplicar la expansión de alcance aprobada**
+
+Cambiar únicamente la expectativa obsoleta de `BuildConfig.VERSION_CODE` de `14` a `15`. No modificar producción, Gradle, Firebase, recursos ni `docs/project-context.md`.
+
+- [ ] **Step 3: Confirmar GREEN dirigido**
+
+Ejecutar de nuevo el test dirigido y confirmar que pasa.
+
+- [ ] **Step 4: Confirmar GREEN de la suite completa**
+
+Ejecutar `./gradlew :app:testDebugUnitTest` y confirmar que toda la suite de tests unitarios debug pasa.
+
 ### Task 1: Confirmar las fuentes de verdad
 
 **Files:**
