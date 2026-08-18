@@ -39,7 +39,7 @@ Ejecutar `./gradlew :app:testDebugUnitTest` y confirmar que toda la suite de tes
 - Read: `app/src/main/java/com/menudado/about/MenuDadoAboutRemoteConfig.kt:1-80`
 - Read: `docs/project-context.md:223-371`
 
-- [ ] **Step 1: Confirmar versión y SDK declarados**
+- [x] **Step 1: Confirmar versión y SDK declarados**
 
 Run:
 
@@ -49,7 +49,7 @@ rg -n "compileSdk|targetSdk|minSdk|versionCode|versionName" app/build.gradle.kts
 
 Expected: `compileSdk = 36`, `targetSdk = 36`, `minSdk = 23`, `versionCode = 15` y `versionName = "1.3.0"`.
 
-- [ ] **Step 2: Confirmar las claves activas de Acerca de la app**
+- [x] **Step 2: Confirmar las claves activas de Acerca de la app**
 
 Run:
 
@@ -59,7 +59,7 @@ rg -n "about_description|about_created_by|about_contact" app/src/main/java/com/m
 
 Expected: el contrato activo usa `about_description_v3`, `about_created_by` y `about_contact`; cualquier clave anterior solo puede documentarse como histórica.
 
-- [ ] **Step 3: Localizar contradicciones documentales**
+- [x] **Step 3: Localizar contradicciones documentales**
 
 Run:
 
@@ -74,7 +74,7 @@ Expected: aparecen las referencias que deben clasificarse o corregirse sin modif
 **Files:**
 - Modify: `docs/project-context.md:223-312`
 
-- [ ] **Step 1: Añadir la fuente de verdad y configuración vigente**
+- [x] **Step 1: Añadir la fuente de verdad y configuración vigente**
 
 Añadir en `Dirección Técnica` un bloque que indique:
 
@@ -83,7 +83,7 @@ Añadir en `Dirección Técnica` un bloque que indique:
 - Fuente de verdad: para configuración Android prevalecen `app/build.gradle.kts` y el manifiesto final del artefacto sobre datos históricos de este documento.
 ```
 
-- [ ] **Step 2: Documentar correctamente el estado de la política API 36**
+- [x] **Step 2: Documentar correctamente el estado de la política API 36**
 
 Añadir dentro de `Publicación Play Store`:
 
@@ -91,7 +91,7 @@ Añadir dentro de `Publicación Play Store`:
 - Política de nivel de API de destino: la rama actual ya declara Android 16/API 36. Esto confirma el cumplimiento en la configuración local, pero Google Play solo retirará el aviso después de publicar y procesar en producción un AAB que conserve `targetSdk=36` o superior. La captura de Play Console no demuestra que el código actual siga orientado a API 35; puede corresponder al último artefacto productivo procesado.
 ```
 
-- [ ] **Step 3: Corregir la referencia limitada a Android 15**
+- [x] **Step 3: Corregir la referencia limitada a Android 15**
 
 Reformular la nota de edge-to-edge para indicar que se introdujo por Android 15/API 35 y debe seguir validándose al orientar la aplicación a Android 16/API 36, sin afirmar que la aplicación continúa orientada a API 35.
 
