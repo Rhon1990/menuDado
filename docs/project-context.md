@@ -247,7 +247,7 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Remote Config:
   - La visibilidad de publicidad se controla con la variable booleana `ads_enabled`; solo si vale `true` se solicita consentimiento, se inicializa AdMob y se pueden mostrar formatos publicitarios habilitados. El valor por defecto local es `false`.
   - El contenido de `Acerca de la app` se controla con las variables string `about_description_v3`, `about_created_by` y `about_contact`; sus valores por defecto locales conservan la descripción completa de la propuesta de valor, el creador `Rhonal A. Delgado Padilla` y el contacto `rhonal.delgado@gmail.com`. Un `about_description_v3` remoto no vacío prevalece sobre el fallback localizado; las claves anteriores quedan retiradas del contrato actual.
-  - Nota histórica (2026-07-29): se eliminó únicamente la clave sin uso `about_description` en `menudado-debug` (template v15) y `menudado-6a2da` (template v12), después de exportar ambos templates, validar el diff y ejecutar dry-run. La relectura posterior confirmó que cada proyecto conserva `about_contact`, `about_created_by`, `ads_enabled`, `ai_menu_hive_enabled`, `guest_ai_limits_enabled`, `guest_limits_enabled` y `rewarded_ai_enabled` con sus valores previos. En ese momento `about_description_v2` permanecía ausente para que la descripción localizada incluida en la app fuera el fallback visible en español, inglés y francés.
+  - Nota histórica (2026-07-29): se eliminó únicamente la clave sin uso `about_description` en `menudado-debug` (template v15) y `menudado-6a2da` (template v12), después de exportar ambos templates, validar el diff y ejecutar dry-run. La relectura posterior confirmó que cada proyecto conserva `about_contact`, `about_created_by`, `ads_enabled`, `ai_menu_hive_enabled`, `guest_ai_limits_enabled`, `guest_limits_enabled` y `rewarded_ai_enabled` con sus valores previos. En esa configuración/artifacto anterior `about_description_v2` permanecía ausente para que la descripción localizada incluida en la app fuera el fallback visible en español, inglés y francés; no es una clave del contrato activo actual.
   - `guest_limits_enabled` controla únicamente el límite diario de menús escritos manualmente por el invitado; no bloquea guardar una idea que la IA ya entregó. Por defecto local vale `true`.
   - `guest_ai_limits_enabled` controla el tramo gratuito propio del invitado (5 usos frente a los 10 de cada cuenta registrada); por defecto local vale `true`.
   - `rewarded_ai_enabled` controla la oferta de anuncio bonificado al agotar el tramo gratuito; por seguridad su valor por defecto local es `false` y la oferta también exige publicidad inicializada, consentimiento resuelto y un ID de bloque no vacío.
@@ -348,18 +348,24 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
 - Validar que el manifest final no declare permisos de ubicación, contactos ni identificador publicitario.
 - Validar que crear, editar y eliminar menús sincroniza Firestore cuando hay conexión y mantiene pendientes locales cuando falla la red.
 
-## Auditoría QA prepublicación (actualizada 2026-07-29)
+## Estado técnico y auditoría QA
 
-- Estado de `1.3.0`: suite debug y APK debug verificados; el visto bueno final de tienda queda condicionado a prueba manual completa con Firebase producción y a generar el artefacto firmado final de Play.
-- Versión objetivo actual: `1.3.0` (`versionCode` 15), orientada a Android 16 (`compileSdk=36`, `targetSdk=36`).
-- Validación actual de `1.3.0`:
-  - `./gradlew :app:testDebugUnitTest :app:assembleDebug`: correcto.
-  - `./gradlew :app:lintDebug`: correcto; informe generado sin errores bloqueantes.
-  - `app/build/outputs/apk/debug/output-metadata.json`: `applicationId=com.menudado.debug`, `versionName=1.3.0` y `versionCode=15`.
-  - `./gradlew :app:installDebug`: instalado correctamente en un `SM-S921B` con Android 16.
-  - Prueba manual en dispositivo: `Acerca de la app` muestra el nuevo fallback localizado, permite desplazarse hasta el final y presenta `Versión 1.3.0 (14)`.
-  - La sesión del dispositivo estaba autenticada; el modal de ventajas exclusivo del modo invitado queda pendiente de revisión visual manual, aunque su lista, orden, recursos y traducciones se validaron mediante prueba unitaria y compilación.
-  - Firebase CLI no tenía una sesión autenticada, por lo que no se publicó configuración remota. La clave versionada `about_description_v2` mostró correctamente el fallback nuevo y evitó que el valor heredado de `about_description` lo reemplazara.
+### Verificación estática actual (2026-08-18)
+
+- Revisión estática de la fuente el 18 de agosto de 2026: `app/build.gradle.kts` declara `compileSdk=36`, `targetSdk=36`, `minSdk=23`, `versionName=1.3.0` y `versionCode=15`.
+- La configuración anterior es el estado actual de fuente; las observaciones de artefactos, dispositivos y ejecuciones fechadas anteriormente se conservan como evidencia histórica y no como validaciones ejecutadas durante esta actualización documental.
+
+### Evidencia histórica de QA
+
+- Evidencia de QA de `1.3.0` (2026-07-29): suite debug y APK debug verificados; el visto bueno final de tienda quedó condicionado a prueba manual completa con Firebase producción y a generar el artefacto firmado final de Play.
+- `./gradlew :app:testDebugUnitTest :app:assembleDebug`: correcto.
+- `./gradlew :app:lintDebug`: correcto; informe generado sin errores bloqueantes.
+- `app/build/outputs/apk/debug/output-metadata.json`: `applicationId=com.menudado.debug`, `versionName=1.3.0` y `versionCode=15`.
+- `./gradlew :app:installDebug`: instalado correctamente en un `SM-S921B` con Android 16.
+- Prueba manual en dispositivo de un artefacto instalado anteriormente: `Acerca de la app` muestra el nuevo fallback localizado, permite desplazarse hasta el final y presenta `Versión 1.3.0 (14)`. Esa observación histórica no representa la configuración actual de fuente `versionCode=15` ni una build generada durante esta actualización documental.
+- La sesión del dispositivo estaba autenticada; el modal de ventajas exclusivo del modo invitado queda pendiente de revisión visual manual, aunque su lista, orden, recursos y traducciones se validaron mediante prueba unitaria y compilación.
+- Firebase CLI no tenía una sesión autenticada, por lo que no se publicó configuración remota. La clave versionada `about_description_v2` mostró correctamente el fallback nuevo y evitó que el valor heredado de `about_description` lo reemplazara.
+- La mención a `about_description_v2` y `about_description` en esta evidencia corresponde exclusivamente al artefacto/configuración histórica de 2026-07-29; no describe las claves activas actuales (`about_description_v3`, `about_created_by` y `about_contact`).
 - Evidencia histórica de `1.2.1` (`versionCode` 13):
   - `./gradlew :app:clean :app:testDebugUnitTest :app:lintRelease :app:bundleRelease`: correcto; ejecuta 305 tests, lint release y genera el AAB release.
   - Inspección del manifest dentro del AAB: `compileSdk=36`, `targetSdk=36`, `minSdk=23`, `versionName=1.2.1` y `versionCode=13`.
@@ -367,8 +373,11 @@ El icono oficial de app usa el dado de comida sin wordmark. En cabeceras interna
   - Comparación de strings base contra `values-en` y `values-fr`: sin claves translatables faltantes.
   - Búsqueda de secretos accidentales en diff: sin coincidencias sensibles.
   - Revisión de permisos manifiesto: no se declaran permisos de ubicación/contactos y `AD_ID` se mantiene removido.
-- Riesgos detectados antes de tienda:
-  - El toolchain usa Android Gradle Plugin 8.10.1 y Gradle 8.11.1, con soporte oficial para `compileSdk=36`; KAPT puede seguir avisando de fallback de lenguaje y debe monitorearse.
-  - La firma `release` documentada es debug para instalación local; para tienda se requiere generar artefacto firmado con la configuración final de Play.
-  - La QA automatizada cubre primera instalación como invitado, onboarding, guardado local, límites de invitado, sesión persistente por email/Google a nivel de contrato, sincronización remota, hidratación remota y mezcla de menús locales al iniciar sesión.
-  - Falta evidencia reciente de QA táctil completa en un dispositivo real con Firebase producción: registro/inicio con Google y correo, persistencia tras reinstalar, sincronización Firestore, Remote Config, anuncios, App Check y reglas Firestore.
+### Validaciones pendientes antes de publicación
+
+- Sigue pendiente la firma final de tienda con la configuración de Play; la firma `release` documentada es debug para instalación local.
+- Sigue pendiente generar el AAB productivo firmado, subirlo a Google Play y esperar su publicación y procesamiento en producción; esta documentación no demuestra que Play Console esté resuelto ni que haya ocurrido una publicación.
+- Sigue pendiente una regresión manual reciente con Firebase producción: Auth (correo y Google), Firestore, Remote Config, anuncios, App Check y reglas Firestore, incluida la persistencia y sincronización tras reinstalar cuando aplique.
+- Riesgo histórico detectado antes de tienda: el toolchain usa Android Gradle Plugin 8.10.1 y Gradle 8.11.1, con soporte oficial para `compileSdk=36`; KAPT puede seguir avisando de fallback de lenguaje y debe monitorearse. No es un fallo nuevo de esta actualización documental.
+- La QA automatizada histórica cubre primera instalación como invitado, onboarding, guardado local, límites de invitado, sesión persistente por email/Google a nivel de contrato, sincronización remota, hidratación remota y mezcla de menús locales al iniciar sesión.
+- La evidencia histórica no sustituye la QA táctil reciente en un dispositivo real con Firebase producción.

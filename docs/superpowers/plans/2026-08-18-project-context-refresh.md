@@ -100,11 +100,11 @@ Reformular la nota de edge-to-edge para indicar que se introdujo por Android 15/
 **Files:**
 - Modify: `docs/project-context.md:236-371`
 
-- [ ] **Step 1: Normalizar las claves activas de Acerca de la app**
+- [x] **Step 1: Normalizar las claves activas de Acerca de la app**
 
 Mantener `about_description_v3`, `about_created_by` y `about_contact` como contrato vigente. En la nota histórica, identificar `about_description_v2` como el fallback observado por un artefacto anterior, sin presentarlo como clave activa actual.
 
-- [ ] **Step 2: Separar la auditoría en estados verificables**
+- [x] **Step 2: Separar la auditoría en estados verificables**
 
 Renombrar la sección final como:
 
@@ -120,11 +120,11 @@ Organizarla con estos subtítulos:
 ### Validaciones pendientes antes de publicación
 ```
 
-- [ ] **Step 3: Clasificar la evidencia de versión 14**
+- [x] **Step 3: Clasificar la evidencia de versión 14**
 
 Indicar que `Versión 1.3.0 (14)` fue observada en un artefacto instalado anteriormente y no contradice la configuración actual `versionCode=15`. No atribuir ese resultado a una build generada durante esta actualización.
 
-- [ ] **Step 4: Conservar los gates externos pendientes**
+- [x] **Step 4: Conservar los gates externos pendientes**
 
 Mantener como pendientes la firma final, el AAB productivo, la publicación/procesamiento en Google Play y la regresión manual con Firebase producción, Auth, Firestore, Remote Config, anuncios y App Check.
 
