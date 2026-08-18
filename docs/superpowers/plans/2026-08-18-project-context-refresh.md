@@ -16,19 +16,19 @@
 - Modify: `app/src/test/java/com/menudado/ui/MenuCardUiStateTest.kt:1578`
 - Modify: `docs/superpowers/plans/2026-08-18-project-context-refresh.md`
 
-- [ ] **Step 1: Confirmar el fallo RED existente**
+- [x] **Step 1: Confirmar el fallo RED existente**
 
 Ejecutar el test `acerca de la app muestra motivo creador y version` y confirmar que falla porque `BuildConfig.VERSION_CODE` esperado es `14` pero el valor actual es `15`.
 
-- [ ] **Step 2: Aplicar la expansión de alcance aprobada**
+- [x] **Step 2: Aplicar la expansión de alcance aprobada**
 
 Cambiar únicamente la expectativa obsoleta de `BuildConfig.VERSION_CODE` de `14` a `15`. No modificar producción, Gradle, Firebase, recursos ni `docs/project-context.md`.
 
-- [ ] **Step 3: Confirmar GREEN dirigido**
+- [x] **Step 3: Confirmar GREEN dirigido**
 
 Ejecutar de nuevo el test dirigido y confirmar que pasa.
 
-- [ ] **Step 4: Confirmar GREEN de la suite completa**
+- [x] **Step 4: Confirmar GREEN de la suite completa**
 
 Ejecutar `./gradlew :app:testDebugUnitTest` y confirmar que toda la suite de tests unitarios debug pasa.
 
@@ -148,7 +148,7 @@ Expected: todas las referencias antiguas están marcadas como históricas y la c
 Run:
 
 ```bash
-git diff --check
+git diff --check 0f48e72..HEAD
 ```
 
 Expected: salida vacía y código de salida 0.
@@ -158,7 +158,7 @@ Expected: salida vacía y código de salida 0.
 Run:
 
 ```bash
-git diff -- docs/project-context.md
+git diff 0f48e72..HEAD -- app/src/test/java/com/menudado/ui/MenuCardUiStateTest.kt docs/project-context.md docs/superpowers/plans/2026-08-18-project-context-refresh.md
 ```
 
 Expected: cambios pequeños limitados a estado técnico, política de Google Play, configuración remota y clasificación de QA.
