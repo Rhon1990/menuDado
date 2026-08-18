@@ -133,7 +133,7 @@ Mantener como pendientes la firma final, el AAB productivo, la publicación/proc
 **Files:**
 - Verify: `docs/project-context.md`
 
-- [ ] **Step 1: Buscar contradicciones activas**
+- [x] **Step 1: Buscar contradicciones activas**
 
 Run:
 
@@ -143,7 +143,7 @@ rg -n "versionCode|Versión 1\.3\.0|about_description_v2|about_description_v3|ta
 
 Expected: todas las referencias antiguas están marcadas como históricas y la configuración vigente es inequívoca.
 
-- [ ] **Step 2: Verificar coherencia Markdown y whitespace**
+- [x] **Step 2: Verificar coherencia Markdown y whitespace**
 
 Run:
 
@@ -153,7 +153,7 @@ git diff --check
 
 Expected: salida vacía y código de salida 0.
 
-- [ ] **Step 3: Revisar el diff completo**
+- [x] **Step 3: Revisar el diff completo**
 
 Run:
 
@@ -163,7 +163,7 @@ git diff -- docs/project-context.md
 
 Expected: cambios pequeños limitados a estado técnico, política de Google Play, configuración remota y clasificación de QA.
 
-- [ ] **Step 4: Confirmar el alcance del worktree**
+- [x] **Step 4: Confirmar el alcance del worktree**
 
 Run:
 
@@ -173,7 +173,7 @@ git status --short
 
 Expected: solo el plan y `docs/project-context.md` aparecen modificados o añadidos; no hay cambios en código, Gradle, Firebase ni recursos.
 
-- [ ] **Step 5: Crear un commit documental separado**
+- [x] **Step 5: Crear un commit documental separado**
 
 Run:
 
